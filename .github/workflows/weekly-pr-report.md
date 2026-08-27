@@ -10,7 +10,7 @@ permissions:
 safe-outputs:
   create-pull-request:
     draft: false
-engine: copilot
+engine: claude
 ---
 
 Generate a report summarizing pull request activity in this repository
