@@ -17,7 +17,7 @@
   let mapContainer: HTMLDivElement;
   let map: Map | null = null;
   let geolocateControl: GeolocateControl | null = null;
-  let satelliteOpacity = 0.5;
+  let satelliteOpacity: number = 0.0;
 
   const applySatelliteOpacity = (opacity: number) => {
     if (!map || !map.getLayer('satellite-layer')) return;
@@ -117,7 +117,7 @@
       showUserLocation: true,
       showAccuracyCircle: true,
       fitBoundsOptions: {
-        maxZoom: 6,
+        maxZoom: 16,
       },
     });
 
