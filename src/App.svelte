@@ -17,10 +17,30 @@
   let map: Map | null = null;
   let geolocateControl: GeolocateControl | null = null;
 
+  const rasterStyle = {
+    version: 8,
+    sources: {
+      rasterTiles: {
+        type: 'raster',
+        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      },
+    },
+    layers: [
+      {
+        id: 'raster-layer',
+        type: 'raster',
+        source: 'rasterTiles',
+      },
+    ],
+  } as const;
+
   onMount(() => {
     map = new Map({
       container: mapContainer,
-      style: 'https://demotiles.maplibre.org/style.json',
+      style: rasterStyle,
       center: [0, 20],
       zoom: 2,
     });
