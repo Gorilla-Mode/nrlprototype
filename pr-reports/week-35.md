@@ -1,24 +1,29 @@
 # Week 35 PR Report
 
-Covers PR activity in `Gorilla-Mode/nrlprototype` from 2026-08-21 to 2026-08-28.
-
-## Summary counts
-
-- **Opened:** 2
-- **Merged:** 2
-- **Closed (without merge):** 0
-
-## Merged PRs
-
-| PR | Title | Author |
-| --- | --- | --- |
-| [#1](https://github.com/Gorilla-Mode/nrlprototype/pull/1) | test: pushing the folder | [@sivert-svanes](https://github.com/sivert-svanes) |
-| [#4](https://github.com/Gorilla-Mode/nrlprototype/pull/4) | Slime react, use svelte | [@Gorilla-Mode](https://github.com/Gorilla-Mode) |
-
-## Stale open PRs (open > 3 days, no review)
-
-None — there are no open pull requests in the repository at the time of this report.
-
 ## Summary
+Week 35 saw strong development activity with 4 pull requests opened and successfully merged. The team delivered focused improvements to the project infrastructure and tooling.
 
-It was a quiet but foundational week for `nrlprototype`. Two pull requests were opened and merged in quick succession: an initial test push (#1) establishing the project folder structure, followed shortly after by a larger change (#4, +716/-859 lines across 16 files) that removed React in favor of Svelte, motivated by compatibility issues between React and MapLibre. Both PRs were merged the same day they were opened, with no PRs left open or awaiting review at week's end.
+## Weekly Metrics
+- **PRs Opened**: 4
+- **PRs Merged**: 4
+- **PRs Closed (unmerged)**: 0
+
+## Merged Pull Requests
+
+| # | Title | Author | Merged |
+|---|-------|--------|--------|
+| [#7](https://github.com/Gorilla-Mode/nrlprototype/pull/7) | AI: changed model to Haiku saving resources | [sivert-svanes](https://github.com/sivert-svanes) | 2026-08-28 |
+| [#6](https://github.com/Gorilla-Mode/nrlprototype/pull/6) | Add Week 35 PR report | [sivert-svanes](https://github.com/sivert-svanes) | 2026-08-28 |
+| [#4](https://github.com/Gorilla-Mode/nrlprototype/pull/4) | Slime react, use svelte | [Gorilla-Mode](https://github.com/Gorilla-Mode) | 2026-08-28 |
+| [#1](https://github.com/Gorilla-Mode/nrlprototype/pull/1) | test: pushing the folder | [sivert-svanes](https://github.com/sivert-svanes) | 2026-08-27 |
+
+## Open Pull Requests Pending Review
+No PRs currently open or pending review.
+
+## Development Highlights
+Week 35 demonstrated quick turnaround and efficient merging. The team focused on:
+- AI model optimization for resource efficiency (switching to Haiku model)
+- Frontend framework decisions and implementation (React to Svelte migration)
+- Initial project setup and scaffolding
+
+All pull requests were merged rapidly after opening, indicating smooth workflows and approval processes.
