@@ -7,6 +7,7 @@
     FullscreenControl,
     ScaleControl,
     setWorkerUrl,
+    type StyleSpecification,
   } from 'maplibre-gl';
   import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
   import 'maplibre-gl/dist/maplibre-gl.css';
@@ -16,32 +17,31 @@
   let mapContainer: HTMLDivElement;
   let map: Map | null = null;
   let geolocateControl: GeolocateControl | null = null;
- // https://tile.openstreetmap.org/{z}/{x}/{y}.png
 
-
-  const rasterStyle = {
+  const rasterStyle: StyleSpecification = {
     version: 8,
     sources: {
       n100: {
         type: 'raster',
         tiles: ['https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png'],
         tileSize: 256,
-        attribution:
-          '&copy; <a href="https://www.kartverket.no/">Kartverket</a>',
+        attribution: '&copy; <a href="https://www.kartverket.no/">Kartverket</a>',
       },
       s100: {
         type: 'raster',
-        tiles: ['https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_Svalbard_WMTS_3857/MapServer/WMTS/tile/1.0.0/Basisdata_NP_Basiskart_Svalbard_WMTS_3857/default/default028mm/{z}/{y}/{x}'],
+        tiles: [
+          'https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_Svalbard_WMTS_3857/MapServer/WMTS/tile/1.0.0/Basisdata_NP_Basiskart_Svalbard_WMTS_3857/default/default028mm/{z}/{y}/{x}',
+        ],
         tileSize: 256,
-        attribution:
-                '&copy; <a href="https://geodata.npolar.no/">Norsk Polarinstitutt</a>',
+        attribution: '&copy; <a href="https://geodata.npolar.no/">Norsk Polarinstitutt</a>',
       },
       j100: {
         type: 'raster',
-        tiles: ['https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_JanMayen_WMTS_3857/MapServer/WMTS/tile/1.0.0/Basisdata_NP_Basiskart_JanMayen_WMTS_3857/default/default028mm/{z}/{y}/{x}'],
+        tiles: [
+          'https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_JanMayen_WMTS_3857/MapServer/WMTS/tile/1.0.0/Basisdata_NP_Basiskart_JanMayen_WMTS_3857/default/default028mm/{z}/{y}/{x}',
+        ],
         tileSize: 256,
-        attribution:
-                '&copy; <a href="https://geodata.npolar.no/">Norsk Polarinstitutt</a>',
+        attribution: '&copy; <a href="https://geodata.npolar.no/">Norsk Polarinstitutt</a>',
       },
       osm: {
         type: 'raster',
@@ -73,7 +73,7 @@
         source: 'j100',
       },
     ],
-  } as const;
+  };
 
   onMount(() => {
     map = new Map({
