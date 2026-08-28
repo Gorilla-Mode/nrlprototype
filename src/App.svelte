@@ -17,6 +17,12 @@
   let mapContainer: HTMLDivElement;
   let map: Map | null = null;
   let geolocateControl: GeolocateControl | null = null;
+  let satelliteOpacity = 0.5;
+
+  const applySatelliteOpacity = (opacity: number) => {
+    if (!map || !map.getLayer('satellite-layer')) return;
+    map.setPaintProperty('satellite-layer', 'raster-opacity', opacity);
+  };
 
   const rasterStyle: StyleSpecification = {
     version: 8,
@@ -50,6 +56,13 @@
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       },
+      satellite: {
+        type: 'raster',
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        tileSize: 256,
+        attribution:
+          '&copy; <a href="https://www.esri.com/">Esri</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      },
     },
     layers: [
       {
@@ -72,8 +85,20 @@
         type: 'raster',
         source: 'j100',
       },
+      {
+        id: 'satellite-layer',
+        type: 'raster',
+        source: 'satellite',
+        paint: {
+          'raster-opacity': satelliteOpacity,
+        },
+      },
     ],
   };
+
+  $: if (map) {
+    applySatelliteOpacity(satelliteOpacity);
+  }
 
   onMount(() => {
     map = new Map({
@@ -108,6 +133,7 @@
     window.addEventListener('resize', handleResize);
 
     map.on('load', () => {
+      applySatelliteOpacity(satelliteOpacity);
       map?.resize();
       geolocateControl?.trigger();
     });
@@ -124,5 +150,17 @@
 </script>
 
 <main class="map-wrapper">
+  <div class="map-controls">
+    <label for="satellite-opacity">Satellite opacity</label>
+    <input
+      id="satellite-opacity"
+      type="range"
+      min="0"
+      max="1"
+      step="0.01"
+      bind:value={satelliteOpacity}
+    />
+    <span>{satelliteOpacity.toFixed(2)}</span>
+  </div>
   <div bind:this={mapContainer} class="map-container"></div>
 </main>

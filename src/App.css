@@ -34,6 +34,37 @@ body,
   overflow: hidden;
 }
 
+.map-controls {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.2);
+  color: white;
+  backdrop-filter: blur(8px);
+}
+
+.map-controls label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.map-controls input[type='range'] {
+  width: 140px;
+}
+
+.map-controls span {
+  min-width: 2.5rem;
+  text-align: right;
+  font-weight: 700;
+}
+
 .map-container {
   position: absolute;
   top: 0;
