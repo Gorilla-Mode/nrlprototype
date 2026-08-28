@@ -10,7 +10,9 @@ permissions:
 safe-outputs:
   create-pull-request:
     draft: false
-engine: copilot
+model: claude-haiku-4-5-20251001
+engine:
+  id: claude
 ---
 
 Generate a report summarizing pull request activity in this repository
