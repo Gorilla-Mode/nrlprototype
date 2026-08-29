@@ -3,9 +3,6 @@
   import {
     Map,
     GeolocateControl,
-    NavigationControl,
-    FullscreenControl,
-    ScaleControl,
     setWorkerUrl,
     type StyleSpecification,
   } from 'maplibre-gl';
@@ -122,9 +119,7 @@
     });
 
     map.addControl(geolocateControl, 'top-right');
-    map.addControl(new NavigationControl({ visualizePitch: true }), 'top-right');
-    map.addControl(new FullscreenControl(), 'top-right');
-    map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
+
 
     const handleResize = () => {
       map?.resize();
