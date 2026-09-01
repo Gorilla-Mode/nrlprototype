@@ -2,7 +2,7 @@ name: Deploy Svelte app to GitHub Pages
 
 on:
   push:
-    branches: ["main", "master", "svelte"]
+    branches: ["main", "master"]
   workflow_dispatch:
 
 permissions:
