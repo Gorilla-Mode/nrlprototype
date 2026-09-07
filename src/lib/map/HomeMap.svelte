@@ -2,19 +2,22 @@
   import MapCanvas from './MapCanvas.svelte';
   import MapToolbar from './MapToolbar.svelte';
   import RightMapControls from './RightMapControls.svelte';
+  import type { GeolocationState } from './createGeolocationController';
 
   let opacity = $state(0);
   let isGrayscale = $state(false);
   let isLayerFadeOpen = $state(false);
   let locationMessage = $state('');
-  let geolocationContainer = $state<HTMLDivElement | null>(null);
+  let geolocationState = $state<GeolocationState>('unavailable');
+  let mapCanvas: MapCanvas;
 
   function handleMapClick() {
     isLayerFadeOpen = false;
     locationMessage = '';
   }
 
-  function handleLocationMessage(message: string) {
+  function handleGeolocationStateChange(state: GeolocationState, message: string) {
+    geolocationState = state;
     locationMessage = message;
   }
 </script>
@@ -24,14 +27,15 @@
     bind:opacity
     bind:open={isLayerFadeOpen}
     bind:grayscale={isGrayscale}
-    bind:geolocationContainer
+    {geolocationState}
+    ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
   />
   <MapCanvas
+    bind:this={mapCanvas}
     {opacity}
     grayscale={isGrayscale}
-    {geolocationContainer}
     onmapclick={handleMapClick}
-    onlocationmessage={handleLocationMessage}
+    ongeolocationstatechange={handleGeolocationStateChange}
   />
   <MapToolbar />
 

@@ -1,29 +1,28 @@
 import {
   Map,
-  GeolocateControl,
   setWorkerUrl,
   type ErrorEvent,
-  type GeolocateErrorEvent,
 } from 'maplibre-gl';
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {
   createRasterStyle,
-  geolocationOptions,
   mapDefaults,
   SATELLITE_LAYER_ID,
 } from './mapConfig';
+import { createGeolocationController, type GeolocationState } from './createGeolocationController';
+import { createGeolocationDisplay } from './createGeolocationDisplay';
 
 setWorkerUrl(mapWorkerUrl);
 
 interface MapControllerOptions {
   initialOpacity: number;
-  geolocationContainer: HTMLDivElement;
   onMapClick: () => void;
-  onLocationMessage: (message: string) => void;
+  onGeolocationStateChange: (state: GeolocationState, message: string) => void;
 }
 
 export interface MapController {
   setSatelliteOpacity: (opacity: number) => void;
+  toggleGeolocation: () => void;
   destroy: () => void;
 }
 
@@ -38,7 +37,13 @@ export function createMapController(
     container,
     style: createRasterStyle(satelliteOpacity),
   });
-  const geolocate = new GeolocateControl(geolocationOptions);
+  const locationDisplay = createGeolocationDisplay(map, () => geolocation.stopFollowing());
+  const geolocation = createGeolocationController({
+    onStateChange: options.onGeolocationStateChange,
+    onPosition: locationDisplay.show,
+    onRecenter: locationDisplay.recenter,
+    onClear: locationDisplay.clear,
+  });
 
   function setSatelliteOpacity(opacity: number) {
     if (destroyed) return;
@@ -47,16 +52,6 @@ export function createMapController(
     if (map.getLayer(SATELLITE_LAYER_ID)) {
       map.setPaintProperty(SATELLITE_LAYER_ID, 'raster-opacity', opacity);
     }
-  }
-
-  function clearLocationMessage() {
-    options.onLocationMessage('');
-  }
-
-  function handleLocationError(event: GeolocateErrorEvent) {
-    options.onLocationMessage(event.code === 1
-      ? 'Allow location access in your browser to find your position.'
-      : 'Unable to find your location. Please try again.');
   }
 
   function handleMapClick() {
@@ -82,10 +77,6 @@ export function createMapController(
     console.error('MapLibre error:', event);
   }
 
-  options.geolocationContainer.appendChild(geolocate.onAdd(map));
-  geolocate.on('trackuserlocationstart', clearLocationMessage);
-  geolocate.on('geolocate', clearLocationMessage);
-  geolocate.on('error', handleLocationError);
   map.on('click', handleMapClick);
   map.on('load', handleLoad);
   map.on('error', handleMapError);
@@ -93,17 +84,16 @@ export function createMapController(
 
   return {
     setSatelliteOpacity,
+    toggleGeolocation: geolocation.toggle,
     destroy() {
       if (destroyed) return;
       destroyed = true;
       window.removeEventListener('resize', handleResize);
-      geolocate.off('trackuserlocationstart', clearLocationMessage);
-      geolocate.off('geolocate', clearLocationMessage);
-      geolocate.off('error', handleLocationError);
       map.off('click', handleMapClick);
       map.off('load', handleLoad);
       map.off('error', handleMapError);
-      geolocate.onRemove();
+      geolocation.destroy();
+      locationDisplay.destroy();
       map.remove();
     },
   };

@@ -1,35 +1,35 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { createMapController, type MapController } from './createMapController';
+  import type { GeolocationState } from './createGeolocationController';
 
   interface Props {
     opacity: number;
     grayscale: boolean;
-    geolocationContainer: HTMLDivElement | null;
     onmapclick: () => void;
-    onlocationmessage: (message: string) => void;
+    ongeolocationstatechange: (state: GeolocationState, message: string) => void;
   }
 
-  let { opacity, grayscale, geolocationContainer, onmapclick, onlocationmessage }: Props = $props();
+  let { opacity, grayscale, onmapclick, ongeolocationstatechange }: Props = $props();
   let mapContainer: HTMLDivElement;
   let controller = $state.raw<MapController | null>(null);
 
-  onMount(() => {
-    if (!geolocationContainer) {
-      throw new Error('MapCanvas requires a geolocation control container.');
-    }
+  export function toggleGeolocation() {
+    controller?.toggleGeolocation();
+  }
 
+  onMount(() => {
     const instance = createMapController(mapContainer, {
       initialOpacity: opacity,
-      geolocationContainer,
       onMapClick: () => onmapclick(),
-      onLocationMessage: (message) => onlocationmessage(message),
+      onGeolocationStateChange: (state, message) => ongeolocationstatechange(state, message),
     });
     controller = instance;
 
     return () => {
       controller = null;
       instance.destroy();
+      ongeolocationstatechange('unavailable', '');
     };
   });
 

@@ -1,24 +1,28 @@
 <script lang="ts">
   import LayerFadeControl from './LayerFadeControl.svelte';
   import GrayscaleControl from './GrayscaleControl.svelte';
+  import GeolocationControl from './GeolocationControl.svelte';
+  import type { GeolocationState } from './createGeolocationController';
 
   interface Props {
     opacity?: number;
     open?: boolean;
     grayscale?: boolean;
-    geolocationContainer?: HTMLDivElement | null;
+    geolocationState: GeolocationState;
+    ongeolocationclick: () => void;
   }
 
   let {
     opacity = $bindable(0),
     open = $bindable(false),
     grayscale = $bindable(false),
-    geolocationContainer = $bindable(null),
+    geolocationState,
+    ongeolocationclick,
   }: Props = $props();
 </script>
 
 <aside class="right-map-controls" aria-label="Map controls">
-  <div bind:this={geolocationContainer} class="geolocation-slot"></div>
+  <GeolocationControl state={geolocationState} onclick={ongeolocationclick} />
   <LayerFadeControl bind:opacity bind:open />
   <GrayscaleControl bind:enabled={grayscale} />
 </aside>
@@ -33,10 +37,5 @@
     flex-direction: column;
     align-items: flex-end;
     gap: var(--map-control-gap);
-  }
-
-  .geolocation-slot {
-    width: var(--map-control-size);
-    height: var(--map-control-size);
   }
 </style>
