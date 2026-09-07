@@ -47,8 +47,8 @@
   </MapButton>
 
   <div id="layer-fade-panel" class="layer-fade-panel" hidden={!open}>
-    <label class="sr-only" for="satellite-opacity">Fade between map and aerial imagery</label>
-    <span class="fade-endpoint" aria-hidden="true">Aerial</span>
+    <label class="sr-only" for="satellite-opacity">Fade between topographic map and satellite imagery</label>
+    <span class="fade-endpoint" aria-hidden="true">Sat</span>
     <input
       bind:this={layerSlider}
       id="satellite-opacity"
@@ -62,7 +62,7 @@
       aria-valuetext={`${Math.round(opacity * 100)}% aerial imagery, ${Math.round((1 - opacity) * 100)}% map`}
       style={`--fade-position: ${opacity * 100}%`}
     />
-    <span class="fade-endpoint" aria-hidden="true">Map</span>
+    <span class="fade-endpoint" aria-hidden="true">Topo</span>
   </div>
 </div>
 
