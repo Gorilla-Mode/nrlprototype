@@ -1,61 +1,78 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { test } from 'node:test';
-import ts from 'typescript';
-import { LngLat } from 'maplibre-gl';
+import { test, type TestContext } from 'node:test';
+import { LngLat, type LngLatBounds, type FitBoundsOptions, type Map as MapLibreMap } from 'maplibre-gl';
+import type { Marker } from './helpers/maplibre-markers.js';
+import { position } from './helpers/geolocation.js';
 
-const source = await readFile(new URL('../src/lib/map/createGeolocationDisplay.ts', import.meta.url), 'utf8');
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } });
-const code = compiled.outputText.replace("'maplibre-gl'", JSON.stringify(new URL('./helpers/maplibre-markers.mjs', import.meta.url).href));
-const { createGeolocationDisplay } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const source = await readFile(new URL('../src/lib/map/createGeolocationDisplay.js', import.meta.url), 'utf8');
+const code = source.replace("'maplibre-gl'", JSON.stringify(new URL('./helpers/maplibre-markers.js', import.meta.url).href));
+const { createGeolocationDisplay } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`) as
+  typeof import('../src/lib/map/createGeolocationDisplay.js');
 
-function setup(t) {
-  const elements = [];
+interface TestElement {
+  className: string;
+  style: { width: string; height: string };
+  setAttribute: (name: string, value: string) => void;
+}
+
+interface MovementEvent {
+  originalEvent?: { type: string };
+  geolocationSource?: boolean;
+}
+
+function setup(t: TestContext) {
+  const elements: TestElement[] = [];
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
   Object.defineProperty(globalThis, 'document', { configurable: true, value: {
     createElement() {
-      const element = { style: {}, setAttribute() {} };
+      const element: TestElement = { className: '', style: { width: '', height: '' }, setAttribute() {} };
       elements.push(element);
       return element;
     },
   } });
   t.after(() => {
     if (descriptor) Object.defineProperty(globalThis, 'document', descriptor);
-    else delete globalThis.document;
+    else Reflect.deleteProperty(globalThis, 'document');
   });
-  const listeners = new Map();
+  const listeners = new Map<string, Set<(event: MovementEvent) => void>>();
   let userMoves = 0;
   let stops = 0;
-  const fits = [];
+  const fits: { bounds: LngLatBounds; options: FitBoundsOptions }[] = [];
   const map = {
-    markers: new Set(),
+    markers: new Set<Marker>(),
     longitudePerPixel: 0.00001,
-    on(event, callback) {
+    on(event: string, callback: (event: MovementEvent) => void) {
       if (!listeners.has(event)) listeners.set(event, new Set());
-      listeners.get(event).add(callback);
+      listeners.get(event)!.add(callback);
     },
-    off(event, callback) { listeners.get(event).delete(callback); },
-    fire(event, data = {}) { for (const callback of listeners.get(event) ?? []) callback(data); },
-    project(center) { return { x: center.lng / this.longitudePerPixel, y: center.lat }; },
-    unproject([x, y]) { return new LngLat(x * this.longitudePerPixel, y); },
+    off(event: string, callback: (event: MovementEvent) => void) { listeners.get(event)?.delete(callback); },
+    fire(event: string, data: MovementEvent = {}) { for (const callback of listeners.get(event) ?? []) callback(data); },
+    project(center: LngLat) { return { x: center.lng / this.longitudePerPixel, y: center.lat }; },
+    unproject([x, y]: [number, number]) { return new LngLat(x * this.longitudePerPixel, y); },
     getBearing() { return 30; },
-    fitBounds(bounds, options, eventData) {
+    fitBounds(bounds: LngLatBounds, options: FitBoundsOptions, eventData: MovementEvent) {
       fits.push({ bounds, options });
       this.fire('movestart', eventData);
     },
     stop() { stops++; this.fire('moveend'); },
   };
-  const display = createGeolocationDisplay(map, () => userMoves++);
+  // Only the MapLibre methods used by this display are supplied by the test double.
+  const display = createGeolocationDisplay(map as unknown as MapLibreMap, () => userMoves++);
   t.after(() => display.destroy());
   return {
     map, display, listeners, elements, fits,
-    get circle() { return elements.find((e) => e.className.includes('accuracy-circle')); },
+    get circle() {
+      const circle = elements.find((e) => e.className.includes('accuracy-circle'));
+      assert.ok(circle);
+      return circle;
+    },
     get userMoves() { return userMoves; },
     get stops() { return stops; },
   };
 }
 
-const fix = { coords: { longitude: 5.34, latitude: 60.4, accuracy: 20 } };
+const fix = position();
 
 test('dot and accuracy circle follow coordinates and scale with zoom and accuracy', (t) => {
   const h = setup(t);
@@ -69,7 +86,7 @@ test('dot and accuracy circle follow coordinates and scale with zoom and accurac
   h.map.longitudePerPixel /= 2;
   h.map.fire('zoom');
   assert.ok(Math.abs(parseFloat(h.circle.style.width) - diameter * 2) < 0.02);
-  h.display.show({ coords: { ...fix.coords, accuracy: 40 } });
+  h.display.show(position(5.34, 60.4, 40));
   assert.ok(Math.abs(parseFloat(h.circle.style.width) - diameter * 4) < 0.04);
   assert.equal(h.circle.style.width, h.circle.style.height);
   assert.equal(h.map.markers.size, 2, 'updates do not accumulate markers');

@@ -1,26 +1,41 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { test } from 'node:test';
-import ts from 'typescript';
+import { test, type TestContext } from 'node:test';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
+import type { Component } from 'svelte';
+import { createGeolocationController, type GeolocationState } from '../src/lib/map/createGeolocationController.js';
+import { position } from './helpers/geolocation.js';
 
-// Use the existing compiler so these tests also run on Node 20 without a TS loader.
-const source = await readFile(new URL('../src/lib/map/createGeolocationController.ts', import.meta.url), 'utf8');
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } });
-const asModule = (code) => `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
-const { createGeolocationController } = await import(asModule(compiled.outputText));
+const asModule = (code: string) => `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
 
-function setup(t, { secure = true, supported = true, permissions } = {}) {
-  const requests = [];
-  const cleared = [];
-  const positions = [];
-  const recenters = [];
-  const states = [];
+interface WatchRequest {
+  success: PositionCallback;
+  error: (error: Pick<GeolocationPositionError, 'code'>) => void;
+  options?: PositionOptions;
+}
+
+interface SetupOptions {
+  secure?: boolean;
+  supported?: boolean;
+  permissions?: { query: () => Promise<unknown> };
+}
+
+function setup(t: TestContext, { secure = true, supported = true, permissions }: SetupOptions = {}) {
+  const requests: WatchRequest[] = [];
+  const cleared: number[] = [];
+  const positions: GeolocationPosition[] = [];
+  const recenters: GeolocationPosition[] = [];
+  const states: { state: GeolocationState; message: string }[] = [];
   let clears = 0;
-  let onWatch;
-  const geolocation = {
-    watchPosition(success, error, options) {
+  let onWatch: ((success: PositionCallback, error: WatchRequest['error']) => void) | undefined;
+  const geolocation: Pick<Geolocation, 'watchPosition' | 'clearWatch'> = {
+    watchPosition(success, onError, options) {
+      const error: WatchRequest['error'] = ({ code }) => onError?.({
+        code, message: '', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3,
+      });
       const id = requests.length; // Exercise ID zero as well.
       requests.push({ success, error, options });
       onWatch?.(success, error);
@@ -36,7 +51,7 @@ function setup(t, { secure = true, supported = true, permissions } = {}) {
     Object.defineProperty(globalThis, key, { value, configurable: true });
     t.after(() => {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
-      else delete globalThis[key];
+      else Reflect.deleteProperty(globalThis, key);
     });
   }
   const controller = createGeolocationController({
@@ -48,16 +63,12 @@ function setup(t, { secure = true, supported = true, permissions } = {}) {
   t.after(() => controller.destroy());
   return {
     controller, requests, cleared, positions, recenters, states,
-    get state() { return states.at(-1).state; },
-    get message() { return states.at(-1).message; },
+    get state() { return states.at(-1)!.state; },
+    get message() { return states.at(-1)!.message; },
     get clears() { return clears; },
-    set onWatch(callback) { onWatch = callback; },
+    set onWatch(callback: typeof onWatch) { onWatch = callback; },
   };
 }
-
-const position = (longitude = 5.34, latitude = 60.4, accuracy = 20) => ({
-  coords: { longitude, latitude, accuracy }, timestamp: Date.now(),
-});
 
 for (const mode of ['missing', 'rejecting', 'throwing', 'denied', 'granted', 'pending']) {
   test(`starts synchronously without consulting a ${mode} Permissions API`, (t) => {
@@ -86,7 +97,7 @@ for (const mode of ['missing', 'rejecting', 'throwing', 'denied', 'granted', 'pe
   });
 }
 
-for (const [code, message] of [[1, /denied/], [2, /position is unavailable/], [3, /timed out/]]) {
+for (const [code, message] of [[1, /denied/], [2, /position is unavailable/], [3, /timed out/]] as const) {
   test(`error ${code} clears the watch and allows immediate successful retry`, (t) => {
     const h = setup(t, { permissions: { query: () => Promise.resolve({ state: 'granted' }) } });
     h.controller.toggle();
@@ -178,6 +189,7 @@ test('an error while following or in background removes the current position', (
   for (const background of [false, true]) {
     h.controller.toggle();
     const request = h.requests.at(-1);
+    assert.ok(request);
     request.success(position());
     if (background) h.controller.stopFollowing();
     request.error({ code: 2 });
@@ -247,8 +259,8 @@ test('a request cancelled before its watch ID returns is still cleared', (t) => 
   assert.equal(h.positions.length, 0);
 });
 
-async function compileComponent(name, replacements = {}) {
-  const filename = new URL(`../src/lib/map/${name}.svelte`, import.meta.url);
+async function compileComponent(name: string, replacements: Record<string, string> = {}) {
+  const filename = pathToFileURL(resolve('src/lib/map', `${name}.svelte`));
   const source = await readFile(filename, 'utf8');
   let { js: { code } } = compile(source, { filename: filename.pathname, generate: 'server' });
   // Data URLs have no package resolution base, so make runtime imports absolute.
@@ -263,12 +275,16 @@ async function compileComponent(name, replacements = {}) {
 
 const buttonModule = await compileComponent('MapButton');
 const controlModule = await compileComponent('GeolocationControl', { './MapButton.svelte': buttonModule });
-const { default: GeolocationControl } = await import(controlModule);
+const { default: GeolocationControl } = await import(controlModule) as {
+  default: Component<{ state: GeolocationState; onclick: () => void }>;
+};
 
-for (const state of ['idle', 'locating', 'following', 'background', 'error', 'unavailable']) {
+for (const state of ['idle', 'locating', 'following', 'background', 'error', 'unavailable'] as const) {
   test(`control accessibility and availability in ${state}`, () => {
     const { body } = render(GeolocationControl, { props: { state, onclick() {} } });
-    const button = body.match(/<button\b[^>]*>/)[0];
+    const match = body.match(/<button\b[^>]*>/);
+    assert.ok(match);
+    const button = match[0];
     assert.equal(/\sdisabled(?:\s|=|>)/.test(button), state === 'unavailable');
     assert.ok(button.includes(`aria-busy="${state === 'locating'}"`));
     assert.ok(button.includes(`aria-pressed="${['locating', 'following', 'background'].includes(state)}"`));
