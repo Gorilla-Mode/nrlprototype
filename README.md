@@ -2,7 +2,7 @@
 
 A small map-based prototype for NRL reporting. It uses Svelte for the interface and MapLibre GL JS to render interactive map layers.
 
-The project is a frontend prototype, focused on testing functionality and design. Before a proper implementation.
+The project is a frontend prototype, focused on testing functionality and design ahead of a proper implementation.
 
 ## Run locally
 
