@@ -4,7 +4,7 @@
 
   type Props = HTMLButtonAttributes & {
     children: Snippet;
-    element?: HTMLButtonElement;
+    element?: HTMLButtonElement | null;
     active?: boolean;
   };
 

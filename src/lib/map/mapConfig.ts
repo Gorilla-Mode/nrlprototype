@@ -1,4 +1,4 @@
-import type { GeolocateControlOptions, MapOptions, StyleSpecification } from 'maplibre-gl';
+import type { MapOptions, StyleSpecification } from 'maplibre-gl';
 
 export const SATELLITE_LAYER_ID = 'satellite-layer';
 
@@ -8,14 +8,6 @@ export const mapDefaults = {
   maxZoom: 18,
   attributionControl: { compact: true },
 } satisfies Pick<MapOptions, 'center' | 'zoom' | 'maxZoom' | 'attributionControl'>;
-
-export const geolocationOptions: GeolocateControlOptions = {
-  positionOptions: { enableHighAccuracy: true, timeout: 10000 },
-  trackUserLocation: true,
-  showUserLocation: true,
-  showAccuracyCircle: true,
-  fitBoundsOptions: { maxZoom: 16 },
-};
 
 export function createRasterStyle(opacity = 0): StyleSpecification {
   return {

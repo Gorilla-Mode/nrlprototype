@@ -56,69 +56,34 @@ input {
   stroke-linejoin: round;
 }
 
-/* MapLibre creates these controls after the component template is rendered. */
-.geolocation-slot .maplibregl-ctrl-group button {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: var(--map-control-size);
-  height: var(--map-control-size);
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--color-surface);
-  box-shadow: var(--shadow-control);
-  color: var(--color-text);
-  cursor: pointer;
-  pointer-events: auto;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color 150ms ease, color 150ms ease;
-}
-
-.geolocation-slot .maplibregl-ctrl-group button:not(:disabled):hover {
-  background-color: var(--color-surface-hover);
-}
-
-.geolocation-slot .maplibregl-ctrl-group button:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 3px;
-}
-
-.geolocation-slot .maplibregl-ctrl-group {
-  border-radius: 50%;
-  background: transparent;
-  box-shadow: none;
-}
-
-.geolocation-slot .maplibregl-ctrl {
-  margin: 0;
-}
-
-.geolocation-slot .maplibregl-ctrl button.maplibregl-ctrl-geolocate .maplibregl-ctrl-icon {
-  width: 24px;
-  height: 24px;
-  background: currentColor;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='5'/%3E%3Cpath d='M12 3v4m0 10v4M3 12h4m10 0h4'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='5'/%3E%3Cpath d='M12 3v4m0 10v4M3 12h4m10 0h4'/%3E%3C/svg%3E") center / contain no-repeat;
-}
-
-.geolocation-slot .maplibregl-ctrl-group .maplibregl-ctrl-geolocate-active,
-.geolocation-slot .maplibregl-ctrl-group .maplibregl-ctrl-geolocate-background {
+.geolocation-button[data-state='locating'],
+.geolocation-button[data-state='following'],
+.geolocation-button[data-state='background'] {
   color: var(--color-positive);
 }
 
-.geolocation-slot .maplibregl-ctrl-group .maplibregl-ctrl-geolocate-active {
-  background: var(--color-surface-active);
-}
-
-.geolocation-slot .maplibregl-ctrl-group .maplibregl-ctrl-geolocate-active-error,
-.geolocation-slot .maplibregl-ctrl-group .maplibregl-ctrl-geolocate-background-error {
+.geolocation-button[data-state='error'] {
   color: var(--color-negative);
 }
 
-.geolocation-slot .maplibregl-ctrl-geolocate:disabled {
-  cursor: default;
+.geolocation-button:disabled {
   color: var(--color-disabled);
+}
+
+.geolocation-button[aria-busy='true'] svg {
+  /* Keep the original MapLibre loading feedback, including in reduced-motion mode. */
+  transform-origin: center;
+  animation: geolocation-spin 2s linear infinite;
+}
+
+@keyframes geolocation-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Location overlays stay legible and do not intercept map gestures. */
+.maplibregl-user-location-dot,
+.maplibregl-user-location-accuracy-circle {
+  pointer-events: none;
 }
 
 .map-container .maplibregl-ctrl-bottom-right {
@@ -130,8 +95,3 @@ input {
   filter: grayscale(1);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .geolocation-slot .maplibregl-ctrl-group button {
-    transition: none;
-  }
-}
