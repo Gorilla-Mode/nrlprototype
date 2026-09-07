@@ -4,6 +4,10 @@ A small map-based prototype for NRL reporting. It uses Svelte for the interface 
 
 The project is a frontend prototype, focused on testing functionality and design ahead of a proper implementation.
 
+## Deployed version
+
+https://gorilla-mode.github.io/nrlprototype/
+
 ## Run locally
 
 ```zsh
