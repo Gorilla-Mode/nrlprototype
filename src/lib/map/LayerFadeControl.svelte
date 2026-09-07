@@ -68,7 +68,7 @@
 
 <style>
   .layer-fade-slider:focus-visible {
-    outline: 2px solid #385e51;
+    outline: 2px solid var(--color-focus);
     outline-offset: 3px;
   }
 
@@ -90,8 +90,8 @@
     width: var(--map-control-size);
     padding: 15px 0;
     border-radius: 999px;
-    background: #fff;
-    box-shadow: var(--control-shadow);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-control);
   }
 
   .layer-fade-panel[hidden] {
@@ -99,7 +99,7 @@
   }
 
   .fade-endpoint {
-    color: #5c6c65;
+    color: var(--color-muted-strong);
     font-size: 10px;
     line-height: 1;
   }
@@ -122,7 +122,7 @@
     width: 4px;
     height: 100%;
     border-radius: 999px;
-    background: linear-gradient(to top, #526b5f var(--fade-position), #dce3de var(--fade-position));
+    background: linear-gradient(to top, var(--color-accent) var(--fade-position), var(--color-track-muted) var(--fade-position));
   }
 
   .layer-fade-slider::-webkit-slider-thumb {
@@ -131,26 +131,26 @@
     width: 20px;
     height: 20px;
     margin-left: -8px;
-    border: 3px solid #fff;
+    border: 3px solid var(--color-surface);
     border-radius: 50%;
-    background: #526b5f;
-    box-shadow: 0 1px 5px rgb(24 39 33 / 30%);
+    background: var(--color-accent);
+    box-shadow: var(--shadow-slider);
   }
 
   .layer-fade-slider::-moz-range-track {
     width: 4px;
     height: 100%;
     border-radius: 999px;
-    background: linear-gradient(to top, #526b5f var(--fade-position), #dce3de var(--fade-position));
+    background: linear-gradient(to top, var(--color-accent) var(--fade-position), var(--color-track-muted) var(--fade-position));
   }
 
   .layer-fade-slider::-moz-range-thumb {
     width: 14px;
     height: 14px;
-    border: 3px solid #fff;
+    border: 3px solid var(--color-surface);
     border-radius: 50%;
-    background: #526b5f;
-    box-shadow: 0 1px 5px rgb(24 39 33 / 30%);
+    background: var(--color-accent);
+    box-shadow: var(--shadow-slider);
   }
 
   .sr-only {

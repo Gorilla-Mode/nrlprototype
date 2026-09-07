@@ -48,9 +48,9 @@
     padding: 0;
     border: 0;
     border-radius: 50%;
-    background: #fff;
-    box-shadow: var(--control-shadow);
-    color: #202b2e;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-control);
+    color: var(--color-text);
     cursor: pointer;
     pointer-events: auto;
     -webkit-tap-highlight-color: transparent;
@@ -58,11 +58,11 @@
   }
 
   .map-container :global(.maplibregl-ctrl-group button:not(:disabled):hover) {
-    background-color: #f0f4f1;
+    background-color: var(--color-surface-hover);
   }
 
   .map-container :global(.maplibregl-ctrl-group button:focus-visible) {
-    outline: 2px solid #385e51;
+    outline: 2px solid var(--color-focus);
     outline-offset: 3px;
   }
 
@@ -90,21 +90,21 @@
 
   .map-container :global(.maplibregl-ctrl-group .maplibregl-ctrl-geolocate-active),
   .map-container :global(.maplibregl-ctrl-group .maplibregl-ctrl-geolocate-background) {
-    color: #287a5a;
+    color: var(--color-positive);
   }
 
   .map-container :global(.maplibregl-ctrl-group .maplibregl-ctrl-geolocate-active) {
-    background: #e8efeb;
+    background: var(--color-surface-active);
   }
 
   .map-container :global(.maplibregl-ctrl-group .maplibregl-ctrl-geolocate-active-error),
   .map-container :global(.maplibregl-ctrl-group .maplibregl-ctrl-geolocate-background-error) {
-    color: #a74f3e;
+    color: var(--color-negative);
   }
 
   .map-container :global(.maplibregl-ctrl-geolocate:disabled) {
     cursor: default;
-    color: #85918b;
+    color: var(--color-disabled);
   }
 
   .map-container :global(.maplibregl-ctrl-bottom-right) {

@@ -52,9 +52,9 @@
     height: var(--map-control-size);
     padding: 0 14px;
     border-radius: 999px;
-    background: #fff;
-    box-shadow: var(--control-shadow);
-    color: #586a76;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-control);
+    color: var(--color-muted);
     pointer-events: auto;
   }
 
@@ -75,14 +75,14 @@
     border: 0;
     outline: none;
     background: transparent;
-    color: #586a76;
+    color: var(--color-muted);
     font-size: 13px;
     opacity: 1;
-    -webkit-text-fill-color: #586a76;
+    -webkit-text-fill-color: var(--color-muted);
   }
 
   .search-bar input::placeholder {
-    color: #586a76;
+    color: var(--color-muted);
     opacity: 1;
   }
 </style>

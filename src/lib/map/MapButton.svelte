@@ -47,9 +47,9 @@
     padding: 0;
     border: 0;
     border-radius: 50%;
-    background: #fff;
-    box-shadow: var(--control-shadow);
-    color: #202b2e;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-control);
+    color: var(--color-text);
     cursor: pointer;
     pointer-events: auto;
     -webkit-tap-highlight-color: transparent;
@@ -57,22 +57,22 @@
   }
 
   .map-button:disabled {
-    color: #202b2e;
+    color: var(--color-text);
     cursor: default;
     opacity: 1;
   }
 
   .map-button:not(:disabled):hover {
-    background-color: #f0f4f1;
+    background-color: var(--color-surface-hover);
   }
 
   .map-button.is-active {
-    background: #e8efeb;
-    color: #38564c;
+    background: var(--color-surface-active);
+    color: var(--color-accent-strong);
   }
 
   .map-button:focus-visible {
-    outline: 2px solid #385e51;
+    outline: 2px solid var(--color-focus);
     outline-offset: 3px;
   }
 

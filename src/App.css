@@ -1,7 +1,25 @@
 :root {
+  /* Theme primitives. Derived interaction states stay tied to this palette. */
+  --color-page: #edf0e6;
+  --color-surface: #fff;
+  --color-text: #202b2e;
+  --color-muted: #586a76;
+  --color-muted-strong: #46584f;
+  --color-accent: #526b5f;
+  --color-accent-strong: #38564c;
+  --color-positive: #287a5a;
+  --color-negative: #a74f3e;
+  --color-disabled: #85918b;
+  --color-track-muted: #dce3de;
+  --color-surface-hover: color-mix(in srgb, var(--color-surface) 92%, var(--color-accent));
+  --color-surface-active: color-mix(in srgb, var(--color-surface) 84%, var(--color-accent));
+  --color-focus: color-mix(in srgb, var(--color-accent-strong) 88%, var(--color-text));
+  --shadow-control: 0 2px 8px rgb(24 39 33 / 12%);
+  --shadow-slider: 0 1px 5px rgb(24 39 33 / 30%);
+
   font-family: Arial, Helvetica, sans-serif;
-  color: #202b2e;
-  background: #edf0e6;
+  color: var(--color-text);
+  background: var(--color-page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

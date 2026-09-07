@@ -39,7 +39,6 @@
     --map-control-gap: 4px;
     --map-actions-top: 37.5%;
     --map-right-inset: max(8px, env(safe-area-inset-right));
-    --control-shadow: 0 2px 8px rgb(24 39 33 / 12%);
 
     position: relative;
     width: 100%;
@@ -61,9 +60,9 @@
     margin: 0;
     padding: 12px 16px;
     border-radius: 16px;
-    background: #fff;
-    box-shadow: var(--control-shadow);
-    color: #46584f;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-control);
+    color: var(--color-muted-strong);
     font-size: 13px;
     line-height: 1.5;
   }
