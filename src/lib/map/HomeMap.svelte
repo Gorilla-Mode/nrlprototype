@@ -1,11 +1,13 @@
 <script lang="ts">
   import MapCanvas from './MapCanvas.svelte';
   import MapToolbar from './MapToolbar.svelte';
-  import LayerFadeControl from './LayerFadeControl.svelte';
+  import RightMapControls from './RightMapControls.svelte';
 
   let opacity = $state(0);
+  let isGrayscale = $state(false);
   let isLayerFadeOpen = $state(false);
   let locationMessage = $state('');
+  let geolocationContainer = $state<HTMLDivElement | null>(null);
 
   function handleMapClick() {
     isLayerFadeOpen = false;
@@ -18,13 +20,20 @@
 </script>
 
 <main class="map-wrapper" aria-label="Home map">
+  <RightMapControls
+    bind:opacity
+    bind:open={isLayerFadeOpen}
+    bind:grayscale={isGrayscale}
+    bind:geolocationContainer
+  />
   <MapCanvas
     {opacity}
+    grayscale={isGrayscale}
+    {geolocationContainer}
     onmapclick={handleMapClick}
     onlocationmessage={handleLocationMessage}
   />
   <MapToolbar />
-  <LayerFadeControl bind:opacity bind:open={isLayerFadeOpen} />
 
   <div class="location-status" role="status">
     {#if locationMessage}

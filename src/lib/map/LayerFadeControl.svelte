@@ -29,7 +29,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="map-actions">
+<div class="layer-fade-control">
   <MapButton
     bind:element={layerButton}
     class="layer-button"
@@ -72,11 +72,10 @@
     outline-offset: 3px;
   }
 
-  .map-actions {
-    position: absolute;
-    z-index: 2;
-    top: calc(var(--map-actions-top) + var(--map-control-size) + var(--map-control-gap));
-    right: var(--map-right-inset);
+  .layer-fade-control {
+    position: relative;
+    width: var(--map-control-size);
+    height: var(--map-control-size);
   }
 
   .layer-fade-panel {

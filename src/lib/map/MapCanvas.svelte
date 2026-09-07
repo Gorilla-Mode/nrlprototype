@@ -4,17 +4,24 @@
 
   interface Props {
     opacity: number;
+    grayscale: boolean;
+    geolocationContainer: HTMLDivElement | null;
     onmapclick: () => void;
     onlocationmessage: (message: string) => void;
   }
 
-  let { opacity, onmapclick, onlocationmessage }: Props = $props();
+  let { opacity, grayscale, geolocationContainer, onmapclick, onlocationmessage }: Props = $props();
   let mapContainer: HTMLDivElement;
   let controller = $state.raw<MapController | null>(null);
 
   onMount(() => {
+    if (!geolocationContainer) {
+      throw new Error('MapCanvas requires a geolocation control container.');
+    }
+
     const instance = createMapController(mapContainer, {
       initialOpacity: opacity,
+      geolocationContainer,
       onMapClick: () => onmapclick(),
       onLocationMessage: (message) => onlocationmessage(message),
     });
@@ -31,7 +38,7 @@
   });
 </script>
 
-<div bind:this={mapContainer} class="map-container"></div>
+<div bind:this={mapContainer} class="map-container" class:is-grayscale={grayscale}></div>
 
 <style>
   .map-container {

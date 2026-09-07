@@ -17,6 +17,7 @@ setWorkerUrl(mapWorkerUrl);
 
 interface MapControllerOptions {
   initialOpacity: number;
+  geolocationContainer: HTMLDivElement;
   onMapClick: () => void;
   onLocationMessage: (message: string) => void;
 }
@@ -81,7 +82,7 @@ export function createMapController(
     console.error('MapLibre error:', event);
   }
 
-  map.addControl(geolocate, 'top-right');
+  options.geolocationContainer.appendChild(geolocate.onAdd(map));
   geolocate.on('trackuserlocationstart', clearLocationMessage);
   geolocate.on('geolocate', clearLocationMessage);
   geolocate.on('error', handleLocationError);
@@ -102,6 +103,7 @@ export function createMapController(
       map.off('click', handleMapClick);
       map.off('load', handleLoad);
       map.off('error', handleMapError);
+      geolocate.onRemove();
       map.remove();
     },
   };
