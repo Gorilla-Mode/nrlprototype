@@ -1,10 +1,29 @@
-@import 'maplibre-gl/dist/maplibre-gl.css';
-
 :root {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color-scheme: light dark;
+  /* Theme primitives. Derived interaction states stay tied to this palette. */
+  --color-page: #edf0e6;
+  --color-surface: #fff;
+  --color-text: #202b2e;
+  --color-muted: #586a76;
+  --color-muted-strong: #46584f;
+  --color-accent: #526b5f;
+  --color-accent-strong: #38564c;
+  --color-positive: #287a5a;
+  --color-negative: #a74f3e;
+  --color-disabled: #85918b;
+  --color-track-muted: #dce3de;
+  --color-surface-hover: color-mix(in srgb, var(--color-surface) 92%, var(--color-accent));
+  --color-surface-active: color-mix(in srgb, var(--color-surface) 84%, var(--color-accent));
+  --color-focus: color-mix(in srgb, var(--color-accent-strong) 88%, var(--color-text));
+  --shadow-control: 0 2px 8px rgb(24 39 33 / 12%);
+  --shadow-slider: 0 1px 5px rgb(24 39 33 / 30%);
+
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--color-text);
+  background: var(--color-page);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: light;
 }
 
 *,
@@ -19,56 +38,100 @@ body,
   width: 100%;
   height: 100%;
   margin: 0;
-  padding: 0;
   overflow: hidden;
 }
 
-.map-wrapper {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+button,
+input {
+  font: inherit;
+}
+
+.map-button svg {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* MapLibre creates these controls after the component template is rendered. */
+.geolocation-slot .maplibregl-ctrl-group button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--map-control-size);
+  height: var(--map-control-size);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  color: var(--color-text);
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.geolocation-slot .maplibregl-ctrl-group button:not(:disabled):hover {
+  background-color: var(--color-surface-hover);
+}
+
+.geolocation-slot .maplibregl-ctrl-group button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.geolocation-slot .maplibregl-ctrl-group {
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+}
+
+.geolocation-slot .maplibregl-ctrl {
   margin: 0;
-  padding: 0;
-  overflow: hidden;
 }
 
-.map-controls {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.72);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.2);
-  color: white;
-  backdrop-filter: blur(8px);
+.geolocation-slot .maplibregl-ctrl button.maplibregl-ctrl-geolocate .maplibregl-ctrl-icon {
+  width: 24px;
+  height: 24px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='5'/%3E%3Cpath d='M12 3v4m0 10v4M3 12h4m10 0h4'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='5'/%3E%3Cpath d='M12 3v4m0 10v4M3 12h4m10 0h4'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-.map-controls label {
-  font-size: 0.9rem;
-  font-weight: 600;
+.geolocation-slot .maplibregl-ctrl-group .maplibregl-ctrl-geolocate-active,
+.geolocation-slot .maplibregl-ctrl-group .maplibregl-ctrl-geolocate-background {
+  color: var(--color-positive);
 }
 
-.map-controls input[type='range'] {
-  width: 140px;
+.geolocation-slot .maplibregl-ctrl-group .maplibregl-ctrl-geolocate-active {
+  background: var(--color-surface-active);
 }
 
-.map-controls span {
-  min-width: 2.5rem;
-  text-align: right;
-  font-weight: 700;
+.geolocation-slot .maplibregl-ctrl-group .maplibregl-ctrl-geolocate-active-error,
+.geolocation-slot .maplibregl-ctrl-group .maplibregl-ctrl-geolocate-background-error {
+  color: var(--color-negative);
 }
 
-.map-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+.geolocation-slot .maplibregl-ctrl-geolocate:disabled {
+  cursor: default;
+  color: var(--color-disabled);
+}
+
+.map-container .maplibregl-ctrl-bottom-right {
+  right: max(0px, env(safe-area-inset-right));
+  bottom: max(0px, env(safe-area-inset-bottom));
+}
+
+.map-container.is-grayscale .maplibregl-canvas {
+  filter: grayscale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .geolocation-slot .maplibregl-ctrl-group button {
+    transition: none;
+  }
 }
