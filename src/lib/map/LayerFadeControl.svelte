@@ -8,7 +8,7 @@
   }
 
   let { opacity = $bindable(0), open = $bindable(false) }: Props = $props();
-  let layerButton = $state<HTMLButtonElement>();
+  let layerButton = $state<HTMLButtonElement | null>(null);
   let layerSlider: HTMLInputElement;
 
   const toggleLayerFade = async () => {
