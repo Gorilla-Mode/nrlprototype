@@ -22,22 +22,13 @@
   {...attributes}
   bind:this={element}
   {type}
-  class={['map-button', className, { 'is-active': active }]}
+  class="map-button {className ?? ''}"
+  class:is-active={active}
 >
   {@render children()}
 </button>
 
 <style>
-  .map-button :global(svg) {
-    flex: none;
-    width: 24px;
-    height: 24px;
-    stroke: currentColor;
-    stroke-width: 1.7;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
   .map-button {
     display: grid;
     flex: none;
