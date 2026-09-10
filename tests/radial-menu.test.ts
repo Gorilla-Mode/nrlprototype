@@ -73,7 +73,7 @@ test('one item uses full circles around the safe zone; invalid radii fail clearl
 });
 
 test('hover follows the displayed sectors for one, three, and six items', () => {
-  const hover = (x: number, y: number, count: number) => getHoveredRadialSegment({ x, y }, count, 46, 112, 12);
+  const hover = (x: number, y: number, count: number) => getHoveredRadialSegment({ x, y }, count, 46);
   assert.equal(hover(79, 0, 1), 0);
   assert.equal(hover(-79, 0, 1), 0);
   for (const [index, [x, y]] of [[0, -79], [68, 39], [-68, 39]].entries()) {
@@ -86,26 +86,26 @@ test('hover follows the displayed sectors for one, three, and six items', () => 
   assert.equal(hover(-1, 79, 3), 2);
 });
 
-test('the safe zone and outside the ring clear hover; only an already expanded segment gets a larger hit area', () => {
-  const hover = (x: number, y: number, previousIndex: number | null = null) =>
-    getHoveredRadialSegment({ x, y }, 3, 46, 112, 12, previousIndex);
-  assert.equal(hover(0, 0, 0), null);
-  assert.equal(hover(0, -46, 0), null);
+test('overshooting keeps targeting by angle, including direct jumps and switching beyond the visible ring', () => {
+  const hover = (x: number, y: number) => getHoveredRadialSegment({ x, y }, 3, 46);
+  assert.equal(hover(0, 0), null);
+  assert.equal(hover(0, -46), null);
   assert.equal(hover(0, -47), 0);
   assert.equal(hover(0, -112), 0);
-  assert.equal(hover(0, -120), null);
-  assert.equal(hover(0, -120, 0), 0);
-  assert.equal(hover(0, -124, 0), 0);
-  assert.equal(hover(0, -125, 0), null);
-  assert.equal(hover(104, 60, 0), null, 'moving beyond an unexpanded neighbor does not hover it');
-  assert.equal(hover(104, 60, 1), 1);
-  assert.equal(getHoveredRadialSegment(null, 3, 46, 112, 12, 0), null);
-  assert.equal(getHoveredRadialSegment({ x: 0, y: -79 }, 0, 46, 112, 12), null);
+  assert.equal(hover(0, -125), 0);
+  assert.equal(hover(0, -10000), 0, 'overshooting works without first passing through the visible segment');
+  assert.equal(hover(10000, 6000), 1, 'a distant neighboring sector can be hovered immediately');
+  assert.equal(hover(-10000, 6000), 2);
+  assert.equal(hover(0, 0), null, 'returning to the safe zone still clears hover');
+  assert.equal(getHoveredRadialSegment({ x: 10000, y: 0 }, 1, 46), 0);
+  assert.equal(getHoveredRadialSegment({ x: -6800, y: -3900 }, 6, 46), 5);
+  assert.equal(getHoveredRadialSegment(null, 3, 46), null);
+  assert.equal(getHoveredRadialSegment({ x: 0, y: -79 }, 0, 46), null);
 });
 
 test('hover uses custom radii and expansion while keeping the original safe zone', () => {
-  assert.equal(getHoveredRadialSegment({ x: 0, y: -55 }, 3, 60, 140, 20, 0), null);
-  assert.equal(getHoveredRadialSegment({ x: 0, y: -150 }, 3, 60, 140, 20, 0), 0);
+  assert.equal(getHoveredRadialSegment({ x: 0, y: -55 }, 3, 60), null);
+  assert.equal(getHoveredRadialSegment({ x: 0, y: -150 }, 3, 60), 0);
   const [normal] = createRadialSegments(3, 60, 140);
   const [expanded] = createRadialSegments(3, 60, 160);
   assert.match(normal.path, /A 60 60/);

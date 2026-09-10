@@ -40,17 +40,17 @@ function setup(t: TestContext) {
 
   return {
     view, canvas, controller, fire, origins, moves,
-    tick: (ms = 400) => t.mock.timers.tick(ms),
+    tick: (ms = 200) => t.mock.timers.tick(ms),
     get closes() { return closes; },
     get activations() { return activations; },
   };
 }
 
 for (const pointerType of ['mouse', 'touch', 'pen']) {
-  test(`${pointerType}: opens after 400ms at initial press, drag/release never select or add points`, (t) => {
+  test(`${pointerType}: opens after 200ms at initial press, drag/release never select or add points`, (t) => {
     const h = setup(t);
     h.fire('pointerdown', { pointerType });
-    h.tick(399);
+    h.tick(199);
     assert.equal(h.origins.length, 0);
     h.tick(1);
     assert.deepEqual(h.origins, [{ x: 100, y: 150 }]);
@@ -94,7 +94,7 @@ test('only the held pointer supplies hover offsets, and movement stops being rep
 test('short taps and movement over 8px cancel pending holds without blocking navigation', (t) => {
   const h = setup(t);
   h.fire('pointerdown');
-  h.tick(200);
+  h.tick(100);
   h.fire('pointerup');
   h.tick();
   assert.equal(h.origins.length, 0);
