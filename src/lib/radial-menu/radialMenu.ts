@@ -18,14 +18,11 @@ export interface RadialMenuProps {
   label?: string;
 }
 
-/** The expanded edge stays hoverable without expanding hit targets for the other items. */
+/** Each sector extends outward indefinitely; only the central safe zone clears hover. */
 export function getHoveredRadialSegment(
   pointer: RadialMenuProps['pointer'],
   count: number,
   innerRadius: number,
-  outerRadius: number,
-  hoverExpansion: number,
-  previousIndex: number | null = null,
 ): number | null {
   if (!pointer || count === 0) return null;
   const radius = Math.hypot(pointer.x, pointer.y);
@@ -34,9 +31,7 @@ export function getHoveredRadialSegment(
   const turn = 2 * Math.PI;
   const step = turn / count;
   const angle = (Math.atan2(pointer.y, pointer.x) + Math.PI / 2 + step / 2 + turn) % turn;
-  const index = Math.floor(angle / step);
-  const hitRadius = outerRadius + (index === previousIndex ? hoverExpansion : 0);
-  return radius <= hitRadius ? index : null;
+  return Math.floor(angle / step);
 }
 
 /** Equal annular sectors, clockwise with the first item centered at twelve o'clock. */

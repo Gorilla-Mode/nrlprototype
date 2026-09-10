@@ -12,11 +12,7 @@
 
   let segments = $derived(createRadialSegments(items.length, innerRadius, outerRadius));
   let expandedSegments = $derived(createRadialSegments(items.length, innerRadius, outerRadius + hoverExpansion));
-  let hoveredIndex = $state<number | null>(null);
-
-  $effect(() => {
-    hoveredIndex = getHoveredRadialSegment(pointer, items.length, innerRadius, outerRadius, hoverExpansion, hoveredIndex);
-  });
+  let hoveredIndex = $derived(getHoveredRadialSegment(pointer, items.length, innerRadius));
 </script>
 
 {#if items.length}
@@ -56,11 +52,15 @@
     fill-opacity: 0.62;
     stroke: var(--color-radial-border);
     stroke-width: 0.8;
-    transition: d 140ms ease-out, filter 140ms ease-out;
+    transition: d 140ms ease-out;
   }
 
-  .is-muted .segment {
-    filter: brightness(0.55);
+  .subdivision {
+    transition: filter 140ms ease-out;
+  }
+
+  .is-muted {
+    filter: brightness(0.8);
   }
 
   .item {
@@ -88,6 +88,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .subdivision,
     .segment,
     .item {
       transition: none;
