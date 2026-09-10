@@ -4,22 +4,30 @@ export interface HoldOrigin {
 }
 
 interface MapHoldOptions {
+  isEnabled?: () => boolean;
+  /** Called synchronously at pointer-down, before the hold delay or map movement. */
+  onPressStart?: (origin: HoldOrigin) => void;
   /** Reset ongoing map gestures/animations before displaying the menu. */
   onActivate: () => void;
   onOpen: (origin: HoldOrigin) => void;
   onClose: () => void;
   /** Pointer position relative to the original press, while the menu is open. */
   onMove?: (x: number, y: number) => void;
+  /** Final offset from the initial press. Cancellation never calls this. */
+  onRelease?: (x: number, y: number) => void;
   holdDelay?: number;
   movementTolerance?: number;
 }
 
-/** Owns the preview gesture only; it never chooses an item or creates map geometry. */
+/** Owns the hold gesture only; the caller resolves the released item. */
 export function createMapHoldController(canvas: HTMLCanvasElement, {
+  isEnabled = () => true,
+  onPressStart,
   onActivate,
   onOpen,
   onClose,
   onMove,
+  onRelease,
   holdDelay = 200,
   movementTolerance = 8,
 }: MapHoldOptions) {
@@ -54,7 +62,7 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
     }
     // A fresh physical press ends suppression of the previous hold's synthetic click.
     suppressClick = false;
-    if (event.target !== canvas || pointers.size !== 1 || !event.isPrimary || event.button !== 0 ||
+    if (!isEnabled() || event.target !== canvas || pointers.size !== 1 || !event.isPrimary || event.button !== 0 ||
       event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
 
     const rect = canvas.getBoundingClientRect();
@@ -64,9 +72,10 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
       clientY: event.clientY,
       origin: { x: event.clientX - rect.left, y: event.clientY - rect.top },
     };
+    onPressStart?.(press.origin);
     timer = setTimeout(() => {
       timer = undefined;
-      if (!press || destroyed) return;
+      if (!press || destroyed || !isEnabled()) return;
       open = true;
       suppressClick = true;
       canvas.setPointerCapture(press.id);
@@ -89,7 +98,12 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
 
   function handlePointerEnd(event: PointerEvent) {
     pointers.delete(event.pointerId);
-    if (event.pointerId === press?.id) cancel();
+    if (event.pointerId !== press?.id) return;
+    const release = open && event.type === 'pointerup' && isEnabled();
+    const x = event.clientX - press.clientX;
+    const y = event.clientY - press.clientY;
+    cancel();
+    if (release) onRelease?.(x, y);
   }
 
   function handleLostCapture(event: PointerEvent) {

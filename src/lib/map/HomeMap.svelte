@@ -5,6 +5,11 @@
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
+  import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
+  import { obstacleGeometryChoices, type ObstacleGeometry } from '../reporting/obstacle';
+  import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
+
+  let { oncomplete }: { oncomplete?: (geometry: ObstacleGeometry) => void } = $props();
 
   let opacity = $state(0);
   let isGrayscale = $state(false);
@@ -14,6 +19,7 @@
   let mapCanvas: MapCanvas;
   let holdOrigin = $state<HoldOrigin | null>(null);
   let holdPointer = $state<{ x: number; y: number } | null>(null);
+  let drawing = $state.raw<DrawingState>(idleDrawingState);
 
   function handleMapClick() {
     isLayerFadeOpen = false;
@@ -61,16 +67,27 @@
     ongeolocationstatechange={handleGeolocationStateChange}
     onholdchange={(origin) => { holdOrigin = origin; holdPointer = null; }}
     onholdmove={(x, y) => { holdPointer = { x, y }; }}
+    ondrawingchange={(state) => { drawing = state; }}
+    ongeometrycomplete={oncomplete}
   />
-  <MapToolbar />
+  <MapToolbar
+    {drawing}
+    onundo={() => mapCanvas?.undoDrawing()}
+    ondelete={() => mapCanvas?.deleteDrawing()}
+    oncomplete={() => mapCanvas?.completeDrawing()}
+  />
 
   {#if holdOrigin}
     <div class="hold-menu" style:left={`${holdOrigin.x}px`} style:top={`${holdOrigin.y}px`}>
-      <RadialMenu pointer={holdPointer} items={[
-        { id: 'point', label: 'Point', color: 'var(--color-radial-point)', icon: pointIcon },
-        { id: 'line', label: 'Line', color: 'var(--color-radial-line)', icon: lineIcon },
-        { id: 'polygon', label: 'Polygon', color: 'var(--color-radial-polygon)', icon: polygonIcon },
-      ]} />
+      <RadialMenu
+        pointer={holdPointer}
+        innerRadius={obstacleMenuInnerRadius}
+        label="Choose obstacle geometry"
+        items={obstacleGeometryChoices.map((choice, index) => ({
+          id: choice.id, label: choice.label, color: `var(${choice.colorToken})`,
+          icon: [pointIcon, lineIcon, polygonIcon][index],
+        }))}
+      />
     </div>
   {/if}
 

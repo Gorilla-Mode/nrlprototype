@@ -2,7 +2,6 @@ import {
   Map,
   setWorkerUrl,
   type ErrorEvent,
-  type MapLibreEvent,
 } from 'maplibre-gl';
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {
@@ -12,7 +11,11 @@ import {
 } from './mapConfig';
 import { createGeolocationController, type GeolocationState } from './createGeolocationController';
 import { createGeolocationDisplay } from './createGeolocationDisplay';
-import { createMapHoldController, type HoldOrigin } from './createMapHoldController';
+import type { HoldOrigin } from './createMapHoldController';
+import { createMapDrawingInteraction } from './createMapDrawingInteraction';
+import { createDrawingController, type DrawingState } from '../reporting/createDrawingController';
+import type { ObstacleGeometry } from '../reporting/obstacle';
+import { createDrawingDisplay } from './createDrawingDisplay';
 
 setWorkerUrl(mapWorkerUrl);
 
@@ -22,11 +25,16 @@ interface MapControllerOptions {
   onGeolocationStateChange: (state: GeolocationState, message: string) => void;
   onHoldChange: (origin: HoldOrigin | null) => void;
   onHoldMove: (x: number, y: number) => void;
+  onDrawingChange: (state: DrawingState) => void;
+  onGeometryComplete?: (geometry: ObstacleGeometry) => void;
 }
 
 export interface MapController {
   setSatelliteOpacity: (opacity: number) => void;
   toggleGeolocation: () => void;
+  undoDrawing: () => void;
+  deleteDrawing: () => void;
+  completeDrawing: () => void;
   destroy: () => void;
 }
 
@@ -48,12 +56,16 @@ export function createMapController(
     onRecenter: locationDisplay.recenter,
     onClear: locationDisplay.clear,
   });
-  const hold = createMapHoldController(map.getCanvas(), {
-    onActivate: () => map.stop(),
-    onOpen: options.onHoldChange,
-    onClose: () => options.onHoldChange(null),
-    onMove: options.onHoldMove,
+  const drawingDisplay = createDrawingDisplay(map);
+  const drawing = createDrawingController({
+    onChange: (state) => {
+      drawingDisplay.show(state.draft);
+      drawingInteraction.sync(state);
+      options.onDrawingChange(state);
+    },
+    onComplete: (geometry) => options.onGeometryComplete?.(geometry),
   });
+  const drawingInteraction = createMapDrawingInteraction(map, drawing, options);
 
   function setSatelliteOpacity(opacity: number) {
     if (destroyed) return;
@@ -69,14 +81,8 @@ export function createMapController(
   }
 
   function handleResize() {
-    hold.cancel();
+    drawingInteraction.cancel();
     map.resize();
-  }
-
-  function handleMoveStart(event: MapLibreEvent) {
-    // resize() also emits movestart without camera movement, including on initial load.
-    // Real window resizes are handled above; user navigation and camera animations cancel holds.
-    if (event.originalEvent || map.isMoving()) hold.cancel();
   }
 
   function handleLoad() {
@@ -97,12 +103,14 @@ export function createMapController(
   map.on('click', handleMapClick);
   map.on('load', handleLoad);
   map.on('error', handleMapError);
-  map.on('movestart', handleMoveStart);
   window.addEventListener('resize', handleResize);
 
   return {
     setSatelliteOpacity,
     toggleGeolocation: geolocation.toggle,
+    undoDrawing: () => { if (!destroyed) drawing.undo(); },
+    deleteDrawing: () => { if (!destroyed) drawing.delete(); },
+    completeDrawing: () => { if (!destroyed) drawing.complete(); },
     destroy() {
       if (destroyed) return;
       destroyed = true;
@@ -110,8 +118,8 @@ export function createMapController(
       map.off('click', handleMapClick);
       map.off('load', handleLoad);
       map.off('error', handleMapError);
-      map.off('movestart', handleMoveStart);
-      hold.destroy();
+      drawingInteraction.destroy();
+      drawingDisplay.destroy();
       geolocation.destroy();
       locationDisplay.destroy();
       map.remove();
