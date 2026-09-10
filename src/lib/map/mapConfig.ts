@@ -61,7 +61,7 @@ export function createRasterStyle(opacity = 0): StyleSpecification {
         type: 'raster',
         source: 'n100',
       },
-      {
+     /* {
         id: 's100-layer',
         type: 'raster',
         source: 's100',
@@ -70,7 +70,7 @@ export function createRasterStyle(opacity = 0): StyleSpecification {
         id: 'j100-layer',
         type: 'raster',
         source: 'j100',
-      },
+      },*/
       {
         id: SATELLITE_LAYER_ID,
         type: 'raster',
