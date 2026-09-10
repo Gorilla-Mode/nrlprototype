@@ -14,10 +14,14 @@ function setup(t: TestContext) {
     releasePointerCapture(id: number) { this.captured.delete(id); },
   });
   const origins: HoldOrigin[] = [];
+  const starts: HoldOrigin[] = [];
+  const releases: HoldOrigin[] = [];
   const moves: { x: number; y: number }[] = [];
   let closes = 0;
   let activations = 0;
   const controller = createMapHoldController(canvas as unknown as HTMLCanvasElement, {
+    onPressStart: (origin) => starts.push(origin),
+    onRelease: (x, y) => releases.push({ x, y }),
     onActivate: () => activations++,
     onOpen: (origin) => origins.push(origin),
     onClose: () => closes++,
@@ -39,7 +43,7 @@ function setup(t: TestContext) {
   }
 
   return {
-    view, canvas, controller, fire, origins, moves,
+    view, canvas, controller, fire, origins, moves, starts, releases,
     tick: (ms = 200) => t.mock.timers.tick(ms),
     get closes() { return closes; },
     get activations() { return activations; },
@@ -47,9 +51,10 @@ function setup(t: TestContext) {
 }
 
 for (const pointerType of ['mouse', 'touch', 'pen']) {
-  test(`${pointerType}: opens after 200ms at initial press, drag/release never select or add points`, (t) => {
+  test(`${pointerType}: press callback is immediate and release reports the final offset after 200ms hold`, (t) => {
     const h = setup(t);
     h.fire('pointerdown', { pointerType });
+    assert.deepEqual(h.starts, [{ x: 100, y: 150 }]);
     h.tick(199);
     assert.equal(h.origins.length, 0);
     h.tick(1);
@@ -59,6 +64,7 @@ for (const pointerType of ['mouse', 'touch', 'pen']) {
     h.fire('pointermove', { clientX: 190, clientY: 225, pointerType });
     assert.deepEqual(h.origins, [{ x: 100, y: 150 }]);
     h.fire('pointerup', { clientX: 190, clientY: 225, pointerType });
+    assert.deepEqual(h.releases, [{ x: 70, y: 45 }]);
     assert.equal(h.closes, 1);
     assert.equal(h.canvas.captured.size, 0);
     h.tick();
@@ -174,6 +180,7 @@ for (const cause of ['pointercancel', 'lostpointercapture', 'blur', 'Escape', 'm
       assert.equal(h.origins.length, activated ? 1 : 0);
       assert.equal(h.closes, activated ? 1 : 0);
       assert.equal(h.canvas.captured.size, 0);
+      assert.deepEqual(h.releases, [], 'cancellation must never invoke release selection');
       assert.equal(h.fire('mousemove').defaultPrevented, false);
       assert.equal(h.fire('wheel').defaultPrevented, false);
       if (cause === 'destroy') {
