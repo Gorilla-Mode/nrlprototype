@@ -30,9 +30,16 @@ interface MapControllerOptions {
   onObstacleRegistered?: (obstacle: Obstacle) => void;
 }
 
+export interface CameraTarget {
+  lng: number;
+  lat: number;
+  zoom: number;
+}
+
 export interface MapController {
   setSatelliteOpacity: (opacity: number) => void;
   toggleGeolocation: () => void;
+  flyToLocation: (target: CameraTarget) => void;
   undoDrawing: () => void;
   deleteDrawing: () => void;
   completeDrawing: () => void;
@@ -84,6 +91,18 @@ export function createMapController(
     }
   }
 
+  function flyToLocation(target: CameraTarget) {
+    if (destroyed) return;
+    // A programmatic move carries no originalEvent, so the display cannot release
+    // following on its own and the next fix would drag the camera back off the result.
+    geolocation.stopFollowing();
+    map.flyTo({
+      center: [target.lng, target.lat],
+      zoom: target.zoom,
+      bearing: map.getBearing(),
+    });
+  }
+
   function handleMapClick() {
     options.onMapClick();
   }
@@ -116,6 +135,7 @@ export function createMapController(
   return {
     setSatelliteOpacity,
     toggleGeolocation: geolocation.toggle,
+    flyToLocation,
     undoDrawing: () => { if (!destroyed) drawing.undo(); },
     deleteDrawing: () => { if (!destroyed) drawing.delete(); },
     completeDrawing: () => { if (!destroyed) drawing.complete(); },

@@ -1,29 +1,21 @@
 <script lang="ts">
   import MapButton from './MapButton.svelte';
   import DrawingToolbar from './DrawingToolbar.svelte';
+  import SearchBar from './SearchBar.svelte';
   import type { DrawingState } from '../reporting/createDrawingController';
+  import type { LocationSuggestion } from './locationSearch';
 
-  let { drawing, onundo, ondelete, oncomplete }: {
+  let { drawing, onundo, ondelete, oncomplete, onsearchselect }: {
     drawing: DrawingState;
     onundo: () => void;
     ondelete: () => void;
     oncomplete: () => void;
+    onsearchselect: (suggestion: LocationSuggestion) => void;
   } = $props();
 </script>
 
 <div class="map-toolbar" role="group" aria-label="Map tools">
-  <div class="search-bar">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="10.75" cy="10.75" r="6.75" />
-      <path d="m16 16 5 5" />
-    </svg>
-    <input
-      type="search"
-      placeholder="Search place or address"
-      aria-label="Search place or address"
-      disabled
-    />
-  </div>
+  <SearchBar onselect={onsearchselect} />
 
   <MapButton type="button" aria-label="Reports" disabled>
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -52,48 +44,5 @@
     align-items: center;
     gap: 6px;
     pointer-events: none;
-  }
-
-  .search-bar {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    height: var(--map-control-size);
-    padding: 0 14px;
-    border-radius: 999px;
-    background: var(--color-surface);
-    box-shadow: var(--shadow-control);
-    color: var(--color-muted);
-    pointer-events: auto;
-  }
-
-  .search-bar svg {
-    flex: none;
-    width: 24px;
-    height: 24px;
-    stroke: currentColor;
-    stroke-width: 1.7;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .search-bar input {
-    width: 100%;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    outline: none;
-    background: transparent;
-    color: var(--color-muted);
-    font-size: 13px;
-    opacity: 1;
-    -webkit-text-fill-color: var(--color-muted);
-  }
-
-  .search-bar input::placeholder {
-    color: var(--color-muted);
-    opacity: 1;
   }
 </style>
