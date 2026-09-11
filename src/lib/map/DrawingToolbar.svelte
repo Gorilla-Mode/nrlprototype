@@ -46,11 +46,11 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px 20px;
+    gap: 2px 2px;
     width: fit-content;
     max-width: calc(100% - max(8px, env(safe-area-inset-left)) - var(--map-right-inset));
     margin-inline: auto;
-    padding: 12px 16px;
+    padding: 12px 12px;
     border-radius: 16px;
     background: var(--color-surface);
     color: var(--color-text);
@@ -98,8 +98,11 @@
   button:not(:disabled):active { background: var(--color-surface-active); }
   button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
   button:disabled { color: var(--color-disabled); cursor: default; }
-  .delete { color: var(--color-negative); }
-  .complete { font-weight: 600; }
+  .delete { color: var(--color-text-light); background: var(--color-negative); }
+  .complete { font-weight: 600; background: var(--color-positive); color: var(--color-text-light); }
+  .complete:hover { color: var(--color-text); }
+  .complete:disabled {background: var(--color-disabled); color: var(--color-text-light);}
+  .delete:hover { color: var(--color-text); }
 
   p {
     flex-basis: 100%;
@@ -112,7 +115,7 @@
   .invalid { color: var(--color-negative); }
 
   @media (max-width: 480px) {
-    .drawing-toolbar { padding: 10px; }
+    .drawing-toolbar { padding: 12px; }
     .actions { flex: 1 1 100%; }
     .complete { flex: 1; }
   }
