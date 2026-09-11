@@ -14,11 +14,18 @@
 
 {#if state.draft && choice}
   <section class="drawing-toolbar" aria-label="Obstacle selection" style:--geometry-color={`var(${choice.colorToken})`}>
-    <div class="summary" role="status" aria-atomic="true">
-      <strong class="object-type">{choice.label}</strong>
-      {#if state.status === 'completed'}<strong>Selection complete</strong>{/if}
-      <span>{state.draft.vertices.length} {state.draft.vertices.length === 1 ? 'point' : 'points'} placed</span>
-      {#if state.measurement}<span>{formatMeasurement(state.measurement)}</span>{/if}
+    <div class="details">
+      <div class="summary" role="status" aria-atomic="true">
+        <strong class="object-type">{choice.label}</strong>
+        {#if state.status === 'completed'}<strong>Selection complete</strong>{/if}
+        <span>{state.draft.vertices.length} {state.draft.vertices.length === 1 ? 'point' : 'points'} placed</span>
+        {#if state.measurement}<span>{formatMeasurement(state.measurement)}</span>{/if}
+      </div>
+      {#if state.status === 'drawing'}
+        <p id="drawing-guidance" class:invalid={!state.canComplete && state.draft.vertices.length >= 3} role="status">
+          {state.message || 'Click or tap the map to add a point, or complete your selection.'}
+        </p>
+      {/if}
     </div>
     <div class="actions" role="group" aria-label="Selection actions">
       <button type="button" class="delete" onclick={ondelete}>Delete</button>
@@ -27,11 +34,6 @@
         <button type="button" class="complete" onclick={oncomplete} disabled={!state.canComplete} aria-describedby={state.message ? 'drawing-guidance' : undefined}>Complete selection</button>
       {/if}
     </div>
-    {#if state.status === 'drawing'}
-      <p id="drawing-guidance" class:invalid={!state.canComplete && state.draft.vertices.length >= 3} role="status">
-        {state.message || 'Click or tap the map to add a point, or complete your selection.'}
-      </p>
-    {/if}
   </section>
 {/if}
 
@@ -44,9 +46,9 @@
     /* Reserve the attribution row as well as the device's safe area. */
     bottom: calc(max(0px, env(safe-area-inset-bottom)) + 36px);
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px 2px;
+    align-items: stretch;
+    gap: 12px;
+    height: calc(var(--map-control-size) + 24px);
     width: fit-content;
     max-width: calc(100% - max(8px, env(safe-area-inset-left)) - var(--map-right-inset));
     margin-inline: auto;
@@ -58,15 +60,25 @@
     font-size: 14px;
   }
 
+  .details,
   .summary,
   .actions {
     display: flex;
+  }
+
+  .details {
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 0;
+  }
+
+  .summary,
+  .actions {
     flex-wrap: wrap;
     align-items: center;
     gap: 8px 14px;
   }
-
-  .summary { flex: 1 1 auto; }
 
   .object-type {
     display: flex;
@@ -82,10 +94,10 @@
     background: var(--geometry-color);
   }
 
-  .actions { gap: 6px; }
+  .actions { flex: none; gap: 6px; }
 
   button {
-    min-height: var(--map-control-size);
+    height: var(--map-control-size);
     padding: 8px 12px;
     border: 1px solid var(--color-track-muted);
     border-radius: 10px;
@@ -115,7 +127,12 @@
   .invalid { color: var(--color-negative); }
 
   @media (max-width: 480px) {
-    .drawing-toolbar { padding: 12px; }
+    .drawing-toolbar {
+      flex-wrap: wrap;
+      height: auto;
+      padding: 12px;
+    }
+    .details { flex-basis: 100%; min-height: var(--map-control-size); }
     .actions { flex: 1 1 100%; }
     .complete { flex: 1; }
   }
