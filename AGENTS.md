@@ -16,8 +16,8 @@ repository. Human contributors may find it useful too.
 
 - `src/lib/map/` — map controller (`createMapController.ts`) and reusable map controls.
 - `src/lib/map/mapConfig.ts` — map style, sources, and layer configuration.
-- `src/App.css` — shared colour tokens and global map styling. Reuse the tokens; do not
-  hard-code colours in components.
+- `src/styles/stylesheet.css` — the visual system, semantic design tokens, shared
+  layout primitives, and global map styling.
 - `src/App.svelte` — application entry view.
 - `tests/` — `node --test` suites written in TypeScript, compiled via `tsconfig.test.json`.
 
@@ -64,6 +64,84 @@ say so and show the output rather than working around it.
 - Geolocation has known iOS quirks (see recent commits and
   `createGeolocationController.ts`). Any change here must keep the existing geolocation
   tests green and add coverage for new paths.
+
+## Visual system and CSS
+
+`src/styles/stylesheet.css` is the single source of truth for visual design values. Add a
+needed value there before using it. Keep its three levels distinct: base tokens contain
+literal palette values and fixed scales, semantic tokens express meaning such as surface,
+text, border, action, focus, or error, and component tokens point to semantic or base
+tokens when a component needs a stable, descriptive contract. Components should normally
+consume semantic tokens; they must not consume the base palette directly.
+
+Do not put raw colours, spacing, outer or inner padding, radii, shadows, font sizes,
+control or icon sizes, opacity, z-index, or motion values in `.svelte`, `.css`, `.ts`, or
+`.js` component code. Do not create local custom properties containing raw design values.
+A local custom property is acceptable only as a meaningful alias to a central token.
+Inline styles are limited to documented, truly dynamic custom properties supplied by
+application state. When MapLibre needs a visual value in TypeScript, read the relevant
+CSS custom property through a small, typed bridge instead of duplicating its literal
+value.
+
+Functional values do not need tokens: `0`, `auto`, `none`, `inherit`, `currentColor`,
+percentages, structural layout declarations, CSS calculations, SVG coordinates and
+`viewBox` values, map coordinates and map-domain data, and values derived from runtime
+state. Media-query thresholds are also literal because custom properties cannot be used
+there; keep them few, group them in the responsive section, and comment any exceptional
+threshold. Tokenize design decisions, not CSS grammar such as `flex`, `grid`, or `none`.
+
+Use the 4 px spacing scale (`4, 8, 12, 16, 24, 32, 48, 64`) and the shared
+`--layout-gutter-inline` on every page. It resolves to 16 px on mobile, 24 px on portrait
+tablet, and 32 px on large screens. Centre normal page content with
+`--layout-content-max`; headings, form fields, cards, dialog sections, and action rows
+must share the same left and right lines. Prefer `padding-inline`; child components must
+not invent outer gutters. Dialog header, body, and footer all use
+`--dialog-padding-inline`.
+
+Maps may run edge to edge. Every floating map control, status surface, and toolbar must
+use the shared map-control safe-area and edge-inset tokens. Interactive targets should be
+at least 44 by 44 px and normally use the 44, 48, or 56 px control heights. Use only the
+central radius set: 8 px for small elements, 12 px for controls, 16 px for cards and
+panels, 24 px for dialogs, and a circle or pill only when the shape communicates a real
+function.
+
+Light, dark, and automatic themes must rebind the same semantic tokens. Never branch a
+component's colours by theme. Green identifies the main action and positive state, blue
+identifies selection, focus, and information, amber identifies warnings and point
+geometry, red identifies errors and destructive actions, blue identifies line geometry,
+and teal identifies area geometry. Colour must always be reinforced with text, an icon,
+shape, or accessible label.
+
+For each relevant new component, implement and visually check normal, hover, active,
+focus, disabled, loading, error, and selected states. Keyboard operation and a clear
+`:focus-visible` indicator are mandatory. Respect `prefers-reduced-motion`. Check every
+visual change in light and dark themes at 390 x 844, portrait iPad at 834 x 1194, and a
+large 1440 x 1024 viewport. Verify alignment, safe areas, text clipping, and overlap. Do
+not add fonts, CSS frameworks, or other dependencies without explicit permission.
+
+### Applying Laws of UX
+
+- **Fitts's Law:** keep targets at least 44 px where practical, leave a spacing step
+  between adjacent controls, and place the primary action close to its work area.
+- **Hick's Law and cognitive load:** show only choices needed for the current task, split
+  long report forms into understandable steps, and remove decoration or repeated help
+  that competes with the map.
+- **Jakob's Law:** use familiar button, field, navigation, and dialog patterns; do not
+  invent gestures or controls when a standard pattern exists.
+- **Proximity and common region:** use smaller gaps inside a related field or action
+  group, larger gaps between groups, and a restrained surface plus border when a group
+  needs a clear boundary.
+- **Goal-gradient effect:** show the current step, completed steps, and remaining progress
+  throughout the report flow.
+- **Von Restorff effect:** give each view one visually dominant primary action; secondary
+  actions must not compete with it, and emphasis cannot depend on colour alone.
+- **Doherty threshold:** acknowledge presses, saving, submission, and loading immediately
+  with the relevant state; use progress feedback when work continues beyond the initial
+  response.
+- **Peak-end rule:** end a successful report with an explicit, reassuring confirmation
+  that says what happened and what the user can do next.
+- **Tesler's Law:** keep unavoidable complexity in defaults, validation, and system logic
+  instead of requiring users to remember or manually reconcile it.
 
 ## Response protocol
 
