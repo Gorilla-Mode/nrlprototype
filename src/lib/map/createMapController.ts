@@ -11,6 +11,12 @@ import {
 } from './mapConfig';
 import { createGeolocationController, type GeolocationState } from './createGeolocationController';
 import { createGeolocationDisplay } from './createGeolocationDisplay';
+import type { HoldOrigin } from './createMapHoldController';
+import { createMapDrawingInteraction } from './createMapDrawingInteraction';
+import { createDrawingController, type DrawingState } from '../reporting/createDrawingController';
+import type { Obstacle } from '../reporting/obstacle';
+import { createReportController } from '../reporting/createReportController';
+import { createDrawingDisplay } from './createDrawingDisplay';
 
 setWorkerUrl(mapWorkerUrl);
 
@@ -18,11 +24,18 @@ interface MapControllerOptions {
   initialOpacity: number;
   onMapClick: () => void;
   onGeolocationStateChange: (state: GeolocationState, message: string) => void;
+  onHoldChange: (origin: HoldOrigin | null) => void;
+  onHoldMove: (x: number, y: number) => void;
+  onDrawingChange: (state: DrawingState) => void;
+  onObstacleRegistered?: (obstacle: Obstacle) => void;
 }
 
 export interface MapController {
   setSatelliteOpacity: (opacity: number) => void;
   toggleGeolocation: () => void;
+  undoDrawing: () => void;
+  deleteDrawing: () => void;
+  completeDrawing: () => void;
   destroy: () => void;
 }
 
@@ -44,6 +57,23 @@ export function createMapController(
     onRecenter: locationDisplay.recenter,
     onClear: locationDisplay.clear,
   });
+  const reporting = createReportController({
+    onRegister: (obstacle) => options.onObstacleRegistered?.(obstacle),
+  });
+  const drawingDisplay = createDrawingDisplay(map);
+  let drawingStatus: DrawingState['status'] = 'idle';
+  const drawing = createDrawingController({
+    onChange: (state) => {
+      if (drawingStatus === 'idle' && state.status === 'drawing') reporting.start();
+      if (state.status === 'idle') reporting.cancel();
+      drawingStatus = state.status;
+      drawingDisplay.show(state.draft);
+      drawingInteraction.sync(state);
+      options.onDrawingChange(state);
+    },
+    onComplete: reporting.complete,
+  });
+  const drawingInteraction = createMapDrawingInteraction(map, drawing, options);
 
   function setSatelliteOpacity(opacity: number) {
     if (destroyed) return;
@@ -59,6 +89,7 @@ export function createMapController(
   }
 
   function handleResize() {
+    drawingInteraction.cancel();
     map.resize();
   }
 
@@ -85,6 +116,9 @@ export function createMapController(
   return {
     setSatelliteOpacity,
     toggleGeolocation: geolocation.toggle,
+    undoDrawing: () => { if (!destroyed) drawing.undo(); },
+    deleteDrawing: () => { if (!destroyed) drawing.delete(); },
+    completeDrawing: () => { if (!destroyed) drawing.complete(); },
     destroy() {
       if (destroyed) return;
       destroyed = true;
@@ -92,6 +126,9 @@ export function createMapController(
       map.off('click', handleMapClick);
       map.off('load', handleLoad);
       map.off('error', handleMapError);
+      drawingInteraction.destroy();
+      drawingDisplay.destroy();
+      reporting.destroy();
       geolocation.destroy();
       locationDisplay.destroy();
       map.remove();

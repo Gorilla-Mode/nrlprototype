@@ -3,6 +3,7 @@
   --color-page: #edf0e6;
   --color-surface: #fff;
   --color-text: #202b2e;
+  --color-text-light: #e8e9ef;
   --color-muted: #586a76;
   --color-muted-strong: #46584f;
   --color-accent: #526b5f;
@@ -11,11 +12,18 @@
   --color-negative: #a74f3e;
   --color-disabled: #85918b;
   --color-track-muted: #dce3de;
+  --color-radial-point: #e4ab2f;
+  --color-radial-line: #8670d6;
+  --color-radial-polygon: #23aa9e;
+  --color-radial-origin: #2676ed;
+  --color-radial-foreground: var(--color-surface);
+  --color-radial-border: color-mix(in srgb, var(--color-surface) 75%, transparent);
   --color-surface-hover: color-mix(in srgb, var(--color-surface) 92%, var(--color-accent));
   --color-surface-active: color-mix(in srgb, var(--color-surface) 84%, var(--color-accent));
   --color-focus: color-mix(in srgb, var(--color-accent-strong) 88%, var(--color-text));
   --shadow-control: 0 2px 8px rgb(24 39 33 / 12%);
   --shadow-slider: 0 1px 5px rgb(24 39 33 / 30%);
+  --shadow-radial-item: 0 1px 1px rgb(24 39 33 / 25%);
 
   font-family: Arial, Helvetica, sans-serif;
   color: var(--color-text);
