@@ -10,6 +10,8 @@
     label = 'Radial menu preview',
   }: RadialMenuProps = $props();
 
+  // Keep expanded paths and their stroke inside the SVG viewport for Safari.
+  let viewportRadius = $derived(outerRadius + Math.max(0, hoverExpansion) + 1);
   let segments = $derived(createRadialSegments(items.length, innerRadius, outerRadius));
   let expandedSegments = $derived(createRadialSegments(items.length, innerRadius, outerRadius + hoverExpansion));
   let hoveredIndex = $derived(getHoveredRadialSegment(pointer, items.length, innerRadius));
@@ -18,9 +20,9 @@
 {#if items.length}
   <svg
     class="radial-menu"
-    width={outerRadius * 2}
-    height={outerRadius * 2}
-    viewBox={`${-outerRadius} ${-outerRadius} ${outerRadius * 2} ${outerRadius * 2}`}
+    width={viewportRadius * 2}
+    height={viewportRadius * 2}
+    viewBox={`${-viewportRadius} ${-viewportRadius} ${viewportRadius * 2} ${viewportRadius * 2}`}
     role="img"
     aria-label={`${label}: ${items.map((item) => item.label).join(', ')}`}
   >

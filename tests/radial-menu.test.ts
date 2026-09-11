@@ -34,7 +34,7 @@ for (const count of [1, 3, 6]) {
       assert.ok(body.includes(`fill="${item.color}"`));
       assert.ok(body.includes(`data-icon="${index}"`));
     }
-    assert.match(body, /width="224" height="224"/);
+    assert.match(body, /width="250" height="250"/);
     assert.match(body, /role="img" aria-label="Radial menu preview:/);
     assert.doesNotMatch(body, /<button|tabindex|role="menuitem"/);
     assert.doesNotMatch(body, /NaN|Infinity/);
@@ -45,10 +45,43 @@ test('empty items render nothing and radii are configurable', () => {
   assert.doesNotMatch(render(RadialMenu, { props: { items: [] } }).body, /<svg/);
   const item = { id: 'one', label: 'One', color: 'var(--color-radial-polygon)', icon: createRawSnippet(() => ({ render: () => '<path d="M0 0L24 24" />' })) };
   const { body } = render(RadialMenu, { props: { items: [item], innerRadius: 60, outerRadius: 140 } });
-  assert.match(body, /width="280" height="280"/);
-  assert.match(body, /viewBox="-140 -140 280 280"/);
+  assert.match(body, /width="306" height="306"/);
+  assert.match(body, /viewBox="-153 -153 306 306"/);
   assert.match(body, /A 60 60/);
 });
+
+const radiusCases: Array<Pick<RadialMenuProps, 'outerRadius' | 'hoverExpansion'>> = [{}, { outerRadius: 140, hoverExpansion: 20 }, { hoverExpansion: 0 }];
+for (const radii of radiusCases) {
+  test(`viewport contains every hovered sector without resizing or scaling: ${JSON.stringify(radii)}`, () => {
+    const items = Array.from({ length: 3 }, (_, index) => ({
+      id: `item-${index}`, label: `Choice ${index}`, color: 'var(--color-radial-point)',
+      icon: createRawSnippet(() => ({ render: () => '<circle r="8" />' })),
+    }));
+    const pointers = [null, { x: 0, y: -79 }, { x: 68, y: 39 }, { x: -68, y: 39 }];
+    let initialViewport: string | undefined;
+    for (const pointer of pointers) {
+      const { body } = render(RadialMenu, { props: { items, ...radii, pointer } });
+      const viewport = body.match(/width="([\d.]+)" height="([\d.]+)" viewBox="(-[\d.]+) (-[\d.]+) ([\d.]+) ([\d.]+)"/);
+      assert.ok(viewport);
+      initialViewport ??= viewport[0];
+      assert.equal(viewport[0], initialViewport, 'hover must not move or resize the menu');
+      const [width, height, x, y, boxWidth, boxHeight] = viewport.slice(1).map(Number);
+      assert.equal(width, boxWidth, 'SVG units retain their pixel size');
+      assert.equal(height, boxHeight);
+      assert.equal(x, -width / 2, 'viewport remains centered on the press');
+      assert.equal(y, -height / 2);
+      for (const arc of body.matchAll(/A ([\d.]+) ([\d.]+)/g)) {
+        assert.ok(Number(arc[1]) + 0.4 < width / 2, 'arc and half its stroke fit horizontally');
+        assert.ok(Number(arc[2]) + 0.4 < height / 2, 'arc and half its stroke fit vertically');
+      }
+      if (pointer) {
+        const expandedRadius = (radii.outerRadius ?? 112) + (radii.hoverExpansion ?? 12);
+        assert.ok(body.includes(`A ${expandedRadius} ${expandedRadius}`));
+        assert.equal((body.match(/is-hovered/g) ?? []).length, 1);
+      }
+    }
+  });
+}
 
 test('three item centers are evenly spaced with point above, line right, and polygon left', () => {
   const segments = createRadialSegments(3, 46, 112);
