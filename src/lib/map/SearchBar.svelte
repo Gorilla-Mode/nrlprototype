@@ -54,7 +54,7 @@
     } else if (event.key === 'Enter' && searchState.highlighted >= 0) {
       event.preventDefault();
       controller?.selectHighlighted();
-    } else if (event.key === 'Escape' && (open || note)) {
+} else if (event.key === 'Escape' && (open || note || searchState.status === 'searching')) {
       event.preventDefault();
       controller?.close();
     }
