@@ -60,13 +60,18 @@
       bind:value={opacity}
       aria-orientation="vertical"
       aria-valuetext={`${Math.round(opacity * 100)}% aerial imagery, ${Math.round((1 - opacity) * 100)}% map`}
-      style={`--map-slider-position: ${opacity * 100}%`}
+      style={`--fade-position: ${opacity * 100}%`}
     />
     <span class="fade-endpoint" aria-hidden="true">Topo</span>
   </div>
 </div>
 
 <style>
+  .layer-fade-slider:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 3px;
+  }
+
   .layer-fade-control {
     position: relative;
     width: var(--map-control-size);
@@ -75,18 +80,16 @@
 
   .layer-fade-panel {
     position: absolute;
-    z-index: var(--layer-popover);
-    top: calc(100% + var(--map-slider-panel-gap));
+    top: calc(100% + 8px);
     right: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-3);
+    gap: 10px;
     width: var(--map-control-size);
-    padding-block: var(--map-slider-panel-padding-block);
-    border: var(--map-control-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-map-control-surface);
+    padding: 15px 0;
+    border-radius: 999px;
+    background: var(--color-surface);
     box-shadow: var(--shadow-control);
   }
 
@@ -95,10 +98,9 @@
   }
 
   .fade-endpoint {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-caption);
-    font-weight: var(--font-weight-medium);
-    line-height: var(--line-height-tight);
+    color: var(--color-muted-strong);
+    font-size: 10px;
+    line-height: 1;
   }
 
   .layer-fade-slider {
@@ -106,59 +108,66 @@
     direction: rtl;
     appearance: none;
     -webkit-appearance: none;
-    width: var(--map-slider-hit-width);
-    height: clamp(
-      var(--map-slider-height-min),
-      var(--map-slider-height-fluid),
-      var(--map-slider-height-max)
-    );
+    width: 36px;
+    height: clamp(72px, 20dvh, 140px);
     margin: 0;
-    border-radius: var(--radius-pill);
+    border-radius: 18px;
     background: transparent;
     cursor: pointer;
     touch-action: none;
   }
 
   .layer-fade-slider::-webkit-slider-runnable-track {
-    width: var(--map-slider-track-width);
+    width: 4px;
     height: 100%;
-    border-radius: var(--radius-pill);
-    background: linear-gradient(
-      to top,
-      var(--color-action-secondary) var(--map-slider-position),
-      var(--color-map-track) var(--map-slider-position)
-    );
+    border-radius: 999px;
+    background: linear-gradient(to top, var(--color-accent) var(--fade-position), var(--color-track-muted) var(--fade-position));
   }
 
   .layer-fade-slider::-webkit-slider-thumb {
     appearance: none;
     -webkit-appearance: none;
-    width: var(--map-slider-thumb-size);
-    height: var(--map-slider-thumb-size);
-    margin-left: var(--map-slider-thumb-offset);
-    border: var(--map-slider-thumb-border-width) solid var(--color-background-raised);
-    border-radius: var(--radius-round);
-    background: var(--color-action-secondary);
+    width: 20px;
+    height: 20px;
+    margin-left: -8px;
+    border: 3px solid var(--color-surface);
+    border-radius: 50%;
+    background: var(--color-accent);
     box-shadow: var(--shadow-slider);
   }
 
   .layer-fade-slider::-moz-range-track {
-    width: var(--map-slider-track-width);
+    width: 4px;
     height: 100%;
-    border-radius: var(--radius-pill);
-    background: linear-gradient(
-      to top,
-      var(--color-action-secondary) var(--map-slider-position),
-      var(--color-map-track) var(--map-slider-position)
-    );
+    border-radius: 999px;
+    background: linear-gradient(to top, var(--color-accent) var(--fade-position), var(--color-track-muted) var(--fade-position));
   }
 
   .layer-fade-slider::-moz-range-thumb {
-    width: var(--map-slider-thumb-size);
-    height: var(--map-slider-thumb-size);
-    border: var(--map-slider-thumb-border-width) solid var(--color-background-raised);
-    border-radius: var(--radius-round);
-    background: var(--color-action-secondary);
+    width: 14px;
+    height: 14px;
+    border: 3px solid var(--color-surface);
+    border-radius: 50%;
+    background: var(--color-accent);
     box-shadow: var(--shadow-slider);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-height: 520px) {
+    .layer-fade-panel {
+      top: 50%;
+      right: calc(100% + 8px);
+      transform: translateY(-50%);
+    }
   }
 </style>

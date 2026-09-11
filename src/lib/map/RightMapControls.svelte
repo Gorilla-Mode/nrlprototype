@@ -30,13 +30,12 @@
 <style>
   .right-map-controls {
     position: absolute;
-    z-index: var(--layer-map-overlay);
-    top: var(--map-controls-position-block);
-    right: var(--map-control-inset-right);
+    z-index: 2;
+    top: var(--map-actions-top);
+    right: var(--map-right-inset);
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     gap: var(--map-control-gap);
-    transform: translateY(-50%);
   }
 </style>
