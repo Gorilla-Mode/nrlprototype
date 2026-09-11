@@ -72,6 +72,7 @@
   />
   <MapToolbar
     {drawing}
+    onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}
     onundo={() => mapCanvas?.undoDrawing()}
     ondelete={() => mapCanvas?.deleteDrawing()}
     oncomplete={() => mapCanvas?.completeDrawing()}
