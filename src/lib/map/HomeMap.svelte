@@ -48,11 +48,6 @@
 
 <style>
   .map-wrapper {
-    --map-control-size: 44px;
-    --map-control-gap: 4px;
-    --map-actions-top: 37.5%;
-    --map-right-inset: max(8px, env(safe-area-inset-right));
-
     position: relative;
     width: 100%;
     height: 100%;
@@ -63,20 +58,26 @@
 
   .location-status {
     position: absolute;
-    z-index: 2;
-    top: calc(max(6px, env(safe-area-inset-top)) + var(--map-control-size) + 12px);
-    right: var(--map-right-inset);
-    max-width: min(290px, calc(100% - 16px));
+    z-index: var(--layer-map-overlay);
+    top: calc(var(--map-control-inset-top) + var(--map-control-size) + var(--space-3));
+    right: var(--map-control-inset-right);
+    left: var(--map-control-inset-left);
+    display: flex;
+    justify-content: flex-end;
+    pointer-events: none;
   }
 
   .location-status p {
+    width: fit-content;
+    max-width: var(--map-status-max);
     margin: 0;
-    padding: 12px 16px;
-    border-radius: 16px;
-    background: var(--color-surface);
+    padding: var(--space-3) var(--space-4);
+    border: var(--border-default);
+    border-radius: var(--radius-card);
+    background: var(--color-map-control-surface);
     box-shadow: var(--shadow-control);
-    color: var(--color-muted-strong);
-    font-size: 13px;
-    line-height: 1.5;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-body-small);
+    line-height: var(--line-height-body);
   }
 </style>

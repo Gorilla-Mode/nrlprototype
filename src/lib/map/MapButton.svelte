@@ -36,40 +36,36 @@
     width: var(--map-control-size);
     height: var(--map-control-size);
     padding: 0;
-    border: 0;
-    border-radius: 50%;
-    background: var(--color-surface);
+    border: var(--map-control-border);
+    border-radius: var(--map-control-radius);
+    background: var(--color-map-control-surface);
     box-shadow: var(--shadow-control);
-    color: var(--color-text);
+    color: var(--color-text-primary);
     cursor: pointer;
     pointer-events: auto;
     -webkit-tap-highlight-color: transparent;
-    transition: background-color 150ms ease, color 150ms ease;
+    transition:
+      background-color var(--duration-default) var(--ease-standard),
+      border-color var(--duration-default) var(--ease-standard),
+      color var(--duration-default) var(--ease-standard),
+      transform var(--duration-instant) var(--ease-standard);
   }
 
   .map-button:disabled {
-    color: var(--color-text);
-    cursor: default;
-    opacity: 1;
+    color: var(--color-text-disabled);
   }
 
   .map-button:not(:disabled):hover {
-    background-color: var(--color-surface-hover);
+    background-color: var(--color-map-control-hover);
+  }
+
+  .map-button:not(:disabled):active {
+    transform: scale(var(--scale-control-active));
   }
 
   .map-button.is-active {
-    background: var(--color-surface-active);
-    color: var(--color-accent-strong);
-  }
-
-  .map-button:focus-visible {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 3px;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .map-button {
-      transition: none;
-    }
+    border-color: var(--color-action-secondary);
+    background: var(--color-map-control-active);
+    color: var(--color-action-secondary);
   }
 </style>

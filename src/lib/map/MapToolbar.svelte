@@ -33,13 +33,13 @@
 <style>
   .map-toolbar {
     position: absolute;
-    z-index: 2;
-    top: max(6px, env(safe-area-inset-top));
-    right: var(--map-right-inset);
-    left: max(8px, env(safe-area-inset-left));
+    z-index: var(--layer-map-overlay);
+    top: var(--map-control-inset-top);
+    right: var(--map-control-inset-right);
+    left: var(--map-control-inset-left);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--map-toolbar-gap);
     pointer-events: none;
   }
 
@@ -47,25 +47,18 @@
     display: flex;
     flex: 1;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-3);
+    max-width: var(--map-search-max);
     min-width: 0;
     height: var(--map-control-size);
-    padding: 0 14px;
-    border-radius: 999px;
-    background: var(--color-surface);
+    margin-inline-end: auto;
+    padding-inline: var(--map-search-padding-inline);
+    border: var(--map-control-border);
+    border-radius: var(--radius-control);
+    background: var(--color-map-control-surface);
     box-shadow: var(--shadow-control);
-    color: var(--color-muted);
+    color: var(--color-text-secondary);
     pointer-events: auto;
-  }
-
-  .search-bar svg {
-    flex: none;
-    width: 24px;
-    height: 24px;
-    stroke: currentColor;
-    stroke-width: 1.7;
-    stroke-linecap: round;
-    stroke-linejoin: round;
   }
 
   .search-bar input {
@@ -75,14 +68,18 @@
     border: 0;
     outline: none;
     background: transparent;
-    color: var(--color-muted);
-    font-size: 13px;
-    opacity: 1;
-    -webkit-text-fill-color: var(--color-muted);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-body-small);
+    opacity: var(--opacity-opaque);
+    -webkit-text-fill-color: var(--color-text-secondary);
+  }
+
+  .search-bar:has(input:disabled) {
+    opacity: var(--opacity-disabled);
   }
 
   .search-bar input::placeholder {
-    color: var(--color-muted);
-    opacity: 1;
+    color: var(--color-text-secondary);
+    opacity: var(--opacity-opaque);
   }
 </style>
