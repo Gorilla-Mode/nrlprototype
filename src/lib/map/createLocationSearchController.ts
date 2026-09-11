@@ -108,7 +108,7 @@ export function createLocationSearchController({
         publish({ query, status: 'idle', suggestions: [], highlighted: -1 });
         return;
       }
-      publish({ query, status: 'searching', highlighted: -1 });
+publish({ query, status: 'searching', suggestions: [], highlighted: -1 });
       timer = setTimeout(() => {
         timer = undefined;
         run(query);
