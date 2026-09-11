@@ -50,7 +50,8 @@ test('empty items render nothing and radii are configurable', () => {
   assert.match(body, /A 60 60/);
 });
 
-for (const radii of [{}, { outerRadius: 140, hoverExpansion: 20 }, { hoverExpansion: 0 }]) {
+const radiusCases: Array<Pick<RadialMenuProps, 'outerRadius' | 'hoverExpansion'>> = [{}, { outerRadius: 140, hoverExpansion: 20 }, { hoverExpansion: 0 }];
+for (const radii of radiusCases) {
   test(`viewport contains every hovered sector without resizing or scaling: ${JSON.stringify(radii)}`, () => {
     const items = Array.from({ length: 3 }, (_, index) => ({
       id: `item-${index}`, label: `Choice ${index}`, color: 'var(--color-radial-point)',
