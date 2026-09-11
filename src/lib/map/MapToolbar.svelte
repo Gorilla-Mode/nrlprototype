@@ -1,5 +1,14 @@
 <script lang="ts">
   import MapButton from './MapButton.svelte';
+  import DrawingToolbar from './DrawingToolbar.svelte';
+  import type { DrawingState } from '../reporting/createDrawingController';
+
+  let { drawing, onundo, ondelete, oncomplete }: {
+    drawing: DrawingState;
+    onundo: () => void;
+    ondelete: () => void;
+    oncomplete: () => void;
+  } = $props();
 </script>
 
 <div class="map-toolbar" role="group" aria-label="Map tools">
@@ -29,6 +38,8 @@
     </svg>
   </MapButton>
 </div>
+
+<DrawingToolbar state={drawing} {onundo} {ondelete} {oncomplete} />
 
 <style>
   .map-toolbar {
