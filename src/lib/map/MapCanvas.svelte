@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { createMapController, type MapController } from './createMapController';
+  import { createMapController, type CameraTarget, type MapController } from './createMapController';
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
   import type { DrawingState } from '../reporting/createDrawingController';
@@ -24,6 +24,8 @@
   export function toggleGeolocation() {
     controller?.toggleGeolocation();
   }
+
+  export function flyToLocation(target: CameraTarget) { controller?.flyToLocation(target); }
 
   export function undoDrawing() { controller?.undoDrawing(); }
   export function deleteDrawing() { controller?.deleteDrawing(); }
