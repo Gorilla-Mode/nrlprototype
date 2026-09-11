@@ -1,0 +1,649 @@
+/*
+ * NRL visual system
+ *
+ * This file is the single source of visual design values. Components should
+ * consume semantic tokens first and component tokens only when the component
+ * needs a stable, meaningful contract.
+ */
+
+/* 1. Base colours */
+:root {
+  --palette-neutral-0: #ffffff;
+  --palette-neutral-50: #f6f8f7;
+  --palette-neutral-100: #edf1ef;
+  --palette-neutral-200: #dbe2de;
+  --palette-neutral-300: #becac4;
+  --palette-neutral-500: #66766e;
+  --palette-neutral-600: #4d5f56;
+  --palette-neutral-800: #26342e;
+  --palette-neutral-825: #1c2a24;
+  --palette-neutral-850: #14201b;
+  --palette-neutral-900: #17231e;
+  --palette-neutral-950: #050a08;
+
+  --palette-neutral-dark-100: #f0f5f2;
+  --palette-neutral-dark-300: #bac8c1;
+  --palette-neutral-dark-500: #8b9a93;
+  --palette-neutral-dark-700: #53675e;
+  --palette-neutral-dark-800: #3a4c44;
+  --palette-neutral-dark-850: #26372f;
+
+  --palette-green-50: #e9f6f0;
+  --palette-green-100: #a7e4c7;
+  --palette-green-200: #91dab8;
+  --palette-green-300: #79cda7;
+  --palette-green-600: #287a5a;
+  --palette-green-700: #1f664a;
+  --palette-green-800: #18523c;
+
+  --palette-blue-50: #eaf1ff;
+  --palette-blue-100: #abc8ff;
+  --palette-blue-300: #8db5ff;
+  --palette-blue-500: #3478e5;
+  --palette-blue-600: #245fbf;
+  --palette-blue-900: #17386d;
+
+  --palette-amber-50: #fff6df;
+  --palette-amber-400: #e8a426;
+  --palette-amber-700: #92520a;
+
+  --palette-red-50: #fff0ee;
+  --palette-red-400: #e9786e;
+  --palette-red-700: #a7332b;
+
+  --palette-teal-50: #e7f7f5;
+  --palette-teal-300: #56b8ae;
+  --palette-teal-600: #16776f;
+
+  --palette-surface-success-dark: #173a2c;
+  --palette-surface-info-dark: #1d3554;
+  --palette-surface-warning-dark: #3c2d13;
+  --palette-surface-error-dark: #452521;
+  --palette-scrim-light: rgb(23 35 30 / 48%);
+  --palette-scrim-dark: rgb(5 10 8 / 64%);
+}
+
+/* 2. Semantic colours */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-background-page: var(--palette-neutral-50);
+  --color-background-surface: var(--palette-neutral-0);
+  --color-background-raised: var(--palette-neutral-0);
+  --color-background-subtle: var(--palette-neutral-100);
+  --color-background-scrim: var(--palette-scrim-light);
+  --color-text-primary: var(--palette-neutral-900);
+  --color-text-secondary: var(--palette-neutral-600);
+  --color-text-disabled: var(--palette-neutral-500);
+  --color-text-inverse: var(--palette-neutral-0);
+  --color-border-default: var(--palette-neutral-200);
+  --color-border-strong: var(--palette-neutral-300);
+  --color-action-primary: var(--palette-green-600);
+  --color-action-primary-hover: var(--palette-green-700);
+  --color-action-primary-active: var(--palette-green-800);
+  --color-action-primary-text: var(--palette-neutral-0);
+  --color-action-secondary: var(--palette-blue-600);
+  --color-action-secondary-hover: var(--palette-blue-900);
+  --color-action-selected: var(--palette-blue-50);
+  --color-focus-ring: var(--palette-blue-500);
+  --color-status-success: var(--palette-green-600);
+  --color-status-info: var(--palette-blue-600);
+  --color-status-warning: var(--palette-amber-700);
+  --color-status-error: var(--palette-red-700);
+  --color-status-success-surface: var(--palette-green-50);
+  --color-status-info-surface: var(--palette-blue-50);
+  --color-status-warning-surface: var(--palette-amber-50);
+  --color-status-error-surface: var(--palette-red-50);
+  --color-map-point: var(--palette-amber-700);
+  --color-map-line: var(--palette-blue-600);
+  --color-map-area: var(--palette-teal-600);
+  --color-map-control-surface: color-mix(
+    in srgb,
+    var(--color-background-raised) var(--opacity-map-control),
+    transparent
+  );
+  --color-map-control-hover: color-mix(
+    in srgb,
+    var(--color-background-raised) 90%,
+    var(--color-action-secondary)
+  );
+  --color-map-control-active: var(--color-action-selected);
+  --color-map-track: var(--palette-neutral-300);
+}
+
+/* 3. Light and dark themes */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-background-page: var(--palette-neutral-900);
+  --color-background-surface: var(--palette-neutral-850);
+  --color-background-raised: var(--palette-neutral-825);
+  --color-background-subtle: var(--palette-neutral-dark-850);
+  --color-background-scrim: var(--palette-scrim-dark);
+  --color-text-primary: var(--palette-neutral-dark-100);
+  --color-text-secondary: var(--palette-neutral-dark-300);
+  --color-text-disabled: var(--palette-neutral-dark-500);
+  --color-text-inverse: var(--palette-neutral-900);
+  --color-border-default: var(--palette-neutral-dark-800);
+  --color-border-strong: var(--palette-neutral-dark-700);
+  --color-action-primary: var(--palette-green-300);
+  --color-action-primary-hover: var(--palette-green-200);
+  --color-action-primary-active: var(--palette-green-100);
+  --color-action-primary-text: var(--palette-neutral-900);
+  --color-action-secondary: var(--palette-blue-300);
+  --color-action-secondary-hover: var(--palette-blue-100);
+  --color-action-selected: color-mix(in srgb, var(--palette-blue-900) 62%, var(--palette-neutral-850));
+  --color-focus-ring: var(--palette-blue-300);
+  --color-status-success: var(--palette-green-300);
+  --color-status-info: var(--palette-blue-300);
+  --color-status-warning: var(--palette-amber-400);
+  --color-status-error: var(--palette-red-400);
+  --color-status-success-surface: var(--palette-surface-success-dark);
+  --color-status-info-surface: var(--palette-surface-info-dark);
+  --color-status-warning-surface: var(--palette-surface-warning-dark);
+  --color-status-error-surface: var(--palette-surface-error-dark);
+  --color-map-point: var(--palette-amber-400);
+  --color-map-line: var(--palette-blue-300);
+  --color-map-area: var(--palette-teal-300);
+  --color-map-control-hover: color-mix(
+    in srgb,
+    var(--color-background-raised) 84%,
+    var(--color-action-secondary)
+  );
+  --color-map-track: var(--color-border-strong);
+  --shadow-surface: var(--shadow-level-1-dark);
+  --shadow-control: var(--shadow-level-2-dark);
+  --shadow-slider: var(--shadow-level-1-dark);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --color-background-page: var(--palette-neutral-900);
+    --color-background-surface: var(--palette-neutral-850);
+    --color-background-raised: var(--palette-neutral-825);
+    --color-background-subtle: var(--palette-neutral-dark-850);
+    --color-background-scrim: var(--palette-scrim-dark);
+    --color-text-primary: var(--palette-neutral-dark-100);
+    --color-text-secondary: var(--palette-neutral-dark-300);
+    --color-text-disabled: var(--palette-neutral-dark-500);
+    --color-text-inverse: var(--palette-neutral-900);
+    --color-border-default: var(--palette-neutral-dark-800);
+    --color-border-strong: var(--palette-neutral-dark-700);
+    --color-action-primary: var(--palette-green-300);
+    --color-action-primary-hover: var(--palette-green-200);
+    --color-action-primary-active: var(--palette-green-100);
+    --color-action-primary-text: var(--palette-neutral-900);
+    --color-action-secondary: var(--palette-blue-300);
+    --color-action-secondary-hover: var(--palette-blue-100);
+    --color-action-selected: color-mix(in srgb, var(--palette-blue-900) 62%, var(--palette-neutral-850));
+    --color-focus-ring: var(--palette-blue-300);
+    --color-status-success: var(--palette-green-300);
+    --color-status-info: var(--palette-blue-300);
+    --color-status-warning: var(--palette-amber-400);
+    --color-status-error: var(--palette-red-400);
+    --color-status-success-surface: var(--palette-surface-success-dark);
+    --color-status-info-surface: var(--palette-surface-info-dark);
+    --color-status-warning-surface: var(--palette-surface-warning-dark);
+    --color-status-error-surface: var(--palette-surface-error-dark);
+    --color-map-point: var(--palette-amber-400);
+    --color-map-line: var(--palette-blue-300);
+    --color-map-area: var(--palette-teal-300);
+    --color-map-control-hover: color-mix(
+      in srgb,
+      var(--color-background-raised) 84%,
+      var(--color-action-secondary)
+    );
+    --color-map-track: var(--color-border-strong);
+    --shadow-surface: var(--shadow-level-1-dark);
+    --shadow-control: var(--shadow-level-2-dark);
+    --shadow-slider: var(--shadow-level-1-dark);
+  }
+}
+
+/* 4. Typography */
+:root {
+  --font-family-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-size-caption: 0.75rem;
+  --font-size-body-small: 0.875rem;
+  --font-size-body: 1rem;
+  --font-size-heading-small: 1.25rem;
+  --font-size-heading: 1.5rem;
+  --font-size-display: 2rem;
+  --font-weight-regular: 400;
+  --font-weight-medium: 550;
+  --font-weight-semibold: 650;
+  --line-height-tight: 1.25;
+  --line-height-body: 1.5;
+  --line-height-relaxed: 1.625;
+  --letter-spacing-label: 0.01em;
+}
+
+/* 5. Spacing — one step is 4 px at the default root size */
+:root {
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+}
+
+/* 6. Horizontal gutters and content widths */
+:root {
+  --layout-gutter-inline: var(--space-4);
+  --layout-content-max: 72rem;
+  --layout-form-max: 42rem;
+  --layout-reading-max: 65ch;
+}
+
+/* 7. Control heights and target sizes */
+:root {
+  --control-height-compact: 2.75rem;
+  --control-height-default: 3rem;
+  --control-height-large: 3.5rem;
+  --target-size-min: 2.75rem;
+}
+
+/* 8. Borders */
+:root {
+  --border-width-default: 0.0625rem;
+  --border-width-emphasis: 0.125rem;
+  --border-default: var(--border-width-default) solid var(--color-border-default);
+  --border-strong: var(--border-width-default) solid var(--color-border-strong);
+}
+
+/* 9. Corner radii */
+:root {
+  --radius-small: 0.5rem;
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+  --radius-dialog: 1.5rem;
+  --radius-round: 50%;
+  --radius-pill: 999rem;
+}
+
+/* 10. Shadows */
+:root {
+  --shadow-level-1-light: 0 0.0625rem 0.1875rem rgb(23 35 30 / 10%);
+  --shadow-level-2-light: 0 0.25rem 1rem rgb(23 35 30 / 14%);
+  --shadow-level-1-dark: 0 0.0625rem 0.1875rem rgb(0 0 0 / 30%);
+  --shadow-level-2-dark: 0 0.25rem 1rem rgb(0 0 0 / 42%);
+  --shadow-surface: var(--shadow-level-1-light);
+  --shadow-control: var(--shadow-level-2-light);
+  --shadow-slider: var(--shadow-level-1-light);
+}
+
+/* 11. Opacity */
+:root {
+  --opacity-opaque: 1;
+  --opacity-disabled: 0.52;
+  --opacity-subdued: 0.72;
+  --opacity-map-control: 94%;
+}
+
+/* 12. Icon sizes */
+:root {
+  --icon-size-small: 1rem;
+  --icon-size-default: 1.25rem;
+  --icon-size-large: 1.5rem;
+  --icon-stroke-width: 1.75;
+}
+
+/* 13. Layers */
+:root {
+  --layer-base: 0;
+  --layer-map-overlay: 10;
+  --layer-popover: 20;
+  --layer-dialog: 30;
+  --layer-toast: 40;
+}
+
+/* 14. Motion */
+:root {
+  --duration-instant: 100ms;
+  --duration-default: 160ms;
+  --duration-deliberate: 240ms;
+  --duration-progress: 2s;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
+  --scale-control-active: 0.96;
+}
+
+/* 15. Form controls */
+:root {
+  --form-control-height: var(--control-height-default);
+  --form-control-padding-inline: var(--space-4);
+  --form-control-gap: var(--space-2);
+  --form-control-background: var(--color-background-surface);
+  --form-control-border: var(--border-default);
+  --form-control-radius: var(--radius-control);
+}
+
+.form-control {
+  width: 100%;
+  min-height: var(--form-control-height);
+  padding-inline: var(--form-control-padding-inline);
+  border: var(--form-control-border);
+  border-radius: var(--form-control-radius);
+  background: var(--form-control-background);
+  color: var(--color-text-primary);
+}
+
+/* 16. Buttons and action levels */
+:root {
+  --button-height: var(--control-height-default);
+  --button-padding-inline: var(--space-4);
+  --button-gap: var(--space-2);
+  --button-radius: var(--radius-control);
+}
+
+.button {
+  display: inline-flex;
+  min-height: var(--button-height);
+  align-items: center;
+  justify-content: center;
+  gap: var(--button-gap);
+  padding-inline: var(--button-padding-inline);
+  border: var(--border-default);
+  border-radius: var(--button-radius);
+  background: var(--color-background-surface);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-default) var(--ease-standard),
+    border-color var(--duration-default) var(--ease-standard),
+    color var(--duration-default) var(--ease-standard);
+}
+
+.button--primary {
+  border-color: var(--color-action-primary);
+  background: var(--color-action-primary);
+  color: var(--color-action-primary-text);
+}
+
+.button--primary:hover {
+  border-color: var(--color-action-primary-hover);
+  background: var(--color-action-primary-hover);
+}
+
+.button--primary:active {
+  border-color: var(--color-action-primary-active);
+  background: var(--color-action-primary-active);
+}
+
+/* 17. Cards, panels, sidebars, and dialogs */
+:root {
+  --card-padding-inline: var(--space-4);
+  --card-padding-block: var(--space-4);
+  --panel-padding-inline: var(--layout-gutter-inline);
+  --panel-padding-block: var(--space-6);
+  --dialog-padding-inline: var(--layout-gutter-inline);
+  --dialog-padding-block: var(--space-6);
+  --dialog-content-max: 40rem;
+}
+
+.surface-card,
+.surface-panel,
+.dialog-shell {
+  border: var(--border-default);
+  background: var(--color-background-raised);
+  box-shadow: var(--shadow-surface);
+  color: var(--color-text-primary);
+}
+
+.surface-card {
+  padding: var(--card-padding-block) var(--card-padding-inline);
+  border-radius: var(--radius-card);
+}
+
+.surface-panel {
+  padding: var(--panel-padding-block) var(--panel-padding-inline);
+  border-radius: var(--radius-card);
+}
+
+.dialog-shell {
+  width: min(calc(100% - (2 * var(--layout-gutter-inline))), var(--dialog-content-max));
+  border-radius: var(--radius-dialog);
+}
+
+.dialog-header,
+.dialog-content,
+.dialog-footer {
+  padding-inline: var(--dialog-padding-inline);
+}
+
+.dialog-header,
+.dialog-footer {
+  padding-block: var(--dialog-padding-block);
+}
+
+.dialog-content {
+  padding-block: 0 var(--dialog-padding-block);
+}
+
+.action-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+/* 18. Status colours */
+.status--success { color: var(--color-status-success); }
+.status--info { color: var(--color-status-info); }
+.status--warning { color: var(--color-status-warning); }
+.status--error { color: var(--color-status-error); }
+
+/* 19. Map controls and geometry */
+:root {
+  --map-control-size: var(--control-height-default);
+  --map-control-gap: var(--space-2);
+  --map-control-border: var(--border-default);
+  --map-control-radius: var(--radius-round);
+  --map-controls-position-block: 50%;
+  --map-toolbar-gap: var(--space-2);
+  --map-search-padding-inline: var(--space-4);
+  --map-search-max: 38rem;
+  --map-status-max: 20rem;
+  --map-slider-panel-gap: var(--space-2);
+  --map-slider-panel-padding-block: var(--space-4);
+  --map-slider-hit-width: var(--target-size-min);
+  --map-slider-track-width: var(--space-1);
+  --map-slider-thumb-size: var(--icon-size-default);
+  --map-slider-thumb-border-width: 0.1875rem;
+  --map-slider-thumb-offset: -0.5rem;
+  --map-slider-height-min: 6rem;
+  --map-slider-height-max: 10rem;
+  --map-slider-height-fluid: 18dvh;
+  /* Runtime state updates this percentage through the range input's inline style. */
+  --map-slider-position: 0%;
+}
+
+.map-button svg,
+.search-bar svg {
+  flex: none;
+  width: var(--icon-size-large);
+  height: var(--icon-size-large);
+  stroke: currentColor;
+  stroke-width: var(--icon-stroke-width);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.geolocation-button[data-state='locating'],
+.geolocation-button[data-state='following'],
+.geolocation-button[data-state='background'] {
+  color: var(--color-status-success);
+}
+
+.geolocation-button[data-state='error'] {
+  color: var(--color-status-error);
+}
+
+.geolocation-button:disabled {
+  color: var(--color-text-disabled);
+}
+
+.geolocation-button[aria-busy='true'] svg {
+  transform-origin: center;
+  animation: geolocation-spin var(--duration-progress) linear infinite;
+}
+
+@keyframes geolocation-spin {
+  to { transform: rotate(360deg); }
+}
+
+.maplibregl-user-location-dot,
+.maplibregl-user-location-accuracy-circle {
+  pointer-events: none;
+}
+
+.map-container .maplibregl-ctrl-bottom-right {
+  right: var(--map-attribution-inset-inline);
+  bottom: var(--map-attribution-inset-block);
+}
+
+.map-container .maplibregl-ctrl-attrib {
+  border-radius: var(--radius-small) 0 0 0;
+  background: var(--color-map-control-surface);
+  color: var(--color-text-secondary);
+}
+
+.map-container .maplibregl-ctrl-attrib a {
+  color: var(--color-action-secondary);
+}
+
+.map-container.is-grayscale .maplibregl-canvas {
+  filter: grayscale(1);
+}
+
+/* 20. Safe area and responsive adaptation */
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --map-control-inset-top: max(var(--layout-gutter-inline), var(--safe-area-top));
+  --map-control-inset-right: max(var(--layout-gutter-inline), var(--safe-area-right));
+  --map-control-inset-bottom: max(var(--layout-gutter-inline), var(--safe-area-bottom));
+  --map-control-inset-left: max(var(--layout-gutter-inline), var(--safe-area-left));
+  --map-attribution-inset-inline: max(var(--space-1), var(--safe-area-right));
+  --map-attribution-inset-block: max(var(--space-1), var(--safe-area-bottom));
+}
+
+/* Breakpoints are intentionally limited to tablet and large-screen gutters. */
+@media (min-width: 48rem) {
+  :root {
+    --layout-gutter-inline: var(--space-6);
+    --card-padding-inline: var(--space-6);
+    --card-padding-block: var(--space-6);
+  }
+}
+
+@media (min-width: 75rem) {
+  :root {
+    --layout-gutter-inline: var(--space-8);
+  }
+}
+
+/* The sideways slider placement is a geometry exception for short viewports. */
+@media (max-height: 32.5rem) {
+  .layer-fade-panel {
+    top: 50%;
+    right: calc(100% + var(--map-slider-panel-gap));
+    transform: translateY(-50%);
+  }
+}
+
+/* 21. Focus, keyboard navigation, and reduced motion */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: var(--border-width-emphasis) solid var(--color-focus-ring);
+  outline-offset: var(--space-1);
+}
+
+:where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0ms !important;
+  }
+}
+
+/* 22. Global foundations and reusable layout */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: var(--font-family-sans);
+  color: var(--color-text-primary);
+  background: var(--color-background-page);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--color-background-page);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: var(--color-action-selected);
+  color: var(--color-text-primary);
+}
+
+.layout-container {
+  width: min(100%, var(--layout-content-max));
+  margin-inline: auto;
+  padding-inline: var(--layout-gutter-inline);
+}
+
+.content-stack {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.sr-only {
+  position: absolute;
+  width: var(--border-width-default);
+  height: var(--border-width-default);
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
