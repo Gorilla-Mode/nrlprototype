@@ -14,7 +14,8 @@ import { createGeolocationDisplay } from './createGeolocationDisplay';
 import type { HoldOrigin } from './createMapHoldController';
 import { createMapDrawingInteraction } from './createMapDrawingInteraction';
 import { createDrawingController, type DrawingState } from '../reporting/createDrawingController';
-import type { ObstacleGeometry } from '../reporting/obstacle';
+import type { Obstacle } from '../reporting/obstacle';
+import { createReportController } from '../reporting/createReportController';
 import { createDrawingDisplay } from './createDrawingDisplay';
 
 setWorkerUrl(mapWorkerUrl);
@@ -26,7 +27,7 @@ interface MapControllerOptions {
   onHoldChange: (origin: HoldOrigin | null) => void;
   onHoldMove: (x: number, y: number) => void;
   onDrawingChange: (state: DrawingState) => void;
-  onGeometryComplete?: (geometry: ObstacleGeometry) => void;
+  onObstacleRegistered?: (obstacle: Obstacle) => void;
 }
 
 export interface MapController {
@@ -56,14 +57,21 @@ export function createMapController(
     onRecenter: locationDisplay.recenter,
     onClear: locationDisplay.clear,
   });
+  const reporting = createReportController({
+    onRegister: (obstacle) => options.onObstacleRegistered?.(obstacle),
+  });
   const drawingDisplay = createDrawingDisplay(map);
+  let drawingStatus: DrawingState['status'] = 'idle';
   const drawing = createDrawingController({
     onChange: (state) => {
+      if (drawingStatus === 'idle' && state.status === 'drawing') reporting.start();
+      if (state.status === 'idle') reporting.cancel();
+      drawingStatus = state.status;
       drawingDisplay.show(state.draft);
       drawingInteraction.sync(state);
       options.onDrawingChange(state);
     },
-    onComplete: (geometry) => options.onGeometryComplete?.(geometry),
+    onComplete: reporting.complete,
   });
   const drawingInteraction = createMapDrawingInteraction(map, drawing, options);
 
@@ -120,6 +128,7 @@ export function createMapController(
       map.off('error', handleMapError);
       drawingInteraction.destroy();
       drawingDisplay.destroy();
+      reporting.destroy();
       geolocation.destroy();
       locationDisplay.destroy();
       map.remove();

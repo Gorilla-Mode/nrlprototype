@@ -6,10 +6,10 @@
   import type { HoldOrigin } from './createMapHoldController';
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
-  import { obstacleGeometryChoices, type ObstacleGeometry } from '../reporting/obstacle';
+  import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
 
-  let { oncomplete }: { oncomplete?: (geometry: ObstacleGeometry) => void } = $props();
+  let { oncomplete }: { oncomplete?: (obstacle: Obstacle) => void } = $props();
 
   let opacity = $state(0);
   let isGrayscale = $state(false);
@@ -68,7 +68,7 @@
     onholdchange={(origin) => { holdOrigin = origin; holdPointer = null; }}
     onholdmove={(x, y) => { holdPointer = { x, y }; }}
     ondrawingchange={(state) => { drawing = state; }}
-    ongeometrycomplete={oncomplete}
+    onobstacleregistered={oncomplete}
   />
   <MapToolbar
     {drawing}

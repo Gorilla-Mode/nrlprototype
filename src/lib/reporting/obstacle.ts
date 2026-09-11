@@ -11,13 +11,16 @@ export const obstacleGeometryChoices = [
   { type: 'Polygon', id: 'polygon', label: 'Polygon', colorToken: '--color-radial-polygon' },
 ] as const;
 
-export type Obstacle =
-    {
-        id: string;
-        type: string;
-        description: string;
-        height: number;
-        gps_position: { lat: number; lng: number };
-        timestamp: Date;
-        obstacle_position: { lat: number; lng: number };
-    }
+export enum ObstacleType {
+  Other = 'other',
+}
+
+export interface Obstacle {
+  id: string;
+  type: ObstacleType;
+  description: string;
+  height: number;
+  gps_position: { lat: number; lng: number } | null;
+  timestamp: Date;
+  obstacle_position: ObstacleGeometry;
+}
