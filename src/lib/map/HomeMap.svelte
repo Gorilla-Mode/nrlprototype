@@ -78,14 +78,15 @@
   />
 
   {#if holdOrigin}
+    {@const geometryIcons = { point: pointIcon, line: lineIcon, polygon: polygonIcon }}
     <div class="hold-menu" style:left={`${holdOrigin.x}px`} style:top={`${holdOrigin.y}px`}>
       <RadialMenu
         pointer={holdPointer}
         innerRadius={obstacleMenuInnerRadius}
         label="Choose obstacle geometry"
-        items={obstacleGeometryChoices.map((choice, index) => ({
+        items={obstacleGeometryChoices.map((choice) => ({
           id: choice.id, label: choice.label, color: `var(${choice.colorToken})`,
-          icon: [pointIcon, lineIcon, polygonIcon][index],
+          icon: geometryIcons[choice.id],
         }))}
       />
     </div>

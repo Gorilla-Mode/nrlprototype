@@ -126,7 +126,7 @@
 
   .invalid { color: var(--color-negative); }
 
-  @media (max-width: 480px) {
+  @media (max-width: 960px) {
     .drawing-toolbar {
       flex-wrap: wrap;
       height: auto;
