@@ -2,10 +2,30 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 import { test } from 'node:test';
+import { obstacleGeometryChoices } from '../src/lib/reporting/obstacle.js';
 
 const sourceRoot = 'src';
 const stylesheetPath = 'src/styles/stylesheet.css';
 const inspectedExtensions = new Set(['.css', '.js', '.svelte', '.ts']);
+
+test('every referenced visual token exists, including geometry metadata', async () => {
+  const files = await sourceFiles(sourceRoot);
+  const sources = await Promise.all(files.map(async (file) => [file, await readFile(file, 'utf8')] as const));
+  const definitions = new Set(sources.flatMap(([, source]) =>
+    [...source.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1])));
+  // State-derived aliases: selected geometry, pointer position and slider progress.
+  const dynamic = new Set(['--geometry-color', '--radial-color', '--hold-x', '--hold-y', '--radial-item-x', '--radial-item-y', '--map-slider-position', '--map-scale-width']);
+  const missing: string[] = [];
+  for (const [file, source] of sources) {
+    for (const match of source.matchAll(/(?:var\(|['"])(--[\w-]+)/g)) {
+      if (!definitions.has(match[1]) && !dynamic.has(match[1])) missing.push(`${file}: ${match[1]}`);
+    }
+  }
+  for (const choice of obstacleGeometryChoices) {
+    if (!definitions.has(choice.colorToken)) missing.push(choice.colorToken);
+  }
+  assert.deepEqual([...new Set(missing)], []);
+});
 
 async function sourceFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
