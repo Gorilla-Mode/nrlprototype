@@ -5,13 +5,16 @@
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { LocationSuggestion } from './locationSearch';
 
-  let { drawing, onundo, ondelete, oncomplete, onsearchselect }: {
+  let { drawing, onundo, ondelete, oncomplete, onsearchselect, onmenu, menuOpen }: {
+    onmenu: () => void;
+    menuOpen: boolean;
     drawing: DrawingState;
     onundo: () => void;
     ondelete: () => void;
     oncomplete: () => void;
     onsearchselect: (suggestion: LocationSuggestion) => void;
   } = $props();
+
 </script>
 
 <div class="map-toolbar" role="group" aria-label="Map tools">
@@ -24,7 +27,7 @@
     </svg>
   </MapButton>
 
-  <MapButton type="button" aria-label="Menu" disabled>
+  <MapButton type="button" aria-label="Menu" aria-haspopup="dialog" aria-expanded={menuOpen} aria-controls="main-menu" onclick={onmenu}>
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M4 6h16M4 12h16M4 18h16" />
     </svg>
@@ -36,13 +39,15 @@
 <style>
   .map-toolbar {
     position: absolute;
-    z-index: 2;
-    top: max(6px, env(safe-area-inset-top));
-    right: var(--map-right-inset);
-    left: max(8px, env(safe-area-inset-left));
+    /* Search results must stay above lower map actions on short viewports. */
+    z-index: var(--layer-popover);
+    top: var(--map-control-inset-top);
+    right: var(--map-control-inset-right);
+    left: var(--map-control-inset-left);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--map-toolbar-gap);
     pointer-events: none;
   }
+
 </style>

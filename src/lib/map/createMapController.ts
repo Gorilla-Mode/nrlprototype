@@ -5,6 +5,7 @@ import {
 } from 'maplibre-gl';
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import {
+  applyRasterGrayscale,
   createRasterStyle,
   mapDefaults,
   SATELLITE_LAYER_ID,
@@ -17,11 +18,14 @@ import { createDrawingController, type DrawingState } from '../reporting/createD
 import type { Obstacle } from '../reporting/obstacle';
 import { createReportController } from '../reporting/createReportController';
 import { createDrawingDisplay } from './createDrawingDisplay';
+import { MetricScaleControl } from './MetricScaleControl';
 
 setWorkerUrl(mapWorkerUrl);
 
 interface MapControllerOptions {
   initialOpacity: number;
+  initialGrayscale: boolean;
+  onGeolocationAccuracyChange: (accuracy: number | null) => void;
   onMapClick: () => void;
   onGeolocationStateChange: (state: GeolocationState, message: string) => void;
   onHoldChange: (origin: HoldOrigin | null) => void;
@@ -38,11 +42,14 @@ export interface CameraTarget {
 
 export interface MapController {
   setSatelliteOpacity: (opacity: number) => void;
+  setGrayscale: (grayscale: boolean) => void;
+  stopCamera: () => void;
   toggleGeolocation: () => void;
   flyToLocation: (target: CameraTarget) => void;
   undoDrawing: () => void;
   deleteDrawing: () => void;
   completeDrawing: () => void;
+  focus: () => void;
   destroy: () => void;
 }
 
@@ -51,18 +58,28 @@ export function createMapController(
   options: MapControllerOptions,
 ): MapController {
   let satelliteOpacity = options.initialOpacity;
+  let grayscale = options.initialGrayscale;
   let destroyed = false;
   const map = new Map({
     ...mapDefaults,
     container,
-    style: createRasterStyle(satelliteOpacity),
+    style: createRasterStyle(satelliteOpacity, grayscale),
   });
+  const scaleWidth = Number.parseFloat(getComputedStyle(container).getPropertyValue('--map-scale-max-width'));
+  map.addControl(new MetricScaleControl({ maxWidth: scaleWidth }), 'bottom-right');
   const locationDisplay = createGeolocationDisplay(map, () => geolocation.stopFollowing());
   const geolocation = createGeolocationController({
     onStateChange: options.onGeolocationStateChange,
-    onPosition: locationDisplay.show,
-    onRecenter: locationDisplay.recenter,
-    onClear: locationDisplay.clear,
+    onPosition: (position) => {
+      locationDisplay.show(position);
+      options.onGeolocationAccuracyChange(position.coords.accuracy);
+    },
+    onRecenter: (position) => {
+      // Full-screen pages keep the map mounted but inert. GPS still updates its marker;
+      // it must not move the camera the user expects to return to.
+      if (!container.closest('[inert]')) locationDisplay.recenter(position);
+    },
+    onClear: () => { locationDisplay.clear(); options.onGeolocationAccuracyChange(null); },
   });
   const reporting = createReportController({
     onRegister: (obstacle) => options.onObstacleRegistered?.(obstacle),
@@ -89,6 +106,12 @@ export function createMapController(
     if (map.getLayer(SATELLITE_LAYER_ID)) {
       map.setPaintProperty(SATELLITE_LAYER_ID, 'raster-opacity', opacity);
     }
+  }
+
+  function setGrayscale(nextGrayscale: boolean) {
+    if (destroyed) return;
+    grayscale = nextGrayscale;
+    applyRasterGrayscale(map, grayscale);
   }
 
   function flyToLocation(target: CameraTarget) {
@@ -123,17 +146,26 @@ export function createMapController(
     }
   }
 
+  function handleStyleLoad() {
+    setSatelliteOpacity(satelliteOpacity);
+    setGrayscale(grayscale);
+  }
+
   function handleMapError(event: ErrorEvent) {
     console.error('MapLibre error:', event);
   }
 
   map.on('click', handleMapClick);
   map.on('load', handleLoad);
+  map.on('style.load', handleStyleLoad);
   map.on('error', handleMapError);
   window.addEventListener('resize', handleResize);
 
   return {
+    focus: () => map.getCanvas().focus({ preventScroll: true }),
+    stopCamera: () => { if (!destroyed) map.stop(); },
     setSatelliteOpacity,
+    setGrayscale,
     toggleGeolocation: geolocation.toggle,
     flyToLocation,
     undoDrawing: () => { if (!destroyed) drawing.undo(); },
@@ -145,6 +177,7 @@ export function createMapController(
       window.removeEventListener('resize', handleResize);
       map.off('click', handleMapClick);
       map.off('load', handleLoad);
+      map.off('style.load', handleStyleLoad);
       map.off('error', handleMapError);
       drawingInteraction.destroy();
       drawingDisplay.destroy();

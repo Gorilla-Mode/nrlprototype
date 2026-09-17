@@ -1,6 +1,7 @@
-import type { MapOptions, StyleSpecification } from 'maplibre-gl';
+import type { Map, MapOptions, StyleSpecification } from 'maplibre-gl';
 
 export const SATELLITE_LAYER_ID = 'satellite-layer';
+export const RASTER_LAYER_IDS = ['base-layer', 'n100-layer', SATELLITE_LAYER_ID] as const;
 
 export const mapDefaults = {
   center: [5.3435, 60.4055],
@@ -13,7 +14,8 @@ export const mapDefaults = {
  * Svalbard: https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_Svalbard_WMTS_3857/MapServer/WMTS/tile/1.0.0/Basisdata_NP_Basiskart_Svalbard_WMTS_3857/default/default028mm/{z}/{y}/{x}
  * Jan Mayen: https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_JanMayen_WMTS_3857/MapServer/WMTS/tile/1.0.0/Basisdata_NP_Basiskart_JanMayen_WMTS_3857/default/default028mm/{z}/{y}/{x}
  */
-export function createRasterStyle(opacity = 0): StyleSpecification {
+export function createRasterStyle(opacity = 0, grayscale = false): StyleSpecification {
+  const saturation = grayscale ? -1 : 0;
   return {
     version: 8,
     sources: {
@@ -43,11 +45,13 @@ export function createRasterStyle(opacity = 0): StyleSpecification {
         id: 'base-layer',
         type: 'raster',
         source: 'osm',
+        paint: { 'raster-saturation': saturation },
       },
       {
         id: 'n100-layer',
         type: 'raster',
         source: 'n100',
+        paint: { 'raster-saturation': saturation },
       },
       {
         id: SATELLITE_LAYER_ID,
@@ -55,8 +59,21 @@ export function createRasterStyle(opacity = 0): StyleSpecification {
         source: 'satellite',
         paint: {
           'raster-opacity': opacity,
+          'raster-saturation': saturation,
         },
       },
     ],
   };
+}
+
+export function applyRasterGrayscale(
+  map: Pick<Map, 'getLayer' | 'setPaintProperty'>,
+  grayscale: boolean,
+): void {
+  const saturation = grayscale ? -1 : 0;
+  for (const layerId of RASTER_LAYER_IDS) {
+    if (map.getLayer(layerId)) {
+      map.setPaintProperty(layerId, 'raster-saturation', saturation);
+    }
+  }
 }

@@ -7,9 +7,11 @@
   import type { Obstacle } from '../reporting/obstacle';
 
   interface Props {
+    visible?: boolean;
     opacity: number;
     grayscale: boolean;
     onmapclick: () => void;
+    onaccuracychange: (accuracy: number | null) => void;
     ongeolocationstatechange: (state: GeolocationState, message: string) => void;
     onholdchange: (origin: HoldOrigin | null) => void;
     onholdmove: (x: number, y: number) => void;
@@ -17,7 +19,7 @@
     onobstacleregistered?: (obstacle: Obstacle) => void;
   }
 
-  let { opacity, grayscale, onmapclick, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered }: Props = $props();
+  let { visible = true, opacity, grayscale, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered }: Props = $props();
   let mapContainer: HTMLDivElement;
   let controller = $state.raw<MapController | null>(null);
 
@@ -30,10 +32,13 @@
   export function undoDrawing() { controller?.undoDrawing(); }
   export function deleteDrawing() { controller?.deleteDrawing(); }
   export function completeDrawing() { controller?.completeDrawing(); }
+  export function focus() { controller?.focus(); }
 
   onMount(() => {
     const instance = createMapController(mapContainer, {
       initialOpacity: opacity,
+      onGeolocationAccuracyChange: onaccuracychange,
+      initialGrayscale: grayscale,
       onMapClick: () => onmapclick(),
       onGeolocationStateChange: (state, message) => ongeolocationstatechange(state, message),
       onHoldChange: (origin) => onholdchange(origin),
@@ -53,9 +58,17 @@
   $effect(() => {
     controller?.setSatelliteOpacity(opacity);
   });
+
+  $effect(() => {
+    controller?.setGrayscale(grayscale);
+  });
+
+  $effect(() => {
+    if (!visible) controller?.stopCamera();
+  });
 </script>
 
-<div bind:this={mapContainer} class="map-container" class:is-grayscale={grayscale}></div>
+<div bind:this={mapContainer} class="map-container"></div>
 
 <style>
   .map-container {
@@ -65,5 +78,9 @@
 
   .map-container :global(.maplibregl-canvas) {
     -webkit-touch-callout: none;
+  }
+
+  .map-container :global(.maplibregl-canvas:focus-visible) {
+    outline-offset: calc(-1 * var(--space-1));
   }
 </style>

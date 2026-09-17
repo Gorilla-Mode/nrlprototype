@@ -1,69 +1,86 @@
 # AGENTS.md
 
-Guidance for AI coding agents (Claude Code, Copilot, Cursor, etc.) working in this
-repository. Human contributors may find it useful too.
+Start here when working on the Kartverket NRL reporting prototype. It is a static,
+map-based frontend for evaluating workflows and design before real implementation.
+Prioritise clarity, reviewable changes and portrait iPad usability. Preserve working
+map interactions; do not turn a focused task into a redesign or rewrite.
 
-## Project snapshot
+## Read for your task
 
-- **What it is:** a map-based frontend prototype for NRL reporting. It exists to test
-  functionality and design ahead of a real implementation, so favour clarity and small,
-  reviewable changes over cleverness.
-- **Stack:** Svelte 5 (runes), TypeScript, Vite, MapLibre GL JS via `svelte-maplibre`.
-- **Deployed:** https://gorilla-mode.github.io/nrlprototype/ (GitHub Pages, see
-  `.github/workflows/static.yml`).
+| Task | Read |
+| --- | --- |
+| UI, CSS, icons, responsive or accessibility | DESIGN_SYSTEM.md and surrounding components |
+| Map/controller, geolocation, API or data behaviour | Relevant ARCHITECTURE.md sections and existing tests |
+| Backend, storage, database or security proposal | ARCHITECTURE.md including Security and data handling; none of these systems exists yet |
+| Large feature | README.md product brief, IMPLEMENTATION_STATUS.md, then relevant architecture/design sections |
+| Small correction | Nearby code and applicable guidance only; do not read every document |
 
-## Layout
+Update the relevant document when a change makes it inaccurate. Do not add documents
+or abstractions merely to satisfy a template.
 
-- `src/lib/map/` — map controller (`createMapController.ts`) and reusable map controls.
-- `src/lib/map/mapConfig.ts` — map style, sources, and layer configuration.
-- `src/App.css` — shared colour tokens and global map styling. Reuse the tokens; do not
-  hard-code colours in components.
-- `src/App.svelte` — application entry view.
-- `tests/` — `node --test` suites written in TypeScript, compiled via `tsconfig.test.json`.
+## Technical constraints
 
-## Commands
+- Svelte 5 runes, TypeScript, Vite and MapLibre GL JS. Existing package dependencies
+  include svelte-maplibre and Turf. Do not add dependencies without permission.
+- Entry: src/main.ts → App → HomeMap. Controls live in src/lib/map; MapCanvas forwards
+  typed commands through createMapController. New controls register through the toolbar.
+- Map sources/layers live in mapConfig.ts. Drawing/reporting controllers are separate
+  from their UI. Follow existing boundaries and naming; avoid a new state framework.
+- Preserve geolocation's iOS paths and tests. Runtime measurements, coordinates and
+  device state must not be replaced by presentation assumptions.
+- Tests live in tests/, compiled by tsconfig.test.json. New behaviour needs coverage.
+  Never use any or ts-ignore to bypass a type error.
+
+## UX constraints
+
+- DESIGN_SYSTEM.md and src/styles/stylesheet.css define the visual baseline. Keep base,
+  semantic and component tokens distinct; components normally consume semantic tokens.
+- Do not hardcode design values or raw palette colours in components. Read CSS values
+  through the typed drawing-display bridge when MapLibre needs them. Only documented,
+  runtime-derived custom properties belong in inline styles.
+- Keep search and information panels opaque, map buttons visually stable, text legible
+  over maps and targets at least 44 × 44 px. Use shared gutters and safe-area insets.
+- Keep labelled geometry, keyboard access, focus-visible, reduced motion and explicit
+  loading/error/empty/completion states. Colour alone must never convey meaning.
+- Preserve good work. Do not implement language/units/help/persistence just because they
+  appear in the roadmap. Selection completion is not submission or durable saving.
+
+## Verification
 
 | Task | Command |
 | --- | --- |
-| Install | `npm install` |
-| Dev server | `npm run dev` |
-| Production build | `npm run build` |
-| Type + Svelte check | `npm run check` |
-| Tests | `npm test` |
+| Development | npm run dev |
+| Type and Svelte checks | npm run check |
+| Tests | npm test |
+| Production build | npm run build |
 
-Run `npm run check` and `npm test` before proposing any change as done. If either fails,
-say so and show the output rather than working around it.
+Run check and tests before calling any change done; run the build for application
+changes. If a check fails, report the failing output and fix the cause within scope.
+There is no configured lint command; the residual .oxlintrc.json is not an executable
+verification step. Do not install a linter for an unrelated task.
 
-## Working agreement for AI agents
+For visual changes inspect 390 × 844, portrait iPad 834 × 1194 and 1440 × 1024 in both
+light/dark themes. Check map backgrounds, focus/hover/selected/disabled states,
+loading/errors, text clipping, safe areas and overlapping controls. Emulation is not
+physical iPad/Safari verification: report exactly what was tested and what remains.
 
-1. **Stay in scope.** Do only what was asked. If you spot adjacent problems, mention them;
-   do not fix them unprompted.
-2. **Understand before editing.** Read the surrounding files and match their style,
-   naming, and Svelte 5 runes idiom. Do not introduce a new pattern for something the
-   codebase already solves.
-3. **No new dependencies** without asking first. This is a prototype; keep the tree small.
-4. **Keep changes reviewable.** Prefer several focused commits over one large one. Never
-   reformat or churn unrelated lines.
-5. **Tests and types are not optional.** New behaviour needs a test in `tests/`. Never
-   weaken types with `any` or `// @ts-ignore` to make an error disappear — fix the cause.
-6. **Report faithfully.** If something is untested, incomplete, or skipped, state it
-   plainly. Do not claim work is verified unless you ran the checks.
-7. **Don't touch these without explicit instruction:** `.github/workflows/`, `LICENSE`,
-   `package-lock.json` (except as a side effect of an approved `npm install`), deployment
-   config, and anything under `pr-reports/`.
-8. **Secrets:** never commit keys, tokens, or `.env` files. There are no server secrets in
-   this repo and it should stay that way.
-9. **Commits:** clear conventional-style messages (`fix:`, `feat:`, `tests:`, `chore:`).
-   Only commit or push when the user asks.
+## Git and data hygiene
 
-## Map-specific notes
-
-- Map controls live in `src/lib/map/` and follow the existing control component pattern
-  (`GrayscaleControl.svelte`, `LayerFadeControl.svelte`, etc.). New controls should match
-  that shape and register through the toolbar, not directly against the map instance.
-- Geolocation has known iOS quirks (see recent commits and
-  `createGeolocationController.ts`). Any change here must keep the existing geolocation
-  tests green and add coverage for new paths.
+1. Inspect branch, status, recent history and changed/untracked files before editing.
+   Do not overwrite or revert unrelated local changes.
+2. Keep scope focused; no unrelated formatting, asset cleanup or architecture changes.
+3. Do not commit or push unless explicitly requested. Use clear conventional messages
+   when asked (feat:, fix:, tests:, docs:, chore:).
+4. Do not touch .github/workflows/, LICENSE, deployment configuration or pr-reports/
+   without explicit instruction. Preserve package-lock.json unless an approved install
+   changes it. npm install is not part of routine verification.
+5. Never commit secrets, credentials, .env files, editor settings, temporary screenshots,
+   node_modules, dist or .test-build. Classify uncertain untracked files before acting;
+   do not delete them merely because they are untracked.
+6. Review the complete final diff, run git diff --check and inspect remaining untracked
+   files. Distinguish task changes ready for Git from existing unrelated work.
+7. No server secrets belong in this frontend. Read the architecture's data notes before
+   changing geolocation, search requests, reporting or persistence.
 
 ## Response protocol
 

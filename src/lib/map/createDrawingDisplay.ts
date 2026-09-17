@@ -1,13 +1,26 @@
 import type { FeatureCollection, LineString, Point, Polygon } from 'geojson';
 import type { GeoJSONSource, Map } from 'maplibre-gl';
 import { polygonGeometry, type GeometryDraft } from '../reporting/createDrawingController.js';
-import { obstacleGeometryChoices, type ObstacleGeometryType } from '../reporting/obstacle.js';
 
 export const drawingSourceId = 'obstacle-drawing';
 const fillLayerId = 'obstacle-drawing-fill';
+const lineCasingLayerId = 'obstacle-drawing-line-casing';
 const lineLayerId = 'obstacle-drawing-line';
 const vertexLayerId = 'obstacle-drawing-vertices';
-type DrawingFeatures = FeatureCollection<Point | LineString | Polygon, { color: string }>;
+type DrawingFeatures = FeatureCollection<Point | LineString | Polygon, { vertexColor: string }>;
+
+interface DrawingVisuals {
+  point: string;
+  outline: string;
+  vertex: string;
+  fillOpacity: number;
+  lineWidth: number;
+  casingThickness: number;
+  casingOpacity: number;
+  radius: number;
+  strokeWidth: number;
+  dashLength: number;
+}
 
 export function createDrawingDisplay(map: Map) {
   let draft: GeometryDraft | null = null;
@@ -15,23 +28,43 @@ export function createDrawingDisplay(map: Map) {
   const document = map.getCanvas().ownerDocument;
   const view = document.defaultView!;
 
-  // Resolve inherited CSS tokens through computed color before passing them to WebGL.
-  const probe = document.createElement('span');
-  probe.hidden = true;
-  map.getContainer().append(probe);
-  function resolveColor(token: string) {
-    probe.style.color = `var(${token})`;
-    return view.getComputedStyle(probe).color;
+  // CSS is authoritative; resolve colours for WebGL and lengths in CSS pixels.
+  function readVisuals(): DrawingVisuals {
+    const probe = document.createElement('span');
+    probe.hidden = true;
+    map.getContainer().append(probe);
+    const resolveColor = (token: string): string => {
+      probe.style.color = `var(${token})`;
+      return view.getComputedStyle(probe).color;
+    };
+    const style = view.getComputedStyle(map.getContainer());
+    const number = (token: string): number => {
+      const value = Number.parseFloat(style.getPropertyValue(token));
+      if (!Number.isFinite(value)) throw new Error(`Missing numeric design token: ${token}`);
+      return value;
+    };
+    try {
+      return {
+        point: resolveColor('--color-drawing-point'),
+        outline: resolveColor('--color-drawing-outline'),
+        vertex: resolveColor('--color-drawing-vertex'),
+        fillOpacity: number('--map-drawing-fill-opacity'),
+        lineWidth: number('--map-drawing-line-width'),
+        casingThickness: number('--map-drawing-casing-thickness'),
+        casingOpacity: number('--map-drawing-casing-opacity'),
+        radius: number('--map-drawing-vertex-radius'),
+        strokeWidth: number('--map-drawing-stroke-width'),
+        dashLength: number('--map-drawing-dash-length'),
+      };
+    } finally { probe.remove(); }
   }
-  const colors = Object.fromEntries(obstacleGeometryChoices.map(({ type, colorToken }) => [type, resolveColor(colorToken)])) as Record<ObstacleGeometryType, string>;
-  const surface = resolveColor('--color-surface');
-  probe.remove();
+  let visuals = readVisuals();
 
   function features(): DrawingFeatures {
     const collection: DrawingFeatures = { type: 'FeatureCollection', features: [] };
     if (!draft) return collection;
     const { vertices, type } = draft;
-    const properties = { color: colors[type] };
+    const properties = { vertexColor: type === 'Point' ? visuals.point : visuals.vertex };
     for (const vertex of vertices) {
       collection.features.push({ type: 'Feature', properties, geometry: { type: 'Point', coordinates: [...vertex] } });
     }
@@ -56,20 +89,47 @@ export function createDrawingDisplay(map: Map) {
     if (!map.getLayer(fillLayerId)) map.addLayer({
       id: fillLayerId, type: 'fill', source: drawingSourceId,
       filter: ['==', '$type', 'Polygon'],
-      paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.2 },
+      paint: { 'fill-color': visuals.outline, 'fill-opacity': visuals.fillOpacity },
     });
+    if (!map.getLayer(lineCasingLayerId)) {
+      const casingWidth = visuals.lineWidth + 2 * visuals.casingThickness;
+      const casingDashLength = visuals.dashLength * visuals.lineWidth / casingWidth;
+      map.addLayer({
+        id: lineCasingLayerId, type: 'line', source: drawingSourceId,
+        filter: ['==', '$type', 'LineString'],
+        paint: {
+          'line-color': visuals.vertex,
+          'line-width': casingWidth,
+          'line-opacity': visuals.casingOpacity,
+          'line-dasharray': [casingDashLength, casingDashLength],
+        },
+      });
+    }
     if (!map.getLayer(lineLayerId)) map.addLayer({
       id: lineLayerId, type: 'line', source: drawingSourceId,
       filter: ['==', '$type', 'LineString'],
-      paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-dasharray': [2, 2] },
+      paint: { 'line-color': visuals.outline, 'line-width': visuals.lineWidth, 'line-dasharray': [visuals.dashLength, visuals.dashLength] },
     });
     if (!map.getLayer(vertexLayerId)) map.addLayer({
       id: vertexLayerId, type: 'circle', source: drawingSourceId,
       filter: ['==', '$type', 'Point'],
-      paint: { 'circle-color': ['get', 'color'], 'circle-radius': 6, 'circle-stroke-width': 2, 'circle-stroke-color': surface },
+      paint: { 'circle-color': ['get', 'vertexColor'], 'circle-radius': visuals.radius, 'circle-stroke-width': visuals.strokeWidth, 'circle-stroke-color': visuals.outline },
     });
   }
 
+  function refreshTheme() {
+    if (destroyed) return;
+    visuals = readVisuals();
+    render();
+    if (map.getLayer(fillLayerId)) map.setPaintProperty(fillLayerId, 'fill-color', visuals.outline);
+    if (map.getLayer(lineCasingLayerId)) map.setPaintProperty(lineCasingLayerId, 'line-color', visuals.vertex);
+    if (map.getLayer(lineLayerId)) map.setPaintProperty(lineLayerId, 'line-color', visuals.outline);
+    if (map.getLayer(vertexLayerId)) map.setPaintProperty(vertexLayerId, 'circle-stroke-color', visuals.outline);
+  }
+  const themeObserver = new view.MutationObserver(refreshTheme);
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  const themeMedia = view.matchMedia('(prefers-color-scheme: dark)');
+  themeMedia.addEventListener('change', refreshTheme);
   map.on('style.load', render);
   render();
 
@@ -83,7 +143,9 @@ export function createDrawingDisplay(map: Map) {
       if (destroyed) return;
       destroyed = true;
       map.off('style.load', render);
-      for (const id of [vertexLayerId, lineLayerId, fillLayerId]) {
+      themeObserver.disconnect();
+      themeMedia.removeEventListener('change', refreshTheme);
+      for (const id of [vertexLayerId, lineLayerId, lineCasingLayerId, fillLayerId]) {
         if (map.getLayer(id)) map.removeLayer(id);
       }
       if (map.getSource(drawingSourceId)) map.removeSource(drawingSourceId);
