@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Draft } from './types';
-  import { geometryTypeFor } from './types';
+  import { geometryTypeFor, heightOptions, lightingOptions } from './types';
 
   export let draft: Draft;
   export let onBack: () => void = () => {};
@@ -17,25 +17,6 @@
   $: locationCaption = draft.coordinates
     ? `${draft.coordinates.lat.toFixed(4)}° N, ${draft.coordinates.lng.toFixed(4)}° E · ${draft.vertexCount} ${draft.vertexCount === 1 ? 'vertex' : 'vertices'}`
     : 'Location not set';
-
-  const heightOptions = [
-    'Not set',
-    '49 ft (15 m)',
-    '98 ft (30 m)',
-    '148 ft (45 m)',
-    '197 ft (60 m)',
-    '328 ft (100 m)',
-    '492 ft (150 m)'
-  ];
-
-  const lightingOptions = [
-    'Not set',
-    'No lighting',
-    'Steady red light',
-    'Flashing red light',
-    'Flashing white light',
-    'Unknown'
-  ];
 </script>
 
 <section class="page">

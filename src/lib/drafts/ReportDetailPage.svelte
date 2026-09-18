@@ -1,10 +1,17 @@
 <script lang="ts">
   import type { Report } from './types';
-  import { geometryTypeFor } from './types';
+  import { geometryTypeFor, heightOptions, lightingOptions, lightingSummary } from './types';
 
   export let report: Report;
   export let onBack: () => void = () => {};
   export let onEdit: () => void = () => {};
+
+  let editing = false;
+
+  const toggleEditing = () => {
+    editing = !editing;
+    if (editing) onEdit();
+  };
 
   $: geometryType = geometryTypeFor(report.category);
 
@@ -40,13 +47,35 @@
 
         <div class="field-box">
           <div class="field-label">HEIGHT ABOVE GROUND</div>
-          <div class="field-value">{report.heightAboveGround}</div>
+          {#if editing}
+            <div class="field-value select-wrap">
+              <select bind:value={report.heightAboveGround}>
+                {#each heightOptions as option}
+                  <option value={option}>{option}</option>
+                {/each}
+              </select>
+              <span class="chev">⌄</span>
+            </div>
+          {:else}
+            <div class="field-value">{report.heightAboveGround}</div>
+          {/if}
           <div class="field-caption muted">Highest point reported</div>
         </div>
 
         <div class="field-box">
           <div class="field-label">LIGHTING</div>
-          <div class="field-value">{report.lighting}</div>
+          {#if editing}
+            <div class="field-value select-wrap">
+              <select bind:value={report.lighting}>
+                {#each lightingOptions as option}
+                  <option value={option}>{option}</option>
+                {/each}
+              </select>
+              <span class="chev">⌄</span>
+            </div>
+          {:else}
+            <div class="field-value">{report.lighting}</div>
+          {/if}
           <div class="field-caption muted">Marking on the obstacle</div>
         </div>
       </div>
@@ -66,7 +95,7 @@
           </div>
           <div class="summary-item">
             <div class="summary-label">Lighting</div>
-            <div class="summary-value muted">{report.lightingNote}</div>
+            <div class="summary-value muted">{lightingSummary(report.lighting)}</div>
           </div>
           <div class="summary-item">
             <div class="summary-label">Description</div>
@@ -79,8 +108,13 @@
         <div class="section-label">DESCRIPTION AND REPORTER</div>
         <hr class="divider" />
 
-        <div class="pilot-label">What the pilot reported</div>
-        <p class="pilot-report">{report.pilotReportText}</p>
+        {#if editing}
+          <label class="pilot-label" for="pilot-report">What the pilot reported</label>
+          <textarea id="pilot-report" class="pilot-report-input" bind:value={report.pilotReportText}></textarea>
+        {:else}
+          <div class="pilot-label">What the pilot reported</div>
+          <p class="pilot-report">{report.pilotReportText}</p>
+        {/if}
 
         <div class="reporter-row">
           <span class="muted">Reported by</span>
@@ -129,7 +163,7 @@
 
   <footer class="bottom-bar">
     <div class="actions">
-      <button class="secondary" on:click={onEdit}>Edit report</button>
+      <button class="secondary" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
       <div class="primary-wrap">
         <button class="primary">
           <span class="paper-plane">➤</span> Send for review
@@ -170,6 +204,16 @@
   .field-value { font-size:17px; font-weight:700; color:var(--color-text-primary) }
   .field-caption { font-size:12px; margin-top:4px }
 
+  .select-wrap { position:relative; display:flex; align-items:center; justify-content:space-between }
+  .select-wrap select {
+    -webkit-appearance:none; appearance:none;
+    width:100%; border:0; background:transparent; padding:0; margin:0;
+    font:inherit; font-size:17px; font-weight:700; color:var(--color-text-primary);
+    cursor:pointer;
+  }
+  .select-wrap select:focus { outline:none }
+  .select-wrap .chev { position:absolute; right:0; top:50%; transform:translateY(-50%); color:var(--color-text-secondary); font-weight:400; pointer-events:none }
+
   .ready-card { border:var(--border-default); border-radius:12px; padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
   .ready-title { font-weight:700; font-size:17px; color:var(--color-text-primary) }
   .ready-desc { font-size:14px; margin-top:2px }
@@ -183,8 +227,9 @@
   .section-label { font-size:12px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-top:8px }
   .divider { border:0; height:1px; background:var(--color-border-default); margin:8px 0 16px }
 
-  .pilot-label { font-size:14px; color:var(--color-text-primary); margin-bottom:8px }
+  .pilot-label { display:block; font-size:14px; color:var(--color-text-primary); margin-bottom:8px }
   .pilot-report { margin:0; font-size:15px; line-height:1.5; color:var(--color-text-primary) }
+  .pilot-report-input { width:100%; min-height:70px; resize:vertical; background:var(--color-background-subtle); border:1px solid transparent; border-radius:10px; padding:12px; font:inherit; font-size:15px; box-sizing:border-box }
 
   .reporter-row { display:flex; justify-content:space-between; align-items:center; font-size:14px; margin:14px 0 0; padding-top:14px; border-top:var(--border-default) }
   .reporter-name { font-weight:700; color:var(--color-text-primary) }
