@@ -17,9 +17,4 @@
     </button>
     <h1 class="reports-title" bind:this={title} tabindex="-1">Reports</h1>
   </div>
-
-  <div class="reports-segmented">
-    <button type="button" class="reports-segment" aria-pressed="true">My reports</button>
-    <button type="button" class="reports-segment" aria-pressed="false">My drafts</button>
-  </div>
 </div>

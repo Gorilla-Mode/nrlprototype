@@ -1,53 +1,59 @@
 <script lang="ts">
-  import type { Report } from './types';
-  import { geometryTypeFor, heightInMeters, formatHeightFromMeters, lightingSummary, reportStatusLabel } from './types';
+  import StatusBadge from './StatusBadge.svelte';
+  import type { Report } from './reportsData';
+  import { geometryTypeFor, lightingSummary, formatToday } from '../drafts/types';
 
   export let report: Report;
-  export let onBack: () => void = () => {};
-  export let onEdit: () => void = () => {};
+  export let onback: () => void = () => {};
 
   let editing = false;
 
   const toggleEditing = () => {
     editing = !editing;
-    if (editing) onEdit();
   };
+
+  function updateHeight(raw: string) {
+    const meters = Number(raw);
+    if (raw.trim() === '' || Number.isNaN(meters)) {
+      report.heightMeters = 0;
+      report.heightFeet = 0;
+      return;
+    }
+    report.heightMeters = meters;
+    report.heightFeet = Math.round(meters * 3.28084);
+  }
 
   function sendForReview() {
     report.status = 'pending';
+    report.secondaryDate = formatToday();
     editing = false;
   }
 
-  $: isPending = report.status === 'pending';
-
-  function updateHeight(raw: string) {
-    if (raw.trim() === '') {
-      report.heightAboveGround = 'Not set';
-      return;
-    }
-    const meters = Number(raw);
-    report.heightAboveGround = formatHeightFromMeters(Number.isNaN(meters) ? null : meters);
-  }
-
-  $: geometryType = geometryTypeFor(report.category);
+  $: geometryType = geometryTypeFor(report.obstacleType);
+  $: heightDisplay = `${report.heightFeet} ft (${report.heightMeters} m)`;
 
   $: locationCaption = report.coordinates
     ? `${report.coordinates.lat.toFixed(4)}° N, ${report.coordinates.lng.toFixed(4)}° E · ${report.vertexCount} ${report.vertexCount === 1 ? 'vertex' : 'vertices'}`
     : 'Location not set';
 
   $: descriptionStatus = report.pilotReportText.trim() ? 'Added' : 'Not added';
+
+  $: isReady = report.status === 'ready';
+  $: isPending = report.status === 'pending';
+  $: isApproved = report.status === 'approved';
+  $: isDeclined = report.status === 'declined';
 </script>
 
 <section class="page">
   <header class="top-bar">
     <div class="top-bar-inner">
-      <button class="back" on:click={onBack}>‹ Reports</button>
-      <span class="badge" class:pending={isPending}>{reportStatusLabel(report.status)}</span>
+      <button class="back" on:click={onback}>‹ Reports</button>
+      <StatusBadge status={report.status} />
     </div>
     <div class="top-bar-inner title-row">
       <div>
-        <h1>{report.title}</h1>
-        <div class="subtitle">{geometryType} · <strong class="type-highlight">{report.category}</strong> · {report.value}</div>
+        <h1>{report.name}</h1>
+        <div class="subtitle">{geometryType} · <strong class="type-highlight">{report.obstacleType}</strong> · {heightDisplay}</div>
       </div>
     </div>
   </header>
@@ -57,7 +63,7 @@
       <div class="fields-row">
         <div class="field-box">
           <div class="field-label">TYPE</div>
-          <div class="field-value">{report.category}</div>
+          <div class="field-value">{report.obstacleType}</div>
           <div class="field-caption muted">{geometryType} geometry</div>
         </div>
 
@@ -70,13 +76,13 @@
                 min="0"
                 inputmode="decimal"
                 placeholder="Enter height"
-                value={heightInMeters(report.heightAboveGround) ?? ''}
+                value={report.heightMeters}
                 on:input={(e) => updateHeight(e.currentTarget.value)}
               />
               <span class="unit">m</span>
             </div>
           {:else}
-            <div class="field-value">{report.heightAboveGround}</div>
+            <div class="field-value">{heightDisplay}</div>
           {/if}
           <div class="field-caption muted">Highest point reported</div>
         </div>
@@ -95,13 +101,19 @@
         </div>
       </div>
 
-      <div class="ready-card">
-        {#if isPending}
-          <div class="ready-title">Pending review</div>
-          <div class="ready-desc muted">Sent to the NRL reviewer. You'll be notified about the outcome.</div>
-        {:else}
+      <div class="ready-card" class:declined={isDeclined}>
+        {#if isReady}
           <div class="ready-title">Ready to send for review</div>
           <div class="ready-desc muted">Everything the reviewer needs is filled in.</div>
+        {:else if isPending}
+          <div class="ready-title">Pending review</div>
+          <div class="ready-desc muted">Sent to the NRL reviewer. You'll be notified about the outcome.</div>
+        {:else if isApproved}
+          <div class="ready-title">Approved</div>
+          <div class="ready-desc muted">Reviewed by {report.reviewer}. This obstacle has been added to the register.</div>
+        {:else}
+          <div class="ready-title">Declined</div>
+          <div class="ready-desc muted">Reviewed by {report.reviewer}. This report was not added to the register.</div>
         {/if}
 
         <div class="summary-grid">
@@ -111,7 +123,7 @@
           </div>
           <div class="summary-item">
             <div class="summary-label">Height above ground</div>
-            <div class="summary-value muted">{report.heightAboveGround}</div>
+            <div class="summary-value muted">{heightDisplay}</div>
           </div>
           <div class="summary-item">
             <div class="summary-label">Lighting</div>
@@ -171,8 +183,15 @@
             <li>
               <span class="dot"></span>
               <div>
-                <div class="activity-title">Last edited</div>
-                <div class="activity-date muted">{report.editedDate}</div>
+                {#if isReady}
+                  <div class="activity-title">Last edited</div>
+                  <div class="activity-date muted">{report.secondaryDate}</div>
+                {:else if isPending}
+                  <div class="activity-title">Sent for review</div>
+                  <div class="activity-date muted">{report.secondaryDate}</div>
+                {:else}
+                  <div class="activity-title">Reviewed by {report.reviewer}</div>
+                {/if}
               </div>
             </li>
           </ul>
@@ -183,21 +202,26 @@
 
   <footer class="bottom-bar">
     <div class="actions">
-      {#if isPending}
-        <div class="pending-note">
-          <div class="note-strong">Sent for review</div>
-          <div class="muted">This report can no longer be edited</div>
-        </div>
-      {:else}
+      {#if isReady}
         <button class="secondary" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
         <div class="primary-wrap">
           <button class="primary" on:click={sendForReview}>
-            <span class="paper-plane">➤</span> Send for review
+            <span class="paper-plane">➤</span> Send for Review
           </button>
           <div class="primary-note">
             <div class="note-strong">Goes straight to the NRL reviewer</div>
             <div class="muted">You cannot edit the report after sending</div>
           </div>
+        </div>
+      {:else if isPending}
+        <div class="pending-note">
+          <div class="note-strong">Sent for review</div>
+          <div class="muted">This report can no longer be edited</div>
+        </div>
+      {:else}
+        <div class="pending-note">
+          <div class="note-strong">{isApproved ? 'Approved' : 'Declined'} by {report.reviewer}</div>
+          <div class="muted">This report has been reviewed and closed</div>
         </div>
       {/if}
     </div>
@@ -216,8 +240,6 @@
   .top-bar-inner.title-row { padding-top:4px; padding-bottom:20px; display:block }
 
   .back { background:transparent; border:0; color:var(--color-action-secondary); font-weight:600; font-size:15px; cursor:pointer; padding:0 }
-  .badge { background:var(--color-status-info-surface); color:var(--color-status-info); padding:6px 10px; border-radius:999px; font-size:12px; font-weight:600 }
-  .badge.pending { background:var(--color-status-warning-surface); color:var(--color-status-warning) }
 
   h1 { margin:0 0 4px; font-size:26px; color:var(--color-text-primary) }
   .subtitle { color:var(--color-text-secondary); font-size:14px }
@@ -255,6 +277,7 @@
   }
 
   .ready-card { border:var(--border-default); border-radius:12px; padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
+  .ready-card.declined { border-color: var(--color-status-error) }
   .ready-title { font-weight:700; font-size:17px; color:var(--color-text-primary) }
   .ready-desc { font-size:14px; margin-top:2px }
 
