@@ -24,10 +24,16 @@
 <aside class="right-map-controls" aria-label="Map controls">
   <GeolocationControl state={geolocationState} onclick={ongeolocationclick} />
   <LayerFadeControl bind:opacity bind:open />
-  <GrayscaleControl bind:enabled={grayscale} />
+  <div class:covered={open} inert={open}>
+    <GrayscaleControl bind:enabled={grayscale} />
+  </div>
 </aside>
 
 <style>
+  .covered {
+    visibility: hidden;
+  }
+
   .right-map-controls {
     position: absolute;
     z-index: var(--layer-map-overlay);
