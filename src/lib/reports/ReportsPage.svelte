@@ -9,11 +9,16 @@
   import DraftDetailPage from '../drafts/DraftDetailPage.svelte';
   import { drafts } from '../drafts/mockData';
   import type { Draft } from '../drafts/types';
+  import { formatToday } from '../drafts/types';
+
 
   let { onback }: { onback: () => void } = $props();
 
   let statusFilter = $state<StatusTabKey>('all');
   let query = $state('');
+
+  let selectMode = $state(false);
+  let selectedIds = $state<Set<string>>(new Set());
 
   let view = $state<'list' | 'report-detail' | 'draft-detail'>('list');
   // .raw: these hold a plain reference into the reports/drafts arrays, mutated
@@ -46,6 +51,31 @@
   function draftSent() {
     statusFilter = 'pending';
     backToList();
+  }
+
+  function toggleSelectMode() {
+    selectMode = !selectMode;
+    if (!selectMode) selectedIds = new Set();
+  }
+
+  function toggleSelected(report: Report) {
+    const next = new Set(selectedIds);
+    if (next.has(report.id)) next.delete(report.id);
+    else next.add(report.id);
+    selectedIds = next;
+  }
+
+  function sendSelected() {
+    const today = formatToday();
+    for (const report of reports) {
+      if (selectedIds.has(report.id) && report.status === 'ready') {
+        report.status = 'pending';
+        report.secondaryDate = today;
+      }
+    }
+    selectedIds = new Set();
+    selectMode = false;
+    refreshTick++;
   }
 
   function closeOnEscape(event: KeyboardEvent) {
@@ -103,8 +133,11 @@
     return items;
   }
 
-  let draftsCount = $derived(drafts.length);
-  let items = $derived(buildItems(statusFilter, query));
+  // reports/drafts mutate in place from detail pages and bulk actions, which
+  // plain (non-$state) module arrays don't signal on their own: read
+  // refreshTick here so these explicitly recompute whenever it's bumped.
+  let draftsCount = $derived.by(() => { refreshTick; return drafts.length; });
+  let items = $derived.by(() => { refreshTick; return buildItems(statusFilter, query); });
   let noun = $derived(statusFilter === 'draft' ? 'drafts' : statusFilter === 'all' ? 'items' : 'reports');
 </script>
 
@@ -119,7 +152,7 @@
     <main class="reports-page" aria-label="Reports">
       <header class="reports-header">
         <ReportsHeader {onback} />
-        <ReportsToolbar bind:query />
+        <ReportsToolbar bind:query {selectMode} selectedCount={selectedIds.size} ontoggleselect={toggleSelectMode} onsend={sendSelected} />
         <StatusTabs {reports} {draftsCount} active={statusFilter} onselect={(key) => statusFilter = key} />
       </header>
 
@@ -135,7 +168,7 @@
           <div class="reports-card-grid" class:drafts-grid={statusFilter === 'draft'}>
             {#each items as item (item.kind + '-' + item.id)}
               {#if item.kind === 'report'}
-                <ReportCard report={item.report} onopen={openReport} />
+                <ReportCard report={item.report} onopen={openReport} {selectMode} selected={selectedIds.has(item.report.id)} ontoggleselect={toggleSelected} />
               {:else}
                 <DraftCard draft={item.draft} onEdit={openDraft} />
               {/if}

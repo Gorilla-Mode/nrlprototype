@@ -1,5 +1,11 @@
 <script lang="ts">
-  let { query = $bindable('') }: { query?: string } = $props();
+  let { query = $bindable(''), selectMode, selectedCount, ontoggleselect, onsend }: {
+    query?: string;
+    selectMode: boolean;
+    selectedCount: number;
+    ontoggleselect: () => void;
+    onsend: () => void;
+  } = $props();
 </script>
 
 <div class="reports-header-row reports-toolbar">
@@ -13,8 +19,18 @@
     Filter
   </button>
 
-  <button type="button" class="button reports-tool-button">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5" /></svg>
-    Select
-  </button>
+  {#if selectMode}
+    <button type="button" class="button reports-tool-button" onclick={ontoggleselect}>
+      Cancel
+    </button>
+    <button type="button" class="button button--primary reports-tool-button" disabled={selectedCount === 0} onclick={onsend}>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5" /></svg>
+      Send {selectedCount} selected
+    </button>
+  {:else}
+    <button type="button" class="button reports-tool-button" onclick={ontoggleselect}>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5" /></svg>
+      Select
+    </button>
+  {/if}
 </div>
