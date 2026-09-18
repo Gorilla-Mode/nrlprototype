@@ -7,7 +7,7 @@
   export let onback: () => void = () => {};
 
   let view: 'list' | 'draft-detail' | 'report-detail' = 'list';
-  let listTab: 'reports' | 'drafts' = 'drafts';
+  let listTab: 'reports' | 'drafts' = 'reports';
   let selectedDraft: Draft | null = null;
   let selectedReport: Report | null = null;
 

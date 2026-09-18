@@ -9,7 +9,7 @@
   export let onOpenDraft: (draft: Draft) => void = () => {};
   export let onOpenReport: (report: Report) => void = () => {};
   export let onBack: () => void = () => {};
-  export let view: 'reports' | 'drafts' = 'drafts';
+  export let view: 'reports' | 'drafts' = 'reports';
 
   let query = '';
   let drafts: Draft[] = [];
