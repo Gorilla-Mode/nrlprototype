@@ -34,7 +34,7 @@
   ]);
 </script>
 
-<dialog class="obstacle-report-dialog dialog-shell summary-panel" bind:this={dialog} aria-labelledby="summary-heading">
+<dialog class="obstacle-report-dialog dialog-shell summary-panel" bind:this={dialog} aria-labelledby="summary-heading" oncancel={(event) => { event.preventDefault(); onclose(); }}>
   <header class="dialog-header">
     <h2 id="summary-heading">{mode === 'draft' ? 'Draft saved' : 'Report completed'}</h2>
     <p class="summary-note">Prototype summary — not sent anywhere yet.</p>
