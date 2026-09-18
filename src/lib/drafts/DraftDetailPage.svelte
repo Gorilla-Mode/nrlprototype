@@ -1,9 +1,11 @@
 <script lang="ts">
   import type { Draft } from './types';
   import { geometryTypeFor, heightInMeters, formatHeightFromMeters, formatToday } from './types';
+  import { drafts, reports } from './mockData';
 
   export let draft: Draft;
   export let onBack: () => void = () => {};
+  export let onSend: () => void = () => {};
 
   function updateHeight(raw: string) {
     if (raw.trim() === '') {
@@ -17,6 +19,29 @@
   function saveDraft() {
     draft.editedDate = formatToday();
     onBack();
+  }
+
+  function sendReport() {
+    if (!canSend) return;
+    const index = drafts.findIndex(d => d.id === draft.id);
+    if (index !== -1) drafts.splice(index, 1);
+    reports.push({
+      id: draft.id,
+      title: draft.title,
+      category: draft.category,
+      value: draft.heightAboveGround,
+      status: 'pending',
+      createdDate: draft.createdDate,
+      editedDate: formatToday(),
+      heightAboveGround: draft.heightAboveGround,
+      lighting: draft.lighting,
+      pilotReportText: draft.pilotReportText,
+      reportedByName: draft.reportedByName,
+      reportedByOrg: draft.reportedByOrg,
+      coordinates: draft.coordinates,
+      vertexCount: draft.vertexCount
+    });
+    onSend();
   }
 
   $: geometryType = geometryTypeFor(draft.category);
@@ -140,8 +165,8 @@
     <div class="actions">
       <button class="secondary" on:click={saveDraft}>Save draft</button>
       <div class="primary-wrap">
-        <button class="primary" disabled={!canSend}>
-          <span class="paper-plane">➤</span> Send Report
+        <button class="primary" disabled={!canSend} on:click={sendReport}>
+          <span class="paper-plane">➤</span> Send for Review
         </button>
         <div class="primary-note">
           <div class="note-strong">Goes straight to the NRL reviewer</div>

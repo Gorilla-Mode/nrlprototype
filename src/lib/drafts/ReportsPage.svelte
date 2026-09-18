@@ -28,10 +28,15 @@
     selectedDraft = null;
     selectedReport = null;
   };
+
+  const draftSent = () => {
+    listTab = 'reports';
+    backToList();
+  };
 </script>
 
 {#if view === 'draft-detail' && selectedDraft}
-  <DraftDetailPage draft={selectedDraft} onBack={backToList} />
+  <DraftDetailPage draft={selectedDraft} onBack={backToList} onSend={draftSent} />
 {:else if view === 'report-detail' && selectedReport}
   <ReportDetailPage report={selectedReport} onBack={backToList} />
 {:else}
