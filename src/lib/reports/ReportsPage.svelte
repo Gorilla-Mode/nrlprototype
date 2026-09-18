@@ -12,7 +12,6 @@
 
   let { onback }: { onback: () => void } = $props();
 
-  let activeTab = $state<'reports' | 'drafts'>('reports');
   let statusFilter = $state<StatusTabKey>('all');
   let query = $state('');
 
@@ -45,13 +44,8 @@
   }
 
   function draftSent() {
-    activeTab = 'reports';
-    statusFilter = 'all';
+    statusFilter = 'pending';
     backToList();
-  }
-
-  function selectTab(tab: 'reports' | 'drafts') {
-    activeTab = tab;
   }
 
   function closeOnEscape(event: KeyboardEvent) {
@@ -71,10 +65,47 @@
   }
 
   function matchesStatus(report: Report, key: StatusTabKey): boolean {
-    if (key === 'all') return true;
     if (key === 'reviewed') return report.status === 'approved' || report.status === 'declined';
     return report.status === key;
   }
+
+  /** dd.mm.yyyy -> a comparable number, for "most recent first" sorting across reports and drafts. */
+  function dateSortValue(date: string | undefined): number {
+    if (!date) return 0;
+    const [day, month, year] = date.split('.').map(Number);
+    if (!day || !month || !year) return 0;
+    return year * 10000 + month * 100 + day;
+  }
+
+  type ListItem =
+    | { kind: 'report'; id: string; report: Report; sort: number }
+    | { kind: 'draft'; id: string; draft: Draft; sort: number };
+
+  function buildItems(key: StatusTabKey, q: string): ListItem[] {
+    const items: ListItem[] = [];
+
+    if (key !== 'draft') {
+      for (const report of reports) {
+        if (!matchesReportQuery(report, q)) continue;
+        if (key !== 'all' && !matchesStatus(report, key)) continue;
+        items.push({ kind: 'report', id: report.id, report, sort: dateSortValue(report.secondaryDate ?? report.createdDate) });
+      }
+    }
+
+    if (key === 'draft' || key === 'all') {
+      for (const draft of drafts) {
+        if (!matchesDraftQuery(draft, q)) continue;
+        items.push({ kind: 'draft', id: draft.id, draft, sort: dateSortValue(draft.editedDate) });
+      }
+    }
+
+    items.sort((a, b) => b.sort - a.sort);
+    return items;
+  }
+
+  let draftsCount = $derived(drafts.length);
+  let items = $derived(buildItems(statusFilter, query));
+  let noun = $derived(statusFilter === 'draft' ? 'drafts' : statusFilter === 'all' ? 'items' : 'reports');
 </script>
 
 <svelte:window onkeydown={closeOnEscape} />
@@ -84,53 +115,36 @@
 {:else if view === 'draft-detail' && selectedDraft}
   <DraftDetailPage draft={selectedDraft} onBack={backToList} onSend={draftSent} />
 {:else}
-  <main class="reports-page" aria-label="Reports">
-    <header class="reports-header">
-      <ReportsHeader {onback} {activeTab} onselecttab={selectTab} />
-      <ReportsToolbar bind:query />
-      {#if activeTab === 'reports'}
-        <StatusTabs {reports} active={statusFilter} onselect={(key) => statusFilter = key} />
-      {/if}
-    </header>
+  {#key refreshTick}
+    <main class="reports-page" aria-label="Reports">
+      <header class="reports-header">
+        <ReportsHeader {onback} />
+        <ReportsToolbar bind:query />
+        <StatusTabs {reports} {draftsCount} active={statusFilter} onselect={(key) => statusFilter = key} />
+      </header>
 
-    <div class="reports-content">
-      {#key refreshTick}
-      {#if activeTab === 'reports'}
-        {@const filteredReports = reports.filter((r) => matchesReportQuery(r, query) && matchesStatus(r, statusFilter))}
+      <div class="reports-content">
         <div class="reports-list-meta">
-          <p class="reports-list-count">{filteredReports.length} reports</p>
+          <p class="reports-list-count">{items.length} {noun}</p>
           <p class="reports-list-sort">Sorted by last edited</p>
         </div>
 
-        {#if filteredReports.length === 0}
-          <p class="reports-empty">No reports match your search.</p>
+        {#if items.length === 0}
+          <p class="reports-empty">No {noun} match your search.</p>
         {:else}
-          <div class="reports-card-grid">
-            {#each filteredReports as report (report.id)}
-              <ReportCard {report} onopen={openReport} />
+          <div class="reports-card-grid" class:drafts-grid={statusFilter === 'draft'}>
+            {#each items as item (item.kind + '-' + item.id)}
+              {#if item.kind === 'report'}
+                <ReportCard report={item.report} onopen={openReport} />
+              {:else}
+                <DraftCard draft={item.draft} onEdit={openDraft} />
+              {/if}
             {/each}
           </div>
         {/if}
-      {:else}
-        {@const filteredDrafts = drafts.filter((d) => matchesDraftQuery(d, query))}
-        <div class="reports-list-meta">
-          <p class="reports-list-count">{filteredDrafts.length} drafts</p>
-          <p class="reports-list-sort">Sorted by last edited</p>
-        </div>
-
-        {#if filteredDrafts.length === 0}
-          <p class="reports-empty">No drafts match your search.</p>
-        {:else}
-          <div class="reports-card-grid drafts-grid">
-            {#each filteredDrafts as draft (draft.id)}
-              <DraftCard {draft} onEdit={openDraft} />
-            {/each}
-          </div>
-        {/if}
-      {/if}
-      {/key}
-    </div>
-  </main>
+      </div>
+    </main>
+  {/key}
 {/if}
 
 <style>

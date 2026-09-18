@@ -71,6 +71,7 @@ export function reportActionLabel(report: Report): string {
 
 export const statusTabs = [
   { key: 'all', label: 'All' },
+  { key: 'draft', label: 'Draft' },
   { key: 'ready', label: 'Ready to send' },
   { key: 'pending', label: 'Awaiting review' },
   { key: 'reviewed', label: 'Reviewed' },
