@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Report } from './types';
-  import { geometryTypeFor, heightInMeters, formatHeightFromMeters, lightingSummary } from './types';
+  import { geometryTypeFor, heightInMeters, formatHeightFromMeters, lightingSummary, reportStatusLabel } from './types';
 
   export let report: Report;
   export let onBack: () => void = () => {};
@@ -12,6 +12,13 @@
     editing = !editing;
     if (editing) onEdit();
   };
+
+  function sendForReview() {
+    report.status = 'pending';
+    editing = false;
+  }
+
+  $: isPending = report.status === 'pending';
 
   function updateHeight(raw: string) {
     if (raw.trim() === '') {
@@ -35,7 +42,7 @@
   <header class="top-bar">
     <div class="top-bar-inner">
       <button class="back" on:click={onBack}>‹ Reports</button>
-      <span class="badge">Ready</span>
+      <span class="badge" class:pending={isPending}>{reportStatusLabel(report.status)}</span>
     </div>
     <div class="top-bar-inner title-row">
       <div>
@@ -89,8 +96,13 @@
       </div>
 
       <div class="ready-card">
-        <div class="ready-title">Ready to send for review</div>
-        <div class="ready-desc muted">Everything the reviewer needs is filled in.</div>
+        {#if isPending}
+          <div class="ready-title">Pending review</div>
+          <div class="ready-desc muted">Sent to the NRL reviewer. You'll be notified about the outcome.</div>
+        {:else}
+          <div class="ready-title">Ready to send for review</div>
+          <div class="ready-desc muted">Everything the reviewer needs is filled in.</div>
+        {/if}
 
         <div class="summary-grid">
           <div class="summary-item">
@@ -171,16 +183,23 @@
 
   <footer class="bottom-bar">
     <div class="actions">
-      <button class="secondary" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
-      <div class="primary-wrap">
-        <button class="primary">
-          <span class="paper-plane">➤</span> Send for review
-        </button>
-        <div class="primary-note">
-          <div class="note-strong">Goes straight to the NRL reviewer</div>
-          <div class="muted">You cannot edit the report after sending</div>
+      {#if isPending}
+        <div class="pending-note">
+          <div class="note-strong">Sent for review</div>
+          <div class="muted">This report can no longer be edited</div>
         </div>
-      </div>
+      {:else}
+        <button class="secondary" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
+        <div class="primary-wrap">
+          <button class="primary" on:click={sendForReview}>
+            <span class="paper-plane">➤</span> Send for review
+          </button>
+          <div class="primary-note">
+            <div class="note-strong">Goes straight to the NRL reviewer</div>
+            <div class="muted">You cannot edit the report after sending</div>
+          </div>
+        </div>
+      {/if}
     </div>
   </footer>
 </section>
@@ -198,6 +217,7 @@
 
   .back { background:transparent; border:0; color:var(--color-action-secondary); font-weight:600; font-size:15px; cursor:pointer; padding:0 }
   .badge { background:var(--color-status-info-surface); color:var(--color-status-info); padding:6px 10px; border-radius:999px; font-size:12px; font-weight:600 }
+  .badge.pending { background:var(--color-status-warning-surface); color:var(--color-status-warning) }
 
   h1 { margin:0 0 4px; font-size:26px; color:var(--color-text-primary) }
   .subtitle { color:var(--color-text-secondary); font-size:14px }
@@ -276,6 +296,7 @@
   .primary { background:var(--color-action-primary); color:var(--color-action-primary-text); border:0; border-radius:10px; padding:12px 22px; font-weight:700; display:flex; align-items:center; gap:8px; cursor:pointer }
   .paper-plane { transform:rotate(45deg); display:inline-block }
   .primary-note { text-align:right; font-size:12px }
+  .pending-note { font-size:12px }
   .note-strong { font-weight:700; color:var(--color-text-primary) }
 
   @media (max-width:800px) {

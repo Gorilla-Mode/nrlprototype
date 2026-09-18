@@ -25,12 +25,14 @@ export function geometryTypeFor(category: string): 'Line' | 'Point' {
   return lineCategories.has(category) ? 'Line' : 'Point';
 }
 
+export type ReportStatus = 'ready' | 'pending';
+
 export type Report = {
   id: string;
   title: string;
   category: string;
   value: string;
-  status: 'ready';
+  status: ReportStatus;
   createdDate: string;
   editedDate: string;
   heightAboveGround: string;
@@ -41,6 +43,10 @@ export type Report = {
   coordinates: { lat: number; lng: number } | null;
   vertexCount: number;
 };
+
+export function reportStatusLabel(status: ReportStatus): string {
+  return status === 'pending' ? 'Pending' : 'Ready';
+}
 
 export function lightingSummary(lighting: string): string {
   if (lighting === 'Yes') return 'Lit — reported by pilot';

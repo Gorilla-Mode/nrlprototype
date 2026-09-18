@@ -1,20 +1,22 @@
 <script lang="ts">
   import type { Report } from './types';
+  import { reportStatusLabel } from './types';
 
   export let report: Report;
   export let onOpen: (report: Report) => void = () => {};
 
   const open = () => onOpen(report);
+  $: isPending = report.status === 'pending';
 </script>
 
 <article class="card" on:click={open} role="button" tabindex={0}>
   <div class="card-top">
     <h3 class="title">{report.title}</h3>
-    <span class="badge">Ready</span>
+    <span class="badge" class:pending={isPending}>{reportStatusLabel(report.status)}</span>
   </div>
 
   <div class="meta"><span class="type-highlight">{report.category}</span> · <span class="muted">{report.value}</span></div>
-  <div class="status muted">Ready to send for review</div>
+  <div class="status muted">{isPending ? 'Pending review' : 'Ready to send for review'}</div>
   <div class="edited muted">Edited {report.editedDate}</div>
 
   <div class="card-footer">
@@ -39,6 +41,7 @@
   .card-top { display:flex; align-items:center; justify-content:space-between; gap:12px }
   .title { margin:0; font-size:17px; font-weight:700; color:var(--color-text-primary) }
   .badge { background:var(--color-status-info-surface); color:var(--color-status-info); padding:6px 8px; border-radius:var(--radius-pill); font-size:12px; font-weight:600 }
+  .badge.pending { background:var(--color-status-warning-surface); color:var(--color-status-warning) }
   .meta { font-size:14px; color:var(--color-text-secondary) }
   .type-highlight { font-weight:700; color:var(--color-text-primary) }
   .muted { color:var(--color-text-secondary); font-size:13px }
