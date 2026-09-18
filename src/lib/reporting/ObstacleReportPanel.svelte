@@ -325,10 +325,10 @@
             value={heightInputValue}
             bind:this={heightInputField}
             oninput={(event) => { heightInputValue = event.currentTarget.value.replace(/\D/g, '').slice(0, 3); }}
-            onkeydown={(event) => {
-              if (event.key === 'Enter') confirmHeightInput();
-              if (event.key === 'Escape') closeHeightInput();
-            }}
+onkeydown={(event) => {
+  if (event.key === 'Enter') confirmHeightInput();
+  if (event.key === 'Escape') { event.preventDefault(); closeHeightInput(); }
+}}
           />
           <span class="height-keypad-unit">{draft.heightUnit}</span>
         </div>
