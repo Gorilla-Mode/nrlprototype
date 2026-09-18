@@ -46,6 +46,11 @@ aliases. Presentation constants belong in the stylesheet.
 Selection completion must not claim that a report was submitted or saved. This is a
 workflow prototype, not an operational navigation product.
 
+The reporting-details dialog follows a 684 × 1064 portrait reference and scales
+uniformly to fit the viewport in either orientation. Only its height wheel scrolls.
+This requested exception to the usual minimum target size also scales text and controls
+down in narrow Split View and phone viewports. Type selection never changes typography.
+
 ## Visual validation
 
 Inspect 390 × 844, portrait iPad 834 × 1194 and 1440 × 1024 in light and dark themes.
