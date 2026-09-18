@@ -1017,6 +1017,17 @@ button {
 .reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
 .reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
 
+/* Reporting details: opaque dialog and native scroll wheel. */
+:root {
+  --details-dialog-width: 36rem;
+  --details-backdrop-blur: 4px;
+  --details-progress-height: var(--space-1);
+  --details-type-height: var(--space-16);
+  --details-wheel-row: var(--target-size-min);
+  --details-wheel-fade: linear-gradient(transparent, black 35%, black 65%, transparent);
+  --details-illumination-width: 10rem;
+}
+
 /* 26. Metric scale: measured width comes from MapLibre, independent of UI theme. */
 :root {
   --map-scale-max-width: 120px;

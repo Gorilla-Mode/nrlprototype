@@ -12,6 +12,10 @@ export const obstacleGeometryChoices = [
 ] as const;
 
 export enum ObstacleType {
+  Bridge = 'bridge',
+  Airspan = 'airspan',
+  Pole = 'pole',
+  Building = 'building',
   Other = 'other',
 }
 

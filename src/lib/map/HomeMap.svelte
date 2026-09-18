@@ -13,12 +13,14 @@
   import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
 
-  let { oncomplete, menuOpen = $bindable(false), visible = true, onfaq, onreports, onsettings,
+  let { oncomplete, onresumedetails, onselectiondelete, menuOpen = $bindable(false), visible = true, onfaq, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
   }: {
     oncomplete?: (obstacle: Obstacle) => void;
+    onresumedetails?: () => void;
+    onselectiondelete?: () => void;
     menuOpen?: boolean;
     visible?: boolean;
     onfaq: () => void;
@@ -37,9 +39,15 @@
   let holdOrigin = $state<HoldOrigin | null>(null);
   let holdPointer = $state<{ x: number; y: number } | null>(null);
   export function toggleGeolocation() { mapCanvas?.toggleGeolocation(); }
+  export function focusDetails() {
+    const resume = mapWrapper.querySelector<HTMLButtonElement>('[data-resume-details]');
+    if (resume) resume.focus({ preventScroll: true });
+    else mapCanvas?.focus();
+  }
 
   async function deleteSelection() {
     mapCanvas?.deleteDrawing();
+    onselectiondelete?.();
     await tick();
     mapCanvas?.focus();
   }
@@ -92,6 +100,7 @@
     onundo={() => mapCanvas?.undoDrawing()}
     ondelete={deleteSelection}
     oncomplete={() => mapCanvas?.completeDrawing()}
+    {onresumedetails}
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
 

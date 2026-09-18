@@ -2,11 +2,12 @@
   import { formatMeasurement, type DrawingState } from '../reporting/createDrawingController.js';
   import { obstacleGeometryChoices } from '../reporting/obstacle.js';
 
-  let { state: drawingState, onundo, ondelete, oncomplete }: {
+  let { state: drawingState, onundo, ondelete, oncomplete, onresumedetails }: {
     state: DrawingState;
     onundo: () => void;
     ondelete: () => void;
     oncomplete: () => void;
+    onresumedetails?: () => void;
   } = $props();
 
   let choice = $derived(obstacleGeometryChoices.find(({ type }) => type === drawingState.draft?.type));
@@ -35,6 +36,9 @@
     </div>
     <div class="actions" role="group" aria-label="Selection actions">
       <button type="button" class="button button--danger delete" bind:this={deleteButton} onclick={ondelete}>Delete</button>
+      {#if drawingState.status === 'completed' && onresumedetails}
+        <button type="button" class="button button--primary" data-resume-details onclick={onresumedetails}>Resume details</button>
+      {/if}
       {#if drawingState.status === 'drawing'}
         <button type="button" class="button" onclick={onundo} disabled={drawingState.draft.vertices.length <= 1}>Undo</button>
         <button type="button" class="button button--primary complete" onclick={completeSelection} disabled={!drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete selection</button>
