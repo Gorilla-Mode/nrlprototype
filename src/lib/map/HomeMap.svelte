@@ -14,7 +14,7 @@
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
   import ObstacleReportFlow from '../reporting/ObstacleReportFlow.svelte';
 
-  let { oncomplete, menuOpen = $bindable(false), visible = true, onfaq, onsettings, onreports,
+  let { oncomplete, menuOpen = $bindable(false), visible = true, onfaq, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
@@ -23,8 +23,8 @@
     menuOpen?: boolean;
     visible?: boolean;
     onfaq: () => void;
-    onsettings: (section: SettingsSection) => void;
     onreports: () => void;
+    onsettings: (section: SettingsSection) => void;
     opacity?: number;
     isGrayscale?: boolean;
     geolocationState?: GeolocationState;

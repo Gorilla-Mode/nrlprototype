@@ -15,13 +15,14 @@
     open = !open;
     if (open) {
       await tick();
-      layerSlider?.focus();
+      if (open) layerSlider?.focus();
     }
   };
 
-  const handleKeydown = (event: KeyboardEvent) => {
+  const handleKeydown = async (event: KeyboardEvent) => {
     if (event.key === 'Escape' && open) {
       open = false;
+      await tick();
       layerButton?.focus();
     }
   };
@@ -30,21 +31,23 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="layer-fade-control">
-  <MapButton
-    bind:element={layerButton}
-    class="layer-button"
-    active={open}
-    type="button"
-    aria-label="Fade map layers"
-    aria-expanded={open}
-    aria-controls="layer-fade-panel"
-    title="Fade map layers"
-    onclick={toggleLayerFade}
-  >
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="m3 8 9-5 9 5-9 5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" />
-    </svg>
-  </MapButton>
+  <div class="layer-trigger" class:covered={open} inert={open}>
+    <MapButton
+      bind:element={layerButton}
+      class="layer-button"
+      active={open}
+      type="button"
+      aria-label="Fade map layers"
+      aria-expanded={open}
+      aria-controls="layer-fade-panel"
+      title="Fade map layers"
+      onclick={toggleLayerFade}
+    >
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="m3 8 9-5 9 5-9 5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" />
+      </svg>
+    </MapButton>
+  </div>
 
   <div id="layer-fade-panel" class="layer-fade-panel" hidden={!open}>
     <label class="sr-only" for="satellite-opacity">Fade between topographic map and satellite imagery</label>
@@ -76,9 +79,8 @@
   .layer-fade-panel {
     position: absolute;
     z-index: var(--layer-popover);
-    top: 50%;
-    right: calc(100% + var(--map-slider-panel-gap));
-    transform: translateY(-50%);
+    top: 0;
+    right: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -86,9 +88,48 @@
     width: var(--map-control-size);
     padding-block: var(--map-slider-panel-padding-block);
     border: var(--map-control-border);
+    border-color: transparent;
     border-radius: var(--radius-pill);
-    background: var(--color-background-raised);
+    isolation: isolate;
+  }
+
+  .layer-trigger.covered {
+    visibility: hidden;
+  }
+
+  .layer-fade-panel::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: calc(-1 * var(--border-width-default));
+    left: calc(-1 * var(--border-width-default));
+    width: calc(100% + 2 * var(--border-width-default));
+    height: calc(100% + 2 * var(--border-width-default));
+    border: var(--map-control-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-map-control-surface);
     box-shadow: var(--shadow-control);
+    animation: layer-expand var(--duration-default) var(--ease-standard);
+  }
+
+  .layer-fade-panel > :not(.sr-only) {
+    animation: layer-content-reveal var(--duration-default) var(--ease-standard);
+  }
+
+  @keyframes layer-expand {
+    from { height: var(--map-control-size); }
+  }
+
+  @keyframes layer-content-reveal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .layer-fade-panel::before,
+    .layer-fade-panel > :not(.sr-only) {
+      animation: none;
+    }
   }
 
   .layer-fade-panel[hidden] {
