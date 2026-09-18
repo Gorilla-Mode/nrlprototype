@@ -25,6 +25,31 @@ is inert but remains alive. When leaving it, stop active camera movement and pre
 callbacks from recentering an inert map; location observation itself may continue.
 Unsupported routes must fall back safely without inventing pages or persisted state.
 
+## Reporting variants
+
+`src/lib/reporting/reportingVariants.ts` registers each reporting view with its ID,
+label, component and ordered step routes. Views implement `ReportingVariantProps` and
+share `createDetailsController` for metadata, validation, draft actions and completion.
+To add another flow, add its view and registry entry; keep map drawing and GPS separate.
+
+One-step is the default. `?reporting=one-step` and `?reporting=two-step` select a flow;
+`?debug=1` exposes the menu selector. Combine them with `&` before any route hash.
+Changing the selector updates the URL without reloading or using browser storage.
+The active variant is captured when drawing starts, so changes apply to the next report,
+including while geometry or reporter GPS is pending.
+
+App supplies session-only Save Draft and Finish handlers, awaiting optional external
+`onSaveDraft(payload, reason)` and `onFinish(report, { variantId })` hooks. Existing
+one-argument Finish callbacks remain compatible. `onContinue` is an intermediate hook.
+Both views use canonical metres, the same six obstacle types, and original photo files.
+Absent-obstacle results omit height and illumination; Other alone includes custom type.
+
+Close and successful Save Draft return to the map with Resume details. Delete discards
+the active draft. Finish clears the map selection and opens a shared, session-only result
+summary; closing it releases that result. Reload loses drafts and results. These actions
+do not write to the mock report lists or provide durable saving or submission. Browser
+history cannot restore a report route without its matching in-memory draft or result.
+
 ## External data and geolocation
 
 Raster tiles come from Kartverket, OpenStreetMap and Esri; search uses Geonorge address

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createDetailsController, detailsPayload, detailsStepFromHash, type DetailsHooks, type DetailsPayload, type DraftSaveReason } from '../src/lib/reporting/createDetailsController.js';
+import { createDetailsController, detailsPayload, type DetailsHooks, type DetailsPayload, type DraftSaveReason } from '../src/lib/reporting/createDetailsController.js';
 import { ObstacleType, type Obstacle } from '../src/lib/reporting/obstacle.js';
+
+import { twoStep } from './helpers/reporting.js';
 
 const report: Obstacle = {
   id: 'geometry-report', type: ObstacleType.Other, height: 0, description: '',
@@ -10,7 +12,7 @@ const report: Obstacle = {
 };
 function setup(hooks: DetailsHooks = {}) {
   const controller = createDetailsController({ onChange: () => {}, getHooks: () => hooks });
-  controller.begin(report);
+  controller.begin(report, twoStep);
   const draft = () => {
     const value = controller.getState().draft;
     assert.ok(value);
@@ -88,7 +90,7 @@ test('payload preserves report identity, timestamp, actual geometry and reporter
   assert.equal(payload.gps_position, report.gps_position);
   assert.equal(report.type, ObstacleType.Other);
   assert.equal(report.height, 0);
-  controller.begin({ ...report, gps_position: null });
+  controller.begin({ ...report, gps_position: null }, twoStep);
   assert.equal(detailsPayload(draft()).gps_position, null);
 });
 
@@ -168,7 +170,7 @@ test('pending actions block duplicate saves and edits; stale completion cannot c
   assert.equal(draft().height, 45);
   assert.equal(calls, 1);
   controller.clear();
-  controller.begin({ ...report, id: 'replacement' });
+  controller.begin({ ...report, id: 'replacement' }, twoStep);
   controller.setHeight(90);
   resolve();
   await pending;
@@ -179,9 +181,6 @@ test('pending actions block duplicate saves and edits; stale completion cannot c
 
 test('Continue navigates without a hook; resume restores the last step and incomplete drafts stay on step 1', async () => {
   const { controller, draft } = setup();
-  assert.equal(detailsStepFromHash('#/Report/additional-information'), 2);
-  assert.equal(detailsStepFromHash('#/Report/details'), 1);
-  assert.equal(detailsStepFromHash('#/Reports'), null);
   controller.resume(2);
   assert.equal(controller.getState().step, 1);
   assert.equal(await controller.continue(), false);
@@ -347,7 +346,7 @@ test('pending Finish prevents duplicate actions and edits; stale completion cann
   assert.equal(draft().customType, '');
   assert.equal(draft().photos.length, 0);
   controller.clear();
-  controller.begin({ ...report, id: 'replacement' });
+  controller.begin({ ...report, id: 'replacement' }, twoStep);
   resolve();
   assert.equal(await pending, false);
   assert.equal(calls, 1);
