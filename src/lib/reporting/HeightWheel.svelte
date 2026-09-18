@@ -2,18 +2,18 @@
   import { onMount } from 'svelte';
 
   let { value, disabled = false, onchange }: {
-    value: number | null;
+    value: number;
     disabled?: boolean;
-    onchange: (value: number | null) => void;
+    onchange: (value: number) => void;
   } = $props();
   let wheel: HTMLDivElement;
   let row = $state<HTMLSpanElement>();
   let ready = false;
-  let lastEmitted: number | null | undefined;
+  let lastEmitted: number | undefined;
   const heights = Array.from({ length: 501 }, (_, height) => height);
 
   function align() {
-    if (wheel && row) wheel.scrollTop = (value ?? 30) * row.getBoundingClientRect().height;
+    if (wheel && row) wheel.scrollTop = value * row.getBoundingClientRect().height;
   }
   onMount(() => {
     align();
@@ -29,16 +29,15 @@
   function scroll() {
     if (!ready || disabled || !row) return;
     const height = Math.max(0, Math.min(500, Math.round(wheel.scrollTop / row.getBoundingClientRect().height)));
-    if (height === (value ?? 30)) return;
+    if (height === value) return;
     lastEmitted = height;
     onchange(height);
   }
   function keydown(event: KeyboardEvent) {
     if (disabled) return;
-    const current = value ?? 30;
-    const keys: Record<string, number | null> = {
-      ArrowUp: current + 1, ArrowDown: current - 1,
-      Home: 0, End: 500, Delete: null, Backspace: null,
+    const keys: Record<string, number> = {
+      ArrowUp: value + 1, ArrowDown: value - 1,
+      Home: 0, End: 500,
     };
     if (!(event.key in keys)) return;
     event.preventDefault();
@@ -56,42 +55,33 @@
 
 <div class="height-control" class:disabled>
   <div class="wheel-frame">
-    <div class="centre-row" aria-hidden="true"></div>
+    <div class="centre-row" aria-hidden="true"><span>m</span></div>
     <div bind:this={wheel} class="height-wheel" role="spinbutton" tabindex={disabled ? -1 : 0}
       aria-label="Height in metres" aria-valuemin="0" aria-valuemax="500"
-      aria-valuenow={value ?? undefined} aria-valuetext={value === null ? 'Not specified' : `${value} metres`}
+      aria-valuenow={value} aria-valuetext={`${value} metres`} aria-required="true"
       aria-disabled={disabled} aria-describedby="height-help"
       onscroll={scroll} onkeydown={keydown} onclick={select}>
       {#each heights as height}
         {#if height === 0}
-          <span bind:this={row} class="height-row" class:selected={value === height} data-height={height} aria-hidden="true">{height} <small>m</small></span>
+          <span bind:this={row} class="height-row" class:selected={value === height} data-height={height} aria-hidden="true">{height}</span>
         {:else}
-          <span class="height-row" class:selected={value === height} data-height={height} aria-hidden="true">{height} <small>m</small></span>
+          <span class="height-row" class:selected={value === height} data-height={height} aria-hidden="true">{height}</span>
         {/if}
       {/each}
     </div>
   </div>
-  <div class="height-caption">
-    <span>{value === null ? 'Not specified' : `${value} m`}</span>
-    <button type="button" class="button" {disabled} onclick={() => { lastEmitted = undefined; onchange(value === null ? 30 : null); }}>
-      {value === null ? 'Set height' : 'Clear height'}
-    </button>
-  </div>
-  <p id="height-help">Scroll or use arrow keys. Home: 0 m. End: 500 m.</p>
+  <p id="height-help" class="sr-only">Height is required. Scroll or use arrow keys. Home: 0 m. End: 500 m.</p>
 </div>
 
 <style>
   .height-control { min-width: 0; }
-  .wheel-frame { position: relative; border: var(--border-default); border-radius: var(--radius-card); overflow: hidden; background: var(--color-background-subtle); }
-  .height-wheel { position: relative; height: calc(5 * var(--details-wheel-row)); overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; padding-block: calc(2 * var(--details-wheel-row)); scrollbar-width: none; touch-action: pan-y; mask-image: var(--details-wheel-fade); }
+  .wheel-frame { position: relative; border: var(--details-border); border-radius: var(--details-control-radius); overflow: hidden; background: var(--color-background-raised); }
+  .height-wheel { position: relative; height: calc(3 * var(--details-wheel-row)); overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; padding-block: var(--details-wheel-row); scrollbar-width: none; touch-action: pan-y; mask-image: var(--details-wheel-fade); }
   .height-wheel::-webkit-scrollbar { display: none; }
-  .height-wheel:focus-visible { outline-offset: calc(-1 * var(--space-1)); }
-  .height-row { display: flex; align-items: center; justify-content: center; gap: var(--space-2); height: var(--details-wheel-row); scroll-snap-align: center; font-size: var(--font-size-heading-small); color: var(--color-text-secondary); cursor: pointer; }
-  .height-row.selected { color: var(--color-action-secondary); font-weight: var(--font-weight-semibold); }
-  small { font-size: var(--font-size-body-small); pointer-events: none; }
-  .centre-row { position: absolute; inset-inline: var(--space-2); top: calc(2 * var(--details-wheel-row)); height: var(--details-wheel-row); border: var(--border-width-emphasis) solid var(--color-action-secondary); border-radius: var(--radius-control); background: var(--color-action-selected); pointer-events: none; }
-  .height-caption { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); font-size: var(--font-size-body-small); }
-  p { margin: var(--space-2) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+  .height-wheel:focus-visible { outline-offset: calc(-1 * var(--details-focus-offset)); }
+  .height-row { display: flex; align-items: center; justify-content: center; height: var(--details-wheel-row); scroll-snap-align: center; font-size: var(--details-text-size); color: var(--color-text-secondary); cursor: pointer; }
+  .height-row.selected { color: var(--color-text-primary); }
+  .centre-row { position: absolute; inset-inline: var(--details-small-gap); top: var(--details-wheel-row); height: var(--details-wheel-row); display: flex; align-items: center; justify-content: flex-end; padding-inline: var(--details-small-gap); border: var(--details-border); border-radius: var(--details-control-radius); pointer-events: none; color: var(--color-text-secondary); font-size: var(--details-caption-size); }
   .disabled { opacity: var(--opacity-disabled); }
   .disabled .height-wheel { overflow: hidden; pointer-events: none; }
 </style>

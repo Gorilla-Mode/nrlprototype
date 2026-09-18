@@ -15,14 +15,14 @@ export const illuminationLabels: Record<Illumination, string> = {
 export interface DetailsDraft {
   readonly report: Obstacle;
   readonly type: ObstacleType | null;
-  readonly height: number | null;
+  readonly height: number;
   readonly illumination: Illumination;
   readonly notPresent: boolean;
   readonly dirty: boolean;
 }
 type ActiveDetails =
   | { notPresent: true; height?: never; illumination?: never }
-  | { notPresent: false; height?: number; illumination: Illumination };
+  | { notPresent: false; height: number; illumination: Illumination };
 export type DetailsPayload = Omit<Obstacle, 'type' | 'height'> & {
   type: ObstacleType | null;
 } & ActiveDetails;
@@ -46,7 +46,7 @@ export function detailsPayload(draft: DetailsDraft): DetailsPayload {
     ...report, type: draft.type,
     ...(draft.notPresent
       ? { notPresent: true }
-      : { notPresent: false, ...(draft.height === null ? {} : { height: draft.height }), illumination: draft.illumination }),
+      : { notPresent: false, height: draft.height, illumination: draft.illumination }),
   };
 }
 
@@ -98,9 +98,9 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
     },
     clear() { generation++; publish(initialDetailsState); },
     setType(type: ObstacleType) { if (obstacleTypeChoices.some((choice) => choice.value === type)) edit({ type }); },
-    setHeight(height: number | null) {
-      if (state.draft?.notPresent || (height !== null && !Number.isFinite(height))) return;
-      edit({ height: height === null ? null : Math.max(0, Math.min(500, Math.round(height))) });
+    setHeight(height: number) {
+      if (state.draft?.notPresent || !Number.isFinite(height)) return;
+      edit({ height: Math.max(0, Math.min(500, Math.round(height))) });
     },
     cycleIllumination() {
       if (!state.draft || state.draft.notPresent) return;

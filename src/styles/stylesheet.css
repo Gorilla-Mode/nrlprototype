@@ -1019,13 +1019,30 @@ button {
 
 /* Reporting details: opaque dialog and native scroll wheel. */
 :root {
-  --details-dialog-width: 36rem;
+  /* 684 × 1064 portrait reference. Descendants scale uniformly from dialog width. */
+  --details-aspect-ratio: calc(684 / 1064);
   --details-backdrop-blur: 4px;
-  --details-progress-height: var(--space-1);
-  --details-type-height: var(--space-16);
-  --details-wheel-row: var(--target-size-min);
+  --details-inset: 5.26cqw;
+  --details-section-gap: 3.5cqw;
+  --details-small-gap: 2.05cqw;
+  --details-card-gap: 2.05cqw;
+  --details-icon-gap: 1.17cqw;
+  --details-title-size: 2.92cqw;
+  --details-text-size: 2.05cqw;
+  --details-caption-size: 1.46cqw;
+  --details-icon-size: 2.63cqw;
+  --details-type-icon-size: 4.68cqw;
+  --details-close-size: 6.44cqw;
+  --details-button-height: 8.77cqw;
+  --details-control-radius: 1.75cqw;
+  --details-focus-offset: 0.58cqw;
+  --details-border: 0.15cqw solid var(--color-border-default);
+  --details-progress-height: 0.58cqw;
+  --details-wheel-row: 5.85cqw;
   --details-wheel-fade: linear-gradient(transparent, black 35%, black 65%, transparent);
-  --details-illumination-width: 10rem;
+  --details-action-background: var(--color-text-primary);
+  --details-action-text: var(--color-background-raised);
+  --details-action-hover: var(--color-text-secondary);
 }
 
 /* 26. Metric scale: measured width comes from MapLibre, independent of UI theme. */
