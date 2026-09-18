@@ -2,9 +2,9 @@
   import DraftCard from './DraftCard.svelte';
   import ReportCard from './ReportCard.svelte';
   import FilterPanel from './FilterPanel.svelte';
-  import { onMount } from 'svelte';
   import type { Draft, GeometryFilter, HeightFilter, Report } from './types';
   import { geometryTypeFor, matchesHeightFilter } from './types';
+  import { drafts, reports } from './mockData';
 
   export let onOpenDraft: (draft: Draft) => void = () => {};
   export let onOpenReport: (report: Report) => void = () => {};
@@ -12,58 +12,12 @@
   export let view: 'reports' | 'drafts' = 'reports';
 
   let query = '';
-  let drafts: Draft[] = [];
-  let reports: Report[] = [];
 
   let filterPanelOpen = false;
   let appliedGeometries = new Set<GeometryFilter>();
   let appliedHeightFilter: HeightFilter = 'any';
   let pendingGeometries = new Set<GeometryFilter>();
   let pendingHeightFilter: HeightFilter = 'any';
-
-  // seed mock data
-  onMount(() => {
-    drafts = [
-      {
-        id: '1', title: 'Bru Sandnessjøen', category: 'Bridge', value: 'Not set',
-        currentStep: 2, totalSteps: 2, stepLabel: 'Additional information',
-        editedDate: '14.10.2024', createdDate: '14.10.2024',
-        heightAboveGround: 'Not set', lighting: 'Not set',
-        pilotReportText: 'Observed a new suspension bridge under construction crossing the fjord, unmarked and not on current charts.',
-        reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten',
-        coordinates: { lat: 66.0210, lng: 12.6300 }, vertexCount: 2
-      },
-      {
-        id: '2', title: 'Ny mast Dovre', category: 'Pole / tower', value: '95 ft (29 m)',
-        currentStep: 1, totalSteps: 2, stepLabel: 'Obstacle details',
-        editedDate: '13.10.2024', createdDate: '13.10.2024',
-        heightAboveGround: '95 ft (29 m)', lighting: 'Not set',
-        pilotReportText: 'New radio mast near Dovre, taller than surrounding terrain, no lighting visible at dusk.',
-        reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten',
-        coordinates: { lat: 62.0730, lng: 9.2570 }, vertexCount: 1
-      },
-      {
-        id: '3', title: 'Uten navn', category: 'Other', value: 'Not set',
-        currentStep: 1, totalSteps: 2, stepLabel: 'Obstacle details',
-        editedDate: '12.10.2024', createdDate: '12.10.2024',
-        heightAboveGround: 'Not set', lighting: 'Not set',
-        pilotReportText: 'Unidentified obstacle spotted during low-altitude flight, needs follow-up before details can be confirmed.',
-        reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten',
-        coordinates: null, vertexCount: 0
-      }
-    ];
-
-    reports = [
-      {
-        id: 'r1', title: 'Kraftlinje Sør', category: 'Aerial span', value: '40 ft (12 m)',
-        status: 'ready', createdDate: '12.10.2024', editedDate: '14.10.2024',
-        heightAboveGround: '40 ft (12 m)', lighting: 'No',
-        pilotReportText: 'Power line crossing the valley between two masts. Cables are unlit and hard to see against the ridge.',
-        reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten',
-        coordinates: { lat: 60.3913, lng: 5.3221 }, vertexCount: 2
-      }
-    ];
-  });
 
   type Searchable = {
     title: string; category: string; value: string; heightAboveGround: string;

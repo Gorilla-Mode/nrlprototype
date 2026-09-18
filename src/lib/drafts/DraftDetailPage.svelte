@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Draft } from './types';
-  import { geometryTypeFor, heightInMeters, formatHeightFromMeters } from './types';
+  import { geometryTypeFor, heightInMeters, formatHeightFromMeters, formatToday } from './types';
 
   export let draft: Draft;
   export let onBack: () => void = () => {};
@@ -12,6 +12,11 @@
     }
     const meters = Number(raw);
     draft.heightAboveGround = formatHeightFromMeters(Number.isNaN(meters) ? null : meters);
+  }
+
+  function saveDraft() {
+    draft.editedDate = formatToday();
+    onBack();
   }
 
   $: geometryType = geometryTypeFor(draft.category);
@@ -133,6 +138,7 @@
 
   <footer class="bottom-bar">
     <div class="actions">
+      <button class="secondary" on:click={saveDraft}>Save draft</button>
       <div class="primary-wrap">
         <button class="primary" disabled={!canSend}>
           <span class="paper-plane">➤</span> Send Report
@@ -225,7 +231,8 @@
   .activity-date { font-size:12px; margin-top:2px }
 
   .bottom-bar { flex-shrink:0; background:var(--color-background-raised); border-top:var(--border-default); }
-  .actions { width:100%; max-width:1100px; margin:0 auto; padding:16px 32px; box-sizing:border-box; display:flex; justify-content:flex-end; align-items:flex-end; flex-wrap:wrap; gap:16px }
+  .actions { width:100%; max-width:1100px; margin:0 auto; padding:16px 32px; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px }
+  .secondary { background:var(--color-background-raised); border:var(--border-default); border-radius:10px; padding:12px 20px; font-weight:600; cursor:pointer; color:var(--color-text-primary) }
   .primary-wrap { display:flex; flex-direction:column; align-items:flex-end; gap:8px }
   .primary { background:var(--color-action-primary); color:var(--color-action-primary-text); border:0; border-radius:10px; padding:12px 22px; font-weight:700; display:flex; align-items:center; gap:8px; cursor:pointer }
   .primary:disabled { opacity:0.5; cursor:not-allowed }
