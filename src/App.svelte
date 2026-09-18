@@ -2,17 +2,19 @@
   import { onMount } from 'svelte';
   import HomeMap from './lib/map/HomeMap.svelte';
   import FaqPage from './lib/faq/FaqPage.svelte';
+  import ReportsPage from './lib/reports/ReportsPage.svelte';
   import SettingsPage from './lib/settings/SettingsPage.svelte';
-  import ReportsPage from './lib/drafts/ReportsPage.svelte';
   import { settingsSectionFromHash, type SettingsSection, type LanguagePreference } from './lib/settings/settings';
+  import { isReportsHash, reportsRoute } from './lib/reports/reports';
   import type { GeolocationState } from './lib/map/createGeolocationController';
 
   let hash = $state(typeof window !== 'undefined' ? window.location.hash : '');
   let faqOpen = $derived(hash === '#/FAQ');
+  let reportsOpen = $derived(isReportsHash(hash));
   let settingsSection = $derived(settingsSectionFromHash(hash));
-  let reportsOpen = $derived(hash === '#/Reports');
-  let pageOpen = $derived(faqOpen || settingsSection !== null || reportsOpen);
+  let pageOpen = $derived(faqOpen || reportsOpen || settingsSection !== null);
   let menuOpen = $state(false);
+  let menuWasOpen = false;
   let opacity = $state(0);
   let grayscale = $state(false);
   let language = $state<LanguagePreference>('en');
@@ -23,10 +25,12 @@
 
   function syncRoute() {
     const wasOpen = pageOpen;
-    const wasReports = reportsOpen;
     hash = window.location.hash;
-    if (pageOpen) menuOpen = false;
-    else if (wasOpen && !wasReports) menuOpen = true;
+    // The drawer opens FAQ and Settings, the toolbar opens Reports: restore whichever state we left.
+    if (pageOpen) {
+      if (!wasOpen) menuWasOpen = menuOpen;
+      menuOpen = false;
+    } else if (wasOpen) menuOpen = menuWasOpen;
   }
 
   function openPage(nextHash: string) {
@@ -60,16 +64,16 @@
 <div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen} aria-hidden={pageOpen}>
   <HomeMap bind:this={homeMap} bind:menuOpen bind:opacity bind:isGrayscale={grayscale}
     bind:geolocationState={locationState} bind:locationMessage bind:accuracy
-    onfaq={() => openPage('#/FAQ')} onsettings={(section) => openPage('#/Settings/' + section)}
-    onreports={() => openPage('#/Reports')} visible={!pageOpen} />
+    onfaq={() => openPage('#/FAQ')} onreports={() => openPage(reportsRoute)}
+    onsettings={(section) => openPage('#/Settings/' + section)} visible={!pageOpen} />
 </div>
 {#if faqOpen}<FaqPage onback={backToMap} />{/if}
+{#if reportsOpen}<ReportsPage onback={backToMap} />{/if}
 {#if settingsSection}
   <SettingsPage section={settingsSection} onsection={selectSettings} onclose={backToMap}
     bind:opacity bind:grayscale bind:language {locationState} {locationMessage} {accuracy}
     onlocation={() => homeMap.toggleGeolocation()} />
 {/if}
-{#if reportsOpen}<ReportsPage onback={backToMap} />{/if}
 
 <style>
   .map-page { height: 100%; }

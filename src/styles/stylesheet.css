@@ -718,7 +718,7 @@ button {
   border: 0;
 }
 
-/* 23. Menu and FAQ: dimensions are local aliases; colours reuse semantic roles. */
+/* 23. Menu, FAQ and Reports: dimensions are local aliases; colours reuse semantic roles. */
 :root {
   --menu-width: 25rem;
   --menu-padding: var(--space-4);
@@ -781,13 +781,13 @@ button {
 .menu-header h2, .menu-section h3 {
   margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: var(--font-weight-semibold);
 }
-.menu-close, .faq-icon-button {
+.menu-close, .faq-icon-button, .reports-icon-button {
   display: grid; place-items: center; flex: none;
   width: var(--target-size-min); min-height: var(--target-size-min); padding: 0;
   border: 0; border-radius: var(--radius-round); background: var(--color-background-subtle); color: var(--color-text-primary); cursor: pointer;
 }
-.menu-drawer svg, .faq-page svg, .settings-page svg { flex: none; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
-.menu-close svg, .faq-icon-button svg { width: var(--icon-size-large); height: var(--icon-size-large); }
+.menu-drawer svg, .faq-page svg, .reports-page svg, .settings-page svg { flex: none; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+.menu-close svg, .faq-icon-button svg, .reports-icon-button svg { width: var(--icon-size-large); height: var(--icon-size-large); }
 .menu-scroll {
   display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   padding: 0 max(var(--menu-padding), var(--safe-area-right)) max(var(--menu-padding), var(--safe-area-bottom)) var(--menu-padding);
@@ -809,11 +809,11 @@ button {
 .menu-row:disabled { opacity: var(--opacity-opaque); color: var(--color-text-disabled); cursor: not-allowed; }
 .menu-drawer :focus-visible { outline-offset: calc(-1 * var(--border-width-emphasis)); }
 
-.faq-page { position: fixed; inset: 0; z-index: var(--layer-dialog); overflow-y: auto; overscroll-behavior: contain; background: var(--color-background-page); color: var(--color-text-primary); }
-.faq-page h1, .faq-page h2, .faq-page h3, .faq-page p { margin: 0; }
-.faq-header { position: sticky; top: 0; z-index: var(--layer-map-overlay); background: var(--color-background-raised); border-bottom: var(--border-default); padding-top: var(--safe-area-top); }
+.faq-page, .reports-page { position: fixed; inset: 0; z-index: var(--layer-dialog); overflow-y: auto; overscroll-behavior: contain; background: var(--color-background-page); color: var(--color-text-primary); }
+.faq-page h1, .faq-page h2, .faq-page h3, .faq-page p, .reports-page h1, .reports-page p { margin: 0; }
+.faq-header, .reports-header { position: sticky; top: 0; z-index: var(--layer-map-overlay); background: var(--color-background-raised); border-bottom: var(--border-default); padding-top: var(--safe-area-top); }
 .faq-header-content { display: flex; align-items: center; gap: var(--space-2); min-height: var(--faq-header-height); max-width: calc(var(--faq-content-max) + 2 * var(--faq-gutter)); margin-inline: auto; padding-inline: max(var(--faq-gutter), var(--safe-area-left)) max(var(--faq-gutter), var(--safe-area-right)); font-size: var(--faq-header-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-header-tracking); }
-.faq-icon-button { background: transparent; }
+.faq-icon-button, .reports-icon-button { background: transparent; }
 .faq-content { width: 100%; max-width: calc(var(--faq-content-max) + 2 * var(--faq-gutter)); margin-inline: auto; padding: var(--faq-content-top) max(var(--faq-gutter), var(--safe-area-right)) max(var(--faq-content-bottom), var(--safe-area-bottom)) max(var(--faq-gutter), var(--safe-area-left)); overflow-wrap: anywhere; }
 .faq-content h1 { font-size: var(--faq-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); margin-bottom: var(--space-2); }
 .faq-introduction { font-size: var(--font-size-body); line-height: var(--faq-intro-leading); color: var(--color-text-secondary); }
@@ -853,7 +853,7 @@ button {
 .faq-primary { min-height: var(--faq-control-height); max-width: 100%; padding: var(--space-3) var(--space-6); border: var(--border-default); border-radius: var(--radius-pill); background: var(--color-background-subtle); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
 .faq-help .faq-availability { margin-top: var(--space-2); }
 .faq-empty { margin-top: var(--faq-section-gap); padding: var(--faq-panel-padding); text-align: center; }
-.faq-page :focus-visible { outline-offset: var(--faq-focus-offset); }
+.faq-page :focus-visible, .reports-page :focus-visible { outline-offset: var(--faq-focus-offset); }
 .faq-question:focus-visible { outline-offset: calc(-1 * var(--border-width-emphasis)); }
 @keyframes faq-reveal { from { opacity: 0; transform: translateY(var(--space-1)); } to { opacity: 1; transform: translateY(0); } }
 @media (min-width: 48rem) { :root { --faq-gutter: var(--space-6); } }
@@ -861,8 +861,8 @@ button {
 @media (min-width: 52rem) { :root { --faq-gutter: var(--space-8); } }
 @media (prefers-reduced-motion: reduce) { .faq-answer { animation: none; } }
 
-.menu-row:not(:disabled):hover, .menu-close:hover, .faq-icon-button:hover { background: var(--color-map-control-hover); }
-.menu-row:not(:disabled):active, .menu-close:active, .faq-icon-button:active { background: var(--color-background-subtle); }
+.menu-row:not(:disabled):hover, .menu-close:hover, .faq-icon-button:hover, .reports-icon-button:hover { background: var(--color-map-control-hover); }
+.menu-row:not(:disabled):active, .menu-close:active, .faq-icon-button:active, .reports-icon-button:active { background: var(--color-background-subtle); }
 
 /* 24. Settings: shared neutral surfaces, compact navigation, bounded reading width. */
 :root {
@@ -939,7 +939,85 @@ button {
   .settings-mobile-nav { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: var(--border-default); font-size: var(--font-size-body); }
 }
 
-/* 25. Metric scale: measured width comes from MapLibre, independent of UI theme. */
+/* 25. Reports: list header, status tabs and cards. Colours, radii, shadows and type
+   sizes reuse existing semantic and component tokens; status badges reuse the
+   existing status-colour surfaces (info/warning/success/error), already themed for
+   light and dark. The header and list share the app's own layout width and gutter
+   (--layout-content-max, ~1200px, and --layout-gutter-inline via the safe-area-aware
+   --map-control-inset-* aliases) instead of the narrower FAQ/Settings page tokens. */
+.reports-header { padding-bottom: var(--space-5); }
+.reports-header-row {
+  max-width: var(--layout-content-max);
+  margin-inline: auto;
+  padding-inline: var(--map-control-inset-left) var(--map-control-inset-right);
+}
+.reports-header-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); flex-wrap: wrap; min-height: var(--faq-header-height); padding-top: var(--space-2); }
+.reports-header-title { display: flex; align-items: center; gap: var(--space-2); }
+.reports-title { font-size: var(--font-size-display); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); }
+.reports-segmented { display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-control); background: var(--color-background-subtle); }
+.reports-segment { min-height: var(--control-height-default); padding-inline: var(--space-6); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); cursor: pointer; }
+.reports-segment[aria-pressed='true'] { background: var(--color-background-raised); color: var(--color-text-primary); font-weight: var(--font-weight-semibold); box-shadow: var(--shadow-surface); }
+.reports-segment:hover { background: var(--color-map-control-hover); }
+.reports-segment[aria-pressed='true']:hover { background: var(--color-background-raised); }
+
+.reports-toolbar { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-5); flex-wrap: wrap; }
+.reports-search { flex: 1; min-width: 12rem; }
+.reports-tool-button { flex: none; min-height: var(--control-height-large); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+.reports-tool-button svg { flex: none; width: var(--icon-size-default); height: var(--icon-size-default); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+
+.reports-status-tabs { display: flex; gap: var(--space-3); margin-top: var(--space-4); flex-wrap: wrap; }
+.reports-status-tab { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-height-default); padding-inline: var(--space-5); border: var(--border-default); border-radius: var(--radius-pill); background: var(--color-background-raised); color: var(--color-text-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); cursor: pointer; }
+.reports-status-tab[aria-pressed='true'] { border-color: var(--color-action-secondary); background: var(--color-action-secondary); color: var(--color-text-inverse); }
+.reports-status-tab:hover { background: var(--color-map-control-hover); }
+.reports-status-tab[aria-pressed='true']:hover { background: var(--color-action-secondary-hover); }
+.reports-status-tab-count { font-weight: var(--font-weight-medium); opacity: var(--opacity-subdued); }
+
+.reports-content { width: 100%; max-width: var(--layout-content-max); margin-inline: auto; padding: var(--faq-content-top) var(--map-control-inset-right) max(var(--faq-content-bottom), var(--safe-area-bottom)) var(--map-control-inset-left); overflow-wrap: anywhere; }
+.reports-list-meta { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-5); flex-wrap: wrap; }
+.reports-list-count { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-section-tracking); text-transform: uppercase; color: var(--color-text-secondary); }
+.reports-list-sort { font-size: var(--font-size-body); color: var(--color-text-secondary); }
+
+/* One column by default (mobile); two from 600px, three from 1100px. */
+.reports-card-grid { display: grid; grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: var(--space-5); }
+@media (min-width: 37.5rem) {
+  .reports-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 68.75rem) {
+  .reports-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Below 600px: search takes its own row with Filter/Select underneath, the segmented
+   control stretches full width when it wraps below the title, and status tabs scroll
+   sideways instead of wrapping onto extra lines. */
+@media (max-width: 37.499rem) {
+  .reports-search { flex: 1 1 100%; }
+  .reports-segmented { width: 100%; }
+  .reports-segment { flex: 1; }
+  .reports-status-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: var(--space-1); }
+  .reports-status-tab { flex: none; }
+}
+
+.reports-card { display: flex; flex-direction: column; gap: var(--space-3); width: 100%; text-align: left; padding: var(--card-padding-block) var(--card-padding-inline); border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); box-shadow: var(--shadow-surface); color: var(--color-text-primary); cursor: pointer; }
+.reports-card:hover { background: var(--color-map-control-hover); }
+.reports-card:active { background: var(--color-background-subtle); transform: scale(var(--scale-control-active)); }
+.reports-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.reports-card-name { flex: 1; min-width: 0; font-size: var(--font-size-heading-small); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); overflow-wrap: anywhere; }
+.reports-card-info { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-body); color: var(--color-text-primary); }
+.reports-card-type { font-weight: var(--font-weight-semibold); }
+.reports-card-dot { color: var(--color-border-default); }
+.reports-card-bottom { margin-top: auto; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-4); }
+.reports-card-dates { display: flex; flex-direction: column; gap: var(--space-1); white-space: nowrap; font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
+.reports-card-declined { color: var(--color-status-error); }
+.reports-card-cta { flex: none; display: flex; align-items: center; gap: var(--space-2); color: var(--color-action-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+.reports-card-cta svg { flex: none; width: var(--faq-link-icon); height: var(--faq-link-icon); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+
+.reports-status-badge { flex: none; display: inline-flex; align-items: center; min-height: var(--space-6); padding-inline: var(--space-3); border-radius: var(--radius-small); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); }
+.reports-status-badge[data-status='ready'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
+.reports-status-badge[data-status='pending'] { background: var(--color-status-warning-surface); color: var(--color-status-warning); }
+.reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
+.reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
+
+/* 26. Metric scale: measured width comes from MapLibre, independent of UI theme. */
 :root {
   --map-scale-max-width: 120px;
   --map-scale-cap-height: 0.5rem;

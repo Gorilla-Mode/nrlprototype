@@ -5,15 +5,15 @@
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { LocationSuggestion } from './locationSearch';
 
-  let { drawing, onundo, ondelete, oncomplete, onsearchselect, onmenu, menuOpen, onreports }: {
+  let { drawing, onundo, ondelete, oncomplete, onsearchselect, onmenu, onreports, menuOpen }: {
     onmenu: () => void;
+    onreports: () => void;
     menuOpen: boolean;
     drawing: DrawingState;
     onundo: () => void;
     ondelete: () => void;
     oncomplete: () => void;
     onsearchselect: (suggestion: LocationSuggestion) => void;
-    onreports: () => void;
   } = $props();
 
 </script>
