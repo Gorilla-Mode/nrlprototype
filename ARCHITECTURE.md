@@ -1,79 +1,49 @@
 # Architecture and data
 
-## Current boundaries
+This document records project-specific boundaries and safety decisions. Infer ordinary
+Svelte structure from the code rather than expanding this into a component inventory.
 
-This is a static Svelte 5/TypeScript/Vite frontend. MapLibre renders raster maps;
-there is no application backend, database, authentication or submission endpoint.
-`src/main.ts` imports MapLibre CSS before the central stylesheet and mounts App.
-App keeps HomeMap mounted without a report-registration consumer and owns the
-native hash routes for FAQ (`#/FAQ`) and Settings (`#/Settings/<section>`). Entering
-a page pushes history; Settings section changes replace the current entry. Closing
-returns to the map/drawer; direct entries fall back to the map. No routing library is used.
-App owns shared satellite opacity, grayscale, location feedback and session-only language.
+## Boundaries
 
-- **HomeMap / MapToolbar / controls:** Svelte rune state, layout and user actions.
-  MapCanvas owns mounting/teardown and forwards typed commands to the map controller.
-- **Menu / FAQ / Settings:** App owns page and drawer state. HomeMap binds drawer state.
-  MenuDrawer uses a native modal dialog with explicit focus and scroll restoration.
-  FaqPage owns its query and expanded answer; faq.ts supplies static content and
-  case-insensitive substring filtering. No requests or storage are involved.
-  Missing guide/support destinations are disabled rather than linked to invented pages.
-  SettingsPage owns layout and delegates profile, account, map and language presentation
-  to focused views. Map bindings and synchronous location commands use the same
-  HomeMap / MapCanvas / controller path as floating controls. Account/security/offline/
-  notification controls are disabled. There is no standalone Drawing Guide; its future
-  content belongs to the reporting guide.
-- **createMapController:** coordinates map lifecycle, search camera movement,
-  geolocation, drawing, drawing display and report registration. Controls must use
-  its interface rather than acquire the MapLibre instance themselves.
-  Grayscale changes saturation on the three raster layers, not the canvas; raster
-  settings are reapplied after style loading.
-- **Drawing:** createMapHoldController handles pointer capture and cancellation;
-  createMapDrawingInteraction translates hold/radial selection and map taps into vertices.
-  createDrawingController validates geometry, measures with Turf, and owns
-  idle/drawing/completed states. createDrawingDisplay resolves CSS tokens for WebGL,
-  watches theme changes, and restores layers after a map-style load.
-- **Reporting:** createReportController combines completed GeoJSON with optional
-  reporter GPS and generates an ID/timestamp. Description and height are placeholders,
-  not collected report metadata. Registration currently ends at an optional callback.
-- **Search:** createLocationSearchController owns debounce, cancellation and result
-  selection. locationSearch parses/ranks Geonorge address/place responses. SearchBar
-  implements the combobox; selecting a result moves the camera and releases GPS following.
-- **Geolocation:** controller and display are separate. Preserve iOS permission,
-  cancellation and camera-following behaviour and its regression tests.
+This is a static Svelte 5/TypeScript/Vite frontend using MapLibre. It has no production
+backend, database, authentication or submission endpoint.
 
-During FAQ or Settings, HomeMap is visually hidden and inert, retaining geometry, camera and
-layer state. Browser validation demonstrated that inertia/camera animations and GPS
-recentring could still move the hidden map. A narrow stopCamera command stops an
-in-flight animation on hiding, and the GPS recenter callback skips inert map ancestors.
-Location observations continue updating normally; no page-suspension controller,
-map serialization or automatic permission request is introduced.
+- App owns hash navigation, page/drawer state and settings shared with the map. HomeMap
+  stays mounted behind full-screen pages so its camera and transient work survive.
+- MapCanvas alone owns the MapLibre instance. UI controls send typed commands through
+  createMapController; map sources and layers belong in `mapConfig.ts`.
+- Drawing and reporting controllers own geometry state, validation, Turf measurements
+  and report assembly. Components present state and issue commands; display adapters
+  translate state into MapLibre layers and CSS-derived paint values.
+- Live map settings follow the existing App → HomeMap → MapCanvas → controller path.
+  Do not create a parallel store or let controls reach into MapLibre directly.
 
-MetricScaleControl is a small MapLibre IControl registered bottom-right. It samples
-map-centre ground distance through public unproject/project/distanceTo APIs and picks
-a fitting 1/2/5 distance. Labels retain 1000 m and use kilometres from 2 km. Movement,
-resize and projection changes update the width; teardown removes its listeners.
+## Navigation and map lifecycle
 
-## Security and data handling
+Routing uses browser history and hashes without a routing dependency. A hidden HomeMap
+is inert but remains alive. When leaving it, stop active camera movement and prevent GPS
+callbacks from recentering an inert map; location observation itself may continue.
+Unsupported routes must fall back safely without inventing pages or persisted state.
 
-- Geometry and reports live in memory. Refresh loses them. No localStorage, autosave,
-  durable draft or server submission exists; UI/documentation must not imply otherwise.
-- Search text goes to Geonorge's address and place APIs. Raster requests go to
-  Kartverket, OpenStreetMap and Esri, revealing requested map areas to those providers.
-- Browser geolocation requires a secure context and user permission. Reporter GPS is
-  distinct from obstacle coordinates and may be null. Location failure must not invent
-  coordinates or silently turn reporter position into obstacle position.
-- Treat search responses as untrusted input: retain validation, text rendering and
-  stale-response cancellation. Never render provider content as raw HTML.
-- Never commit credentials, tokens or .env files. Do not add precise-location logging.
-  Secrets cannot be protected inside this static frontend.
-- Before adding storage/submission, decide retention, access control, deletion,
-  authentication and error/retry behaviour. That future work warrants a separate
-  security/data document and reviewed API design; it is not implied by this prototype.
+## External data and geolocation
 
-## Development boundaries
+Raster tiles come from Kartverket, OpenStreetMap and Esri; search uses Geonorge address
+and place APIs. Retain search response validation, stale-request cancellation and
+explicit loading/empty/error states. Render provider strings as text, never raw HTML.
 
-Use existing typed controller interfaces, Svelte 5 runes and tests. No new dependencies
-without permission. Do not introduce routing, global state frameworks or service layers
-for styling work. Deployment remains GitHub Pages; deployment/workflow changes are
-separate tasks. For verification commands and task-based reading, start with AGENTS.md.
+Preserve geolocation's secure-context, permission, cancellation, camera-following and
+iOS paths with their regression tests. Reporter GPS and obstacle geometry are distinct;
+either may be unavailable. Never invent coordinates, derive them from UI placement or
+substitute reporter position for an obstacle. Geographic measurements come from runtime
+map/data APIs.
+
+## Security and persistence
+
+Treat state as transient unless the implementation explicitly proves otherwise.
+Selection completion is not durable saving or production submission. Search and tile
+requests disclose queries or viewed areas to their providers, and geolocation requires
+browser permission. Never log precise locations or place secrets in this frontend.
+
+Storage or submission work must first define authentication, authorization, retention,
+deletion, validation, retry/error handling and the user-visible lifecycle. It requires a
+reviewed backend design rather than frontend mocks.

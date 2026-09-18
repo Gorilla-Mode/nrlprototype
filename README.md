@@ -40,5 +40,7 @@ the profile view at `#/Settings/profile`.
 Start with [AGENTS.md](AGENTS.md) for task-based guidance.
 [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) defines the visual baseline.
 [ARCHITECTURE.md](ARCHITECTURE.md) explains boundaries, external services and data handling.
-[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) separates implemented behaviour from
-planned translations, units, guide/support pages and persistent draft workflows.
+
+This remains a workflow prototype: authentication, production submission and durable
+storage are outside its current boundary. Treat the code, tests and current feature
+request as the source of implemented behaviour.
