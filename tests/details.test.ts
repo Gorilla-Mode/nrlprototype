@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createDetailsController, detailsPayload, type DetailsHooks, type DetailsPayload, type DraftSaveReason } from '../src/lib/reporting/createDetailsController.js';
+import { createDetailsController, detailsPayload, detailsStepFromHash, type DetailsHooks, type DetailsPayload, type DraftSaveReason } from '../src/lib/reporting/createDetailsController.js';
 import { ObstacleType, type Obstacle } from '../src/lib/reporting/obstacle.js';
 
 const report: Obstacle = {
@@ -175,4 +175,181 @@ test('pending actions block duplicate saves and edits; stale completion cannot c
   assert.equal(draft().report.id, 'replacement');
   assert.equal(draft().dirty, true);
   assert.equal(draft().height, 90);
+});
+
+test('Continue navigates without a hook; resume restores the last step and incomplete drafts stay on step 1', async () => {
+  const { controller, draft } = setup();
+  assert.equal(detailsStepFromHash('#/Report/additional-information'), 2);
+  assert.equal(detailsStepFromHash('#/Report/details'), 1);
+  assert.equal(detailsStepFromHash('#/Reports'), null);
+  controller.resume(2);
+  assert.equal(controller.getState().step, 1);
+  assert.equal(await controller.continue(), false);
+  controller.setType(ObstacleType.Other);
+  assert.equal(await controller.continue(), true);
+  controller.setCustomType('Crane');
+  controller.setDescription('Near the bridge');
+  await controller.dismiss();
+  controller.resume();
+  assert.equal(controller.getState().step, 2);
+  controller.resume(1);
+  assert.equal(draft().customType, 'Crane');
+  assert.equal(draft().description, 'Near the bridge');
+  await controller.dismiss();
+  controller.resume();
+  assert.equal(controller.getState().step, 1);
+  controller.clear();
+  controller.resume(2);
+  assert.equal(controller.getState().open, false);
+});
+
+test('Continue waits for its hook, retries failures, and never reopens a dismissed draft', async () => {
+  let reject: (error: Error) => void = () => {};
+  let resolve: () => void = () => {};
+  const { controller } = setup({ onContinue: () => new Promise<void>((done, fail) => { resolve = done; reject = fail; }) });
+  controller.setType(ObstacleType.Pole);
+  const first = controller.continue();
+  assert.equal(controller.getState().step, 1);
+  assert.equal(controller.getState().busy, true);
+  reject(new Error('offline'));
+  assert.equal(await first, false);
+  assert.match(controller.getState().error, /retry/);
+  const second = controller.continue();
+  resolve();
+  assert.equal(await second, true);
+  controller.resume(1);
+  const third = controller.continue();
+  await controller.dismiss();
+  resolve();
+  assert.equal(await third, false);
+  assert.equal(controller.getState().open, false);
+  assert.equal(controller.getState().step, 1);
+});
+
+test('custom type survives type changes but only enters active payloads for Other; fields are optional', async () => {
+  const calls: DetailsPayload[] = [];
+  const { controller, draft } = setup({ onFinish: (payload) => { calls.push(payload); } });
+  controller.setType(ObstacleType.Other);
+  controller.setCustomType('Crane');
+  assert.equal(detailsPayload(draft()).customType, 'Crane');
+  controller.setType(ObstacleType.Bridge);
+  assert.equal('customType' in detailsPayload(draft()), false);
+  assert.equal(draft().customType, 'Crane');
+  controller.setType(ObstacleType.Other);
+  controller.setCustomType('');
+  await controller.continue();
+  assert.equal(await controller.finish(), true);
+  assert.equal(calls[0].customType, '');
+  assert.equal(calls[0].description, '');
+  assert.deepEqual(calls[0].photos, []);
+});
+
+test('photos keep original files, reject an entire excess selection, support removal and ignore cancellation', async () => {
+  const { controller, draft } = setup();
+  const files = ['one.jpg', 'two.jpg', 'three.jpg', 'four.jpg'].map((name) => new File(['original'], name, { type: 'image/jpeg' }));
+  const untouched = draft();
+  controller.addPhotos([]);
+  assert.equal(draft(), untouched);
+  controller.addPhotos(files.slice(0, 2));
+  assert.equal(draft().photos[0], files[0]);
+  controller.addPhotos(files.slice(2));
+  assert.equal(draft().photos.length, 2);
+  assert.match(controller.getState().error, /1 more photo/);
+  controller.addPhotos([files[2]]);
+  controller.addPhotos([files[3]]);
+  assert.equal(draft().photos.length, 3);
+  assert.match(controller.getState().error, /Remove one/);
+  const full = draft();
+  controller.addPhotos([]);
+  controller.removePhoto(-1);
+  controller.removePhoto(0.5);
+  controller.removePhoto(3);
+  assert.equal(draft(), full);
+  controller.removePhoto(0);
+  controller.addPhotos([files[0]]);
+  assert.deepEqual(draft().photos, [files[1], files[2], files[0]]);
+  const payload = detailsPayload(draft());
+  assert.notEqual(payload.photos, draft().photos);
+  assert.equal(payload.photos[2], files[0]);
+  assert.equal(await payload.photos[2].text(), 'original');
+  await controller.dismiss();
+  controller.resume();
+  assert.equal(draft().photos[2], files[0]);
+});
+
+test('explicit and dismissal saves include additional information and preserve metadata and absence', async () => {
+  const calls: { payload: DetailsPayload; reason: DraftSaveReason }[] = [];
+  const { controller } = setup({ onSaveDraft: (payload, reason) => { calls.push({ payload, reason }); } });
+  controller.setType(ObstacleType.Other);
+  await controller.continue();
+  controller.setCustomType('Crane');
+  controller.setDescription('Original description');
+  const photo = new File(['original'], 'crane.jpg');
+  controller.addPhotos([photo]);
+  controller.setNotPresent(true);
+  await controller.save();
+  controller.setDescription('Updated description');
+  await controller.dismiss();
+  assert.deepEqual(calls.map(({ reason }) => reason), ['explicit', 'dismissal']);
+  assert.equal(calls[0].payload.description, 'Original description');
+  assert.equal(calls[1].payload.description, 'Updated description');
+  for (const { payload } of calls) {
+    assert.equal(payload.customType, 'Crane');
+    assert.equal(payload.photos[0], photo);
+    assert.equal(payload.id, report.id);
+    assert.equal(payload.timestamp, report.timestamp);
+    assert.equal(payload.obstacle_position, report.obstacle_position);
+    assert.equal(payload.gps_position, report.gps_position);
+    assert.equal('height' in payload, false);
+    assert.equal('illumination' in payload, false);
+  }
+});
+
+test('Finish requires a hook and step 2; failure retains edits and retry success clears the draft', async () => {
+  let fail = true;
+  let calls = 0;
+  const hooks: DetailsHooks = {};
+  const { controller, draft } = setup(hooks);
+  controller.setType(ObstacleType.Pole);
+  assert.equal(await controller.finish(), false);
+  await controller.continue();
+  assert.equal(await controller.finish(), false);
+  hooks.onFinish = (payload) => {
+    calls++;
+    assert.equal(payload.description, 'Keep this');
+    if (fail) throw new Error('offline');
+  };
+  controller.setDescription('Keep this');
+  const before = draft();
+  assert.equal(await controller.finish(), false);
+  assert.equal(draft(), before);
+  assert.equal(controller.getState().open, true);
+  assert.match(controller.getState().error, /retry/);
+  fail = false;
+  assert.equal(await controller.finish(), true);
+  assert.equal(calls, 2);
+  assert.equal(controller.getState().draft, null);
+  assert.equal(controller.getState().open, false);
+});
+
+test('pending Finish prevents duplicate actions and edits; stale completion cannot clear a new report', async () => {
+  let resolve: () => void = () => {};
+  let calls = 0;
+  const { controller, draft } = setup({ onFinish: () => { calls++; return new Promise<void>((done) => { resolve = done; }); } });
+  controller.setType(ObstacleType.Other);
+  await controller.continue();
+  const pending = controller.finish();
+  assert.equal(await controller.finish(), false);
+  controller.setDescription('blocked');
+  controller.setCustomType('blocked');
+  controller.addPhotos([new File([], 'blocked.jpg')]);
+  assert.equal(draft().description, '');
+  assert.equal(draft().customType, '');
+  assert.equal(draft().photos.length, 0);
+  controller.clear();
+  controller.begin({ ...report, id: 'replacement' });
+  resolve();
+  assert.equal(await pending, false);
+  assert.equal(calls, 1);
+  assert.equal(draft().report.id, 'replacement');
 });
