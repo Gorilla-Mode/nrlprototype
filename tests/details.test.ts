@@ -33,7 +33,7 @@ test('defaults are unselected and clean; unchanged values and an untouched dismi
   assert.equal(calls, 0);
 });
 
-test('all types are selectable; whole-metre height is bounded, optional, and rejects nonfinite input', () => {
+test('all types are selectable; required whole-metre height is bounded and rejects nonfinite input', () => {
   const { controller, draft } = setup();
   for (const type of Object.values(ObstacleType)) {
     controller.setType(type);
@@ -43,11 +43,17 @@ test('all types are selectable; whole-metre height is bounded, optional, and rej
     controller.setHeight(input);
     assert.equal(draft().height, expected);
   }
-  controller.setHeight(null);
   controller.setHeight(NaN);
   controller.setHeight(Infinity);
-  assert.equal(draft().height, null);
-  assert.equal('height' in detailsPayload(draft()), false);
+  assert.equal(draft().height, 500);
+  assert.equal(detailsPayload(draft()).height, 500);
+  controller.setHeight(0);
+  const payload = detailsPayload(draft());
+  assert.equal(payload.notPresent, false);
+  if (!payload.notPresent) {
+    const requiredHeight: number = payload.height;
+    assert.equal(requiredHeight, 0);
+  }
   assert.equal(draft().dirty, true);
 });
 
@@ -92,6 +98,7 @@ test('explicit saves allow incomplete drafts and are distinct from dirty dismiss
   await controller.save();
   assert.equal(calls[0].reason, 'explicit');
   assert.equal(calls[0].payload.type, null);
+  assert.equal(calls[0].payload.height, 30);
   controller.setHeight(80);
   await controller.dismiss();
   assert.equal(controller.getState().open, false);
