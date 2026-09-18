@@ -9,8 +9,8 @@
   import DraftDetailPage from '../drafts/DraftDetailPage.svelte';
   import { drafts } from '../drafts/mockData';
   import type { Draft } from '../drafts/types';
-  import { formatToday } from '../drafts/types';
-
+  import { formatToday, geometryTypeFor, heightInMeters } from '../drafts/types';
+  import { matchesGeometryFilter, matchesHeightFilter, type GeometryKey, type HeightFilterKey } from './filtering';
 
   let { onback }: { onback: () => void } = $props();
 
@@ -19,6 +19,12 @@
 
   let selectMode = $state(false);
   let selectedIds = $state<Set<string>>(new Set());
+
+  let filterPanelOpen = $state(false);
+  let appliedGeometries = $state<Set<GeometryKey>>(new Set());
+  let appliedHeightFilter = $state<HeightFilterKey>('any');
+  let pendingGeometries = $state<Set<GeometryKey>>(new Set());
+  let pendingHeightFilter = $state<HeightFilterKey>('any');
 
   let view = $state<'list' | 'report-detail' | 'draft-detail'>('list');
   // .raw: these hold a plain reference into the reports/drafts arrays, mutated
@@ -78,6 +84,27 @@
     refreshTick++;
   }
 
+  function openFilterPanel() {
+    pendingGeometries = new Set(appliedGeometries);
+    pendingHeightFilter = appliedHeightFilter;
+    filterPanelOpen = true;
+  }
+
+  function resetPendingFilters() {
+    pendingGeometries = new Set();
+    pendingHeightFilter = 'any';
+  }
+
+  function applyFilters() {
+    appliedGeometries = new Set(pendingGeometries);
+    appliedHeightFilter = pendingHeightFilter;
+    filterPanelOpen = false;
+  }
+
+  function dismissFilterPanel() {
+    filterPanelOpen = false;
+  }
+
   function closeOnEscape(event: KeyboardEvent) {
     if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); onback(); }
   }
@@ -111,13 +138,15 @@
     | { kind: 'report'; id: string; report: Report; sort: number }
     | { kind: 'draft'; id: string; draft: Draft; sort: number };
 
-  function buildItems(key: StatusTabKey, q: string): ListItem[] {
+  function buildItems(key: StatusTabKey, q: string, geometries: Set<GeometryKey>, heightFilter: HeightFilterKey): ListItem[] {
     const items: ListItem[] = [];
 
     if (key !== 'draft') {
       for (const report of reports) {
         if (!matchesReportQuery(report, q)) continue;
         if (key !== 'all' && !matchesStatus(report, key)) continue;
+        if (!matchesGeometryFilter(geometryTypeFor(report.obstacleType), geometries)) continue;
+        if (!matchesHeightFilter(report.heightMeters, heightFilter)) continue;
         items.push({ kind: 'report', id: report.id, report, sort: dateSortValue(report.secondaryDate ?? report.createdDate) });
       }
     }
@@ -125,6 +154,8 @@
     if (key === 'draft' || key === 'all') {
       for (const draft of drafts) {
         if (!matchesDraftQuery(draft, q)) continue;
+        if (!matchesGeometryFilter(geometryTypeFor(draft.category), geometries)) continue;
+        if (!matchesHeightFilter(heightInMeters(draft.heightAboveGround), heightFilter)) continue;
         items.push({ kind: 'draft', id: draft.id, draft, sort: dateSortValue(draft.editedDate) });
       }
     }
@@ -137,7 +168,9 @@
   // plain (non-$state) module arrays don't signal on their own: read
   // refreshTick here so these explicitly recompute whenever it's bumped.
   let draftsCount = $derived.by(() => { refreshTick; return drafts.length; });
-  let items = $derived.by(() => { refreshTick; return buildItems(statusFilter, query); });
+  let items = $derived.by(() => { refreshTick; return buildItems(statusFilter, query, appliedGeometries, appliedHeightFilter); });
+  let pendingResultCount = $derived.by(() => { refreshTick; return buildItems(statusFilter, query, pendingGeometries, pendingHeightFilter).length; });
+  let filterActive = $derived(appliedGeometries.size > 0 || appliedHeightFilter !== 'any');
   let noun = $derived(statusFilter === 'draft' ? 'drafts' : statusFilter === 'all' ? 'items' : 'reports');
 </script>
 
@@ -152,7 +185,13 @@
     <main class="reports-page" aria-label="Reports">
       <header class="reports-header">
         <ReportsHeader {onback} />
-        <ReportsToolbar bind:query {selectMode} selectedCount={selectedIds.size} ontoggleselect={toggleSelectMode} onsend={sendSelected} />
+        <ReportsToolbar
+          bind:query
+          {selectMode} selectedCount={selectedIds.size} ontoggleselect={toggleSelectMode} onsend={sendSelected}
+          filterOpen={filterPanelOpen} {filterActive}
+          bind:pendingGeometries bind:pendingHeightFilter {pendingResultCount}
+          onopenfilter={openFilterPanel} onresetfilter={resetPendingFilters} onapplyfilter={applyFilters} ondismissfilter={dismissFilterPanel}
+        />
         <StatusTabs {reports} {draftsCount} active={statusFilter} onselect={(key) => statusFilter = key} />
       </header>
 

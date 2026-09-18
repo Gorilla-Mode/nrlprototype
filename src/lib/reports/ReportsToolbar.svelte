@@ -1,10 +1,27 @@
 <script lang="ts">
-  let { query = $bindable(''), selectMode, selectedCount, ontoggleselect, onsend }: {
+  import FilterPanel from './FilterPanel.svelte';
+  import type { GeometryKey, HeightFilterKey } from './filtering';
+
+  let {
+    query = $bindable(''),
+    selectMode, selectedCount, ontoggleselect, onsend,
+    filterOpen, filterActive, pendingGeometries = $bindable(), pendingHeightFilter = $bindable(), pendingResultCount,
+    onopenfilter, onresetfilter, onapplyfilter, ondismissfilter,
+  }: {
     query?: string;
     selectMode: boolean;
     selectedCount: number;
     ontoggleselect: () => void;
     onsend: () => void;
+    filterOpen: boolean;
+    filterActive: boolean;
+    pendingGeometries: Set<GeometryKey>;
+    pendingHeightFilter: HeightFilterKey;
+    pendingResultCount: number;
+    onopenfilter: () => void;
+    onresetfilter: () => void;
+    onapplyfilter: () => void;
+    ondismissfilter: () => void;
   } = $props();
 </script>
 
@@ -14,10 +31,24 @@
     <input type="search" placeholder="Search obstacle name or type" aria-label="Search obstacle name or type" bind:value={query} />
   </div>
 
-  <button type="button" class="button reports-tool-button">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
-    Filter
-  </button>
+  <div class="reports-filter-wrap">
+    <button type="button" class="button reports-tool-button" class:reports-filter-active={filterActive} onclick={onopenfilter}>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
+      Filter
+      {#if filterActive}<span class="reports-filter-dot" aria-hidden="true"></span>{/if}
+    </button>
+
+    {#if filterOpen}
+      <FilterPanel
+        bind:geometries={pendingGeometries}
+        bind:heightFilter={pendingHeightFilter}
+        resultCount={pendingResultCount}
+        onreset={onresetfilter}
+        onapply={onapplyfilter}
+        ondismiss={ondismissfilter}
+      />
+    {/if}
+  </div>
 
   {#if selectMode}
     <button type="button" class="button reports-tool-button" onclick={ontoggleselect}>
@@ -34,3 +65,9 @@
     </button>
   {/if}
 </div>
+
+<style>
+  .reports-filter-wrap { position: relative; flex: none; }
+  .reports-filter-active { border-color: var(--color-action-secondary); color: var(--color-action-secondary); }
+  .reports-filter-dot { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--color-action-secondary); }
+</style>
