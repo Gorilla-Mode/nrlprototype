@@ -1,19 +1,7 @@
-import { ObstacleType, type Obstacle } from './obstacle.js';
+import { ObstacleType, obstacleTypeChoices, type Obstacle } from './obstacle.js';
+import { defaultObstacleHeightMeters, minObstacleHeightMeters, maxObstacleHeightMeters, type ReportingVariant } from './reporting.js';
 
-export const detailsRoute = '#/Report/details';
-export const additionalInformationRoute = '#/Report/additional-information';
 export const maxPhotos = 3;
-export type DetailsStep = 1 | 2;
-export function detailsStepFromHash(hash: string): DetailsStep | null {
-  return hash === detailsRoute ? 1 : hash === additionalInformationRoute ? 2 : null;
-}
-export const obstacleTypeChoices = [
-  { value: ObstacleType.Bridge, label: 'Bridge' },
-  { value: ObstacleType.Airspan, label: 'Airspan' },
-  { value: ObstacleType.Pole, label: 'Pole' },
-  { value: ObstacleType.Building, label: 'Building' },
-  { value: ObstacleType.Other, label: 'Other' },
-] as const;
 export type Illumination = 'unknown' | 'illuminated' | 'not-illuminated';
 export const illuminationLabels: Record<Illumination, string> = {
   unknown: 'Unknown', illuminated: 'Illuminated', 'not-illuminated': 'Not illuminated',
@@ -40,19 +28,26 @@ export type DetailsPayload = Omit<Obstacle, 'type' | 'height'> & {
 export type ContinueDetailsPayload = DetailsPayload & { type: ObstacleType };
 export type CompleteReport = ContinueDetailsPayload;
 export type DraftSaveReason = 'explicit' | 'dismissal';
+export interface ReportingContext { readonly variantId: string }
+export interface ReportingResult extends ReportingContext { readonly report: CompleteReport }
 export interface DetailsHooks {
   onSaveDraft?: (payload: DetailsPayload, reason: DraftSaveReason) => void | Promise<void>;
   onContinue?: (payload: ContinueDetailsPayload) => void | Promise<void>;
-  onFinish?: (payload: CompleteReport) => void | Promise<void>;
+  onFinish?: (payload: CompleteReport, context: ReportingContext) => void | Promise<void>;
 }
 export interface DetailsState {
   draft: DetailsDraft | null;
   open: boolean;
   busy: boolean;
   error: string;
-  step: DetailsStep;
+  step: number;
+  variant: ReportingVariant | null;
+  result: ReportingResult | null;
+  summaryOpen: boolean;
 }
-export const initialDetailsState: DetailsState = { draft: null, open: false, busy: false, error: '', step: 1 };
+export const initialDetailsState: DetailsState = {
+  draft: null, open: false, busy: false, error: '', step: 1, variant: null, result: null, summaryOpen: false,
+};
 
 export function detailsPayload(draft: DetailsDraft): DetailsPayload {
   const { type: _type, height: _height, ...report } = draft.report;
@@ -99,19 +94,26 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
   }
   function save(reason: DraftSaveReason) {
     const hook = getHooks().onSaveDraft;
-    if (!state.draft || state.busy || !hook || (reason === 'dismissal' && !state.draft.dirty)) return Promise.resolve();
+    if (!state.draft || state.busy || !hook || (reason === 'dismissal' && !state.draft.dirty)) return Promise.resolve(false);
     const payload = detailsPayload(state.draft);
     return run(() => hook(payload, reason), true);
   }
   return {
     getState: () => state,
-    begin(report: Obstacle) {
+    start(variant: ReportingVariant) {
       generation++;
-      publish({ draft: { report, type: null, height: 30, illumination: 'unknown', notPresent: false, dirty: false, customType: '', description: report.description, photos: [] }, open: true, busy: false, error: '', step: 1 });
+      navigation++;
+      publish({ ...initialDetailsState, variant });
     },
-    resume(step: DetailsStep = state.step) {
-      if (!state.draft) return;
-      const nextStep = state.draft.type ? step : 1;
+    begin(report: Obstacle, variant: ReportingVariant) {
+      generation++;
+      navigation++;
+      publish({ ...initialDetailsState, variant, draft: { report, type: null, height: defaultObstacleHeightMeters, illumination: 'unknown', notPresent: false, dirty: false, customType: '', description: report.description, photos: [] }, open: true });
+    },
+    resume(step: number = state.step) {
+      if (!state.draft || !state.variant) return;
+      const validStep = Number.isInteger(step) && step >= 1 && step <= state.variant.stepRoutes.length;
+      const nextStep = state.draft.type && validStep ? step : 1;
       if (!state.open || state.step !== nextStep) navigation++;
       publish({ open: true, step: nextStep });
     },
@@ -121,11 +123,12 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
       publish({ open: false });
       return save('dismissal');
     },
-    clear() { generation++; publish(initialDetailsState); },
-    setType(type: ObstacleType) { if (obstacleTypeChoices.some((choice) => choice.value === type)) edit({ type }); },
+    clear() { generation++; navigation++; publish(initialDetailsState); },
+    closeSummary() { publish({ result: null, summaryOpen: false }); },
+    setType(type: ObstacleType) { if (obstacleTypeChoices.some((choice) => choice.type === type)) edit({ type }); },
     setHeight(height: number) {
       if (state.draft?.notPresent || !Number.isFinite(height)) return;
-      edit({ height: Math.max(0, Math.min(500, Math.round(height))) });
+      edit({ height: Math.max(minObstacleHeightMeters, Math.min(maxObstacleHeightMeters, Math.round(height))) });
     },
     cycleIllumination() {
       if (!state.draft || state.draft.notPresent) return;
@@ -149,23 +152,33 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
       edit({ photos: state.draft.photos.filter((_, position) => position !== index) });
     },
     save: () => save('explicit'),
+    async saveAndDismiss() {
+      const currentNavigation = navigation;
+      if (!state.open || !await save('explicit') || currentNavigation !== navigation) return false;
+      navigation++;
+      publish({ open: false });
+      return true;
+    },
     async continue() {
       const hook = getHooks().onContinue;
-      if (!state.draft?.type || state.busy || !state.open || state.step !== 1) return false;
+      if (!state.draft?.type || !state.variant || state.busy || !state.open || state.step >= state.variant.stepRoutes.length) return false;
       const payload = { ...detailsPayload(state.draft), type: state.draft.type };
       const currentNavigation = navigation;
       const succeeded = !hook || await run(() => hook(payload), false);
       if (!succeeded || currentNavigation !== navigation) return false;
-      publish({ step: 2, error: '' });
+      publish({ step: state.step + 1, error: '' });
       return true;
     },
     async finish() {
       const hook = getHooks().onFinish;
-      if (!state.draft?.type || state.busy || !hook || !state.open || state.step !== 2) return false;
+      if (!state.draft?.type || !state.variant || state.busy || !hook || !state.open || state.step !== state.variant.stepRoutes.length) return false;
       const payload = { ...detailsPayload(state.draft), type: state.draft.type };
-      if (!await run(() => hook(payload), false)) return false;
+      const variantId = state.variant.id;
+      const currentNavigation = navigation;
+      if (!await run(() => hook(payload, { variantId }), false)) return false;
+      const showSummary = currentNavigation === navigation && state.open;
       generation++;
-      publish(initialDetailsState);
+      publish({ ...initialDetailsState, result: showSummary ? { report: payload, variantId } : null, summaryOpen: showSummary });
       return true;
     },
   };

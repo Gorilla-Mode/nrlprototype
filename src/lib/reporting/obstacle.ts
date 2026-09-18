@@ -16,8 +16,18 @@ export enum ObstacleType {
   Airspan = 'airspan',
   Pole = 'pole',
   Building = 'building',
+  Construction = 'construction',
   Other = 'other',
 }
+
+export const obstacleTypeChoices = [
+  { type: ObstacleType.Airspan, id: 'aerial-span', label: 'Aerial Span', iconKey: 'aerial-span' },
+  { type: ObstacleType.Pole, id: 'pole-tower', label: 'Pole/Tower', iconKey: 'pole-tower' },
+  { type: ObstacleType.Building, id: 'building', label: 'Building', iconKey: 'building' },
+  { type: ObstacleType.Construction, id: 'construction', label: 'Construction', iconKey: 'construction' },
+  { type: ObstacleType.Bridge, id: 'bridge', label: 'Bridge', iconKey: 'bridge' },
+  { type: ObstacleType.Other, id: 'other', label: 'Other', iconKey: 'other' },
+] as const;
 
 export interface Obstacle {
   id: string;

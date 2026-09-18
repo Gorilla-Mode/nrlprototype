@@ -1,30 +1,12 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import HeightWheel from './HeightWheel.svelte';
-  import { illuminationLabels, obstacleTypeChoices, maxPhotos, type DetailsDraft, type DetailsStep } from './createDetailsController';
-  import { obstacleGeometryChoices, type ObstacleType } from './obstacle';
+  import { illuminationLabels, maxPhotos } from './createDetailsController';
+  import { obstacleGeometryChoices, obstacleTypeChoices } from './obstacle';
+  import ObstacleTypeIcon from './ObstacleTypeIcon.svelte';
+  import type { ReportingVariantProps } from './reportingVariantProps';
 
-  let { draft, step, busy, error, canSave, canFinish, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, onsave, oncontinue, onfinish, onback, ondismiss }: {
-    draft: DetailsDraft;
-    step: DetailsStep;
-    busy: boolean;
-    error: string;
-    canSave: boolean;
-    canFinish: boolean;
-    ontype: (type: ObstacleType) => void;
-    onheight: (height: number) => void;
-    onillumination: () => void;
-    onabsence: (notPresent: boolean) => void;
-    oncustomtype: (value: string) => void;
-    ondescription: (value: string) => void;
-    onphotos: (files: readonly File[]) => void;
-    onremovephoto: (index: number) => void;
-    onsave: () => void;
-    oncontinue: () => void;
-    onfinish: () => void;
-    onback: () => void;
-    ondismiss: () => void;
-  } = $props();
+  let { draft, open, step, totalSteps, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, onsave, oncontinue, onfinish, onback, ondismiss }: ReportingVariantProps = $props();
   let dialog: HTMLDialogElement;
   let heading: HTMLHeadingElement;
   let attachmentInput = $state<HTMLInputElement>();
@@ -35,7 +17,10 @@
   }
   $effect(() => {
     step;
-    void tick().then(() => heading?.focus({ preventScroll: true }));
+    if (open) {
+      if (!dialog.open) dialog.showModal();
+      void tick().then(() => { if (open) heading?.focus({ preventScroll: true }); });
+    } else dialog.close();
   });
   let geometryLabel = $derived(obstacleGeometryChoices.find(({ type }) => type === draft.report.obstacle_position.type)?.label.toLowerCase());
   let pointerOnBackdrop = false;
@@ -44,7 +29,6 @@
     return event.target === dialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom);
   }
   onMount(() => {
-    dialog.showModal();
     return () => dialog.close();
   });
 </script>
@@ -62,7 +46,7 @@
         </button>
       {/if}
       <h1 bind:this={heading} id="details-title" tabindex="-1">{step === 1 ? 'Obstacle Details' : 'Additional Information'}</h1>
-      <p id="details-step">Step {step} of 2 · {geometryLabel}</p>
+      <p id="details-step">Step {step} of {totalSteps} · {geometryLabel}</p>
       <button class="button close" type="button" aria-label="Close obstacle details" onclick={ondismiss}>
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
       </button>
@@ -75,13 +59,14 @@
       <legend>Obstacle type</legend>
       <div class="type-grid">
         {#each obstacleTypeChoices as choice}
-          <label class="type-card" class:selected={draft.type === choice.value}>
-            <input class="sr-only" type="radio" name="obstacle-type" value={choice.value} checked={draft.type === choice.value} onchange={() => ontype(choice.value)} />
+          <label class="type-card" class:selected={draft.type === choice.type}>
+            <input class="sr-only" type="radio" name="obstacle-type" value={choice.type} checked={draft.type === choice.type} onchange={() => ontype(choice.type)} />
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              {#if choice.value === 'bridge'}<path d="M3 19V7m18 12V7M3 10h18M3 16c4-7 14-7 18 0M7 10v3m10-3v3" />
-              {:else if choice.value === 'airspan'}<path d="M4 21V3m16 18V3M2 6h4m12 0h4M4 7c5 8 11 8 16 0M4 4c5 6 11 6 16 0" />
-              {:else if choice.value === 'pole'}<path d="M12 21V3M6 6h12M8 3v6m8-6v6M8 21h8" />
-              {:else if choice.value === 'building'}<path d="M5 21V3h14v18M3 21h18M9 7h1m4 0h1m-6 4h1m4 0h1m-5 10v-6h4v6" />
+              {#if choice.type === 'bridge'}<path d="M3 19V7m18 12V7M3 10h18M3 16c4-7 14-7 18 0M7 10v3m10-3v3" />
+              {:else if choice.type === 'airspan'}<path d="M4 21V3m16 18V3M2 6h4m12 0h4M4 7c5 8 11 8 16 0M4 4c5 6 11 6 16 0" />
+              {:else if choice.type === 'pole'}<path d="M12 21V3M6 6h12M8 3v6m8-6v6M8 21h8" />
+              {:else if choice.type === 'building'}<path d="M5 21V3h14v18M3 21h18M9 7h1m4 0h1m-6 4h1m4 0h1m-5 10v-6h4v6" />
+              {:else if choice.type === 'construction'}<ObstacleTypeIcon type={choice.type} />
               {:else}<path d="M12 3 2 21h20L12 3Zm0 6v5m0 3v1" />{/if}
             </svg>
             <span>{choice.label}</span>
@@ -150,17 +135,15 @@
   <footer>
     {#if error}<p role="alert" class="error">{error}</p>{/if}
     <p id="details-availability" class="sr-only">
-      {#if !canSave}Save Draft is not connected yet. {/if}
-      {#if step === 2 && !canFinish}Finish Report is not connected yet. {/if}
       {#if !draft.type}Choose an obstacle type to continue. {/if}
       Details and photos stay in memory for this session.
     </p>
     <div class="footer-actions" aria-busy={busy}>
-      <button type="button" class="button" disabled={!canSave || busy} aria-describedby="details-availability" onclick={onsave}>Save Draft</button>
-      {#if step === 1}
+      <button type="button" class="button" disabled={busy} aria-describedby="details-availability" onclick={onsave}>Save Draft</button>
+      {#if step < totalSteps}
         <button type="button" class="button continue" disabled={!draft.type || busy} aria-describedby="details-availability" onclick={oncontinue}>Continue</button>
       {:else}
-        <button type="button" class="button continue" disabled={!canFinish || !draft.type || busy} aria-describedby="details-availability" onclick={onfinish}>Finish Report</button>
+        <button type="button" class="button continue" disabled={!draft.type || busy} aria-describedby="details-availability" onclick={onfinish}>Finish Report</button>
       {/if}
     </div>
   </footer>

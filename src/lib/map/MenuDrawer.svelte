@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
   import type { SettingsSection } from '../settings/settings';
 
-  let { open = $bindable(false), onfaq, onsettings, ondismiss }: {
+  let { open = $bindable(false), onfaq, onsettings, ondismiss, debugContent }: {
     open?: boolean;
     onfaq: () => void;
     onsettings: (section: SettingsSection) => void;
     ondismiss: () => void;
+    debugContent?: Snippet;
   } = $props();
 
   type MenuAction = 'faq' | 'profile' | 'language' | 'settings';
@@ -113,6 +114,7 @@
           </div>
         {/each}
       </nav>
+      {#if debugContent}{@render debugContent()}{/if}
       <footer class="menu-footer">
         <button class="menu-row" type="button" disabled>
           <span class="menu-icon">{@render icon('logout')}</span><span class="menu-label">Log Out<span class="menu-unavailable">Not available in this prototype</span></span>

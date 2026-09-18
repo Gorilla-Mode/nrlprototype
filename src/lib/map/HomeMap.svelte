@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
   import type { SettingsSection } from '../settings/settings';
   import MenuDrawer from './MenuDrawer.svelte';
   import GeometryIcon from './GeometryIcon.svelte';
@@ -13,12 +13,14 @@
   import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
 
-  let { oncomplete, onresumedetails, onselectiondelete, menuOpen = $bindable(false), visible = true, onfaq, onreports, onsettings,
+  let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, onfaq, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
   }: {
     oncomplete?: (obstacle: Obstacle) => void;
+    onreportstart?: () => void;
+    debugContent?: Snippet;
     onresumedetails?: () => void;
     onselectiondelete?: () => void;
     menuOpen?: boolean;
@@ -54,6 +56,10 @@
   }
 
   let drawing = $state.raw<DrawingState>(idleDrawingState);
+  function handleDrawingChange(state: DrawingState) {
+    if (drawing.status === 'idle' && state.status === 'drawing') onreportstart?.();
+    drawing = state;
+  }
 
   function handleMapClick() {
     isLayerFadeOpen = false;
@@ -90,7 +96,7 @@
     onaccuracychange={(value) => { accuracy = value; }}
     onholdchange={(origin) => { holdOrigin = origin; holdPointer = null; }}
     onholdmove={(x, y) => { holdPointer = { x, y }; }}
-    ondrawingchange={(state) => { drawing = state; }}
+    ondrawingchange={handleDrawingChange}
     onobstacleregistered={oncomplete}
   />
   <MapToolbar
@@ -105,7 +111,7 @@
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
 
-  <MenuDrawer bind:open={menuOpen} {onfaq} {onsettings}
+  <MenuDrawer bind:open={menuOpen} {onfaq} {onsettings} {debugContent}
     ondismiss={() => mapWrapper.querySelector<HTMLButtonElement>('[aria-label="Menu"]')?.focus({ preventScroll: true })} />
 
   {#if holdOrigin}
@@ -128,6 +134,7 @@
       <p>{locationMessage}</p>
     {/if}
   </div>
+
 </main>
 
 <style>
@@ -172,4 +179,5 @@
     transform: translate(-50%, -50%);
     pointer-events: none;
   }
+
 </style>

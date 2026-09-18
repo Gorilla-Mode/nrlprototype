@@ -7,23 +7,34 @@
   import { settingsSectionFromHash, type SettingsSection, type LanguagePreference } from './lib/settings/settings';
   import { isReportsHash, reportsRoute } from './lib/reports/reports';
   import type { GeolocationState } from './lib/map/createGeolocationController';
-  import ObstacleDetails from './lib/reporting/ObstacleDetails.svelte';
-  import { createDetailsController, detailsRoute, additionalInformationRoute, detailsStepFromHash, initialDetailsState, type DetailsHooks, type DetailsState } from './lib/reporting/createDetailsController';
+  import { createDetailsController, initialDetailsState, type DetailsHooks, type DetailsState } from './lib/reporting/createDetailsController';
+  import { reportingSettings, reportingVariantUrl, resolveReportingRoute, summaryRoute } from './lib/reporting/reporting';
+  import { reportingVariants } from './lib/reporting/reportingVariants';
+  import ReportingDebug from './lib/reporting/ReportingDebug.svelte';
+  import ObstacleReportSummary from './lib/reporting/ObstacleReportSummary.svelte';
   import type { Obstacle } from './lib/reporting/obstacle';
 
   let { onSaveDraft, onContinue, onFinish }: DetailsHooks = $props();
   let details = $state.raw<DetailsState>(initialDetailsState);
   const detailsController = createDetailsController({
     onChange: (state) => { details = state; },
-    getHooks: () => ({ onSaveDraft, onContinue, onFinish }),
+    // The prototype itself is a session-only consumer. Optional integrations are awaited.
+    getHooks: () => ({
+      onSaveDraft: (payload, reason) => onSaveDraft?.(payload, reason),
+      onContinue,
+      onFinish: (payload, context) => onFinish?.(payload, context),
+    }),
   });
   let returnFocus: HTMLElement | null = null;
-
   let hash = $state(typeof window !== 'undefined' ? window.location.hash : '');
+  let search = $state(typeof window !== 'undefined' ? window.location.search : '');
+  let reporting = $derived(reportingSettings(search, reportingVariants));
+  let ActiveReportingView = $derived(reportingVariants.find(({ id }) => id === details.variant?.id)?.component);
   let faqOpen = $derived(hash === '#/FAQ');
   let reportsOpen = $derived(isReportsHash(hash));
   let settingsSection = $derived(settingsSectionFromHash(hash));
   let pageOpen = $derived(faqOpen || reportsOpen || settingsSection !== null);
+  let reportOpen = $derived(details.open || details.summaryOpen);
   let menuOpen = $state(false);
   let menuWasOpen = false;
   let opacity = $state(0);
@@ -34,45 +45,60 @@
   let accuracy = $state<number | null>(null);
   let homeMap: HomeMap;
 
+  function restoreMapFocus() {
+    void tick().then(() => {
+      if (pageOpen || reportOpen || menuOpen) return;
+      if (returnFocus?.isConnected && !returnFocus.closest('[inert]')) returnFocus.focus({ preventScroll: true });
+      else homeMap?.focusDetails();
+    });
+  }
+
   function syncRoute() {
-    const wasOpen = pageOpen;
-    const wasDetailsRoute = detailsStepFromHash(hash) !== null;
+    const wasPageOpen = pageOpen;
+    const wasReportOpen = reportOpen || hash.startsWith('#/Report/');
     hash = window.location.hash;
-    const requestedStep = detailsStepFromHash(hash);
-    if (requestedStep) {
-      if (details.draft) {
-        detailsController.resume(requestedStep);
-        if (requestedStep === 2 && details.step === 1) {
-          history.replaceState(history.state, '', detailsRoute);
-          hash = detailsRoute;
-        }
+    search = window.location.search;
+    const route = resolveReportingRoute(hash, details.draft ? details.variant : null, !!details.draft?.type, !!details.result);
+    if (route?.kind !== 'summary' && details.result) detailsController.closeSummary();
+    if (route?.kind === 'details') {
+      detailsController.resume(route.step);
+      if (hash !== route.hash) {
+        history.replaceState(history.state, '', route.hash);
+        hash = route.hash;
       }
-      else {
+    } else {
+      if (details.open) void detailsController.dismiss();
+      if (route?.kind === 'map') {
         history.replaceState(null, '', window.location.pathname + window.location.search);
         hash = '';
       }
-    } else if (details.open || wasDetailsRoute) {
-      void detailsController.dismiss();
-      void tick().then(() => {
-        if (pageOpen || details.open) return;
-        if (returnFocus?.isConnected && !returnFocus.closest('[inert]')) returnFocus.focus({ preventScroll: true });
-        else homeMap?.focusDetails();
-      });
     }
-    // The drawer opens FAQ and Settings, the toolbar opens Reports: restore whichever state we left.
     if (pageOpen) {
-      if (!wasOpen) menuWasOpen = menuOpen;
+      if (!wasPageOpen) menuWasOpen = menuOpen;
       menuOpen = false;
-    } else if (wasOpen) menuOpen = menuWasOpen;
+    } else if (wasPageOpen) menuOpen = menuWasOpen;
+    if (wasReportOpen && !reportOpen) restoreMapFocus();
+  }
+
+  function selectReportingVariant(id: string) {
+    const variant = reportingVariants.find((entry) => entry.id === id);
+    if (!variant) return;
+    history.replaceState(history.state, '', reportingVariantUrl(window.location.href, variant));
+    syncRoute();
   }
 
   function openDetails(report?: Obstacle) {
     returnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
-    if (report) detailsController.begin(report);
-    if (!details.draft) return;
-    const step = details.step;
-    history.pushState({ nrlDetailsDepth: 1 }, '', detailsRoute);
-    if (step === 2) history.pushState({ nrlDetailsDepth: 2 }, '', additionalInformationRoute);
+    if (report) {
+      detailsController.begin(report, details.variant ?? reporting.variant);
+      // GPS may settle after the user has opened another page.
+      if (pageOpen) { void detailsController.dismiss(); return; }
+    }
+    if (!details.draft || !details.variant) return;
+    menuOpen = false;
+    for (let index = 0; index < details.step; index++) {
+      history.pushState({ nrlDetailsDepth: index + 1 }, '', details.variant.stepRoutes[index]);
+    }
     syncRoute();
   }
 
@@ -84,16 +110,21 @@
     }
   }
 
+  async function saveDetails() {
+    if (await detailsController.saveAndDismiss()) closeDetails();
+  }
+
   async function continueDetails() {
-    if (!await detailsController.continue()) return;
-    history.pushState({ nrlDetailsDepth: (history.state?.nrlDetailsDepth ?? 0) + 1 }, '', additionalInformationRoute);
+    if (!await detailsController.continue() || !details.variant) return;
+    history.pushState({ nrlDetailsDepth: (history.state?.nrlDetailsDepth ?? 0) + 1 }, '', details.variant.stepRoutes[details.step - 1]);
     syncRoute();
   }
 
   function previousDetailsStep() {
-    if (history.state?.nrlDetailsDepth === 2) history.back();
+    if (!details.variant || details.step <= 1) return;
+    if (history.state?.nrlDetailsDepth > 1) history.back();
     else {
-      history.replaceState(history.state, '', detailsRoute);
+      history.replaceState(history.state, '', details.variant.stepRoutes[details.step - 2]);
       syncRoute();
     }
   }
@@ -101,7 +132,15 @@
   async function finishDetails() {
     if (!await detailsController.finish()) return;
     homeMap.clearSelection();
-    if (detailsStepFromHash(window.location.hash)) closeDetails();
+    if (details.summaryOpen) {
+      history.replaceState(history.state, '', summaryRoute);
+      syncRoute();
+    }
+  }
+
+  function closeSummary() {
+    detailsController.closeSummary();
+    closeDetails();
   }
 
   function openPage(nextHash: string) {
@@ -133,24 +172,35 @@
   });
 </script>
 
-<div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || details.open} aria-hidden={pageOpen || details.open}>
+{#snippet reportingDebug()}
+  <ReportingDebug variants={reportingVariants} selectedId={reporting.variant.id} activeVariant={details.variant} onchange={selectReportingVariant} />
+{/snippet}
+
+<div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || reportOpen} aria-hidden={pageOpen || reportOpen}>
   <HomeMap bind:this={homeMap} bind:menuOpen bind:opacity bind:isGrayscale={grayscale}
     bind:geolocationState={locationState} bind:locationMessage bind:accuracy
     onfaq={() => openPage('#/FAQ')} onreports={() => openPage(reportsRoute)}
-    onsettings={(section) => openPage('#/Settings/' + section)} visible={!pageOpen && !details.open}
+    onsettings={(section) => openPage('#/Settings/' + section)} visible={!pageOpen && !reportOpen}
+    debugContent={reporting.debug ? reportingDebug : undefined}
+    onreportstart={() => detailsController.start(reporting.variant)}
     oncomplete={openDetails} onresumedetails={details.draft ? () => openDetails() : undefined}
     onselectiondelete={() => detailsController.clear()} />
 </div>
-{#if details.open && details.draft}
-  <ObstacleDetails draft={details.draft} step={details.step} busy={details.busy} error={details.error}
-    canSave={!!onSaveDraft} canFinish={!!onFinish}
+{#if details.draft && details.variant && ActiveReportingView}
+  {#key details.draft.report.id}
+  <ActiveReportingView draft={details.draft} open={details.open} step={details.step} totalSteps={details.variant.stepRoutes.length}
+    busy={details.busy} error={details.error}
     ontype={detailsController.setType} onheight={detailsController.setHeight}
     onillumination={detailsController.cycleIllumination} onabsence={detailsController.setNotPresent}
     oncustomtype={detailsController.setCustomType} ondescription={detailsController.setDescription}
     onphotos={detailsController.addPhotos} onremovephoto={detailsController.removePhoto}
-    onsave={detailsController.save} oncontinue={continueDetails} onfinish={finishDetails}
+    onsave={saveDetails} oncontinue={continueDetails} onfinish={finishDetails}
     onback={previousDetailsStep} ondismiss={closeDetails} />
-{:else if details.error}
+  {/key}
+{/if}
+{#if details.summaryOpen && details.result}
+  <ObstacleReportSummary report={details.result.report} onclose={closeSummary} />
+{:else if !details.open && details.error}
   <p class="details-error" role="alert">{details.error}</p>
 {/if}
 {#if faqOpen}<FaqPage onback={backToMap} />{/if}
