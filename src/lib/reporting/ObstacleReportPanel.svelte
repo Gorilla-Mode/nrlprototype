@@ -388,7 +388,7 @@ onkeydown={(event) => {
   .other-type-input { margin-top: var(--space-2); }
 
   .unit-toggle {
-    min-height: auto; height: var(--space-6); padding-inline: var(--space-2);
+    min-height: var(--target-size-min); height: auto; padding-inline: var(--space-2);
     border: var(--border-default); border-radius: var(--radius-pill);
     background: var(--color-background-subtle); color: var(--color-text-secondary);
     font-size: var(--font-size-caption); font-weight: var(--font-weight-semibold); text-transform: uppercase; cursor: pointer;
