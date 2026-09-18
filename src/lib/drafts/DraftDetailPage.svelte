@@ -54,6 +54,13 @@
 
   <div class="scroll-area">
     <div class="safe-area">
+      {#if !canSend}
+        <div class="needed-box">
+          <div class="needed-title">{missingFields.length} {missingFields.length === 1 ? 'field' : 'fields'} still needed</div>
+          <div class="needed-desc muted">Fill in the fields marked in red below, then send.</div>
+        </div>
+      {/if}
+
       <div class="fields-row">
         <div class="field-box">
           <div class="field-label">TYPE</div>
@@ -87,13 +94,6 @@
           <div class="field-caption muted">Marking on the obstacle</div>
         </div>
       </div>
-
-      {#if !canSend}
-        <div class="needed-box">
-          <div class="needed-title">{missingFields.length} {missingFields.length === 1 ? 'field' : 'fields'} still needed</div>
-          <div class="needed-desc muted">Fill in the fields marked in red above, then send.</div>
-        </div>
-      {/if}
 
       <div class="info-card">
         <div class="section-label">DESCRIPTION AND REPORTER</div>
