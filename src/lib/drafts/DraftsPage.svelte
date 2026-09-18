@@ -6,6 +6,7 @@
   import { geometryTypeFor, matchesHeightFilter } from './types';
 
   export let onOpenDraft: (draft: Draft) => void = () => {};
+  export let onBack: () => void = () => {};
 
   let view: 'reports' | 'drafts' = 'drafts';
   let query = '';
@@ -96,7 +97,7 @@
     filterPanelOpen = false;
   };
 
-  const goBack = () => alert('Back (placeholder)');
+  const goBack = () => onBack();
 </script>
 
 <section class="page">
@@ -115,7 +116,7 @@
 
     <div class="controls">
       <div class="search">
-        <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#8E8E93"><path d="M21 21l-4.35-4.35" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="11" cy="11" r="6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></circle></svg>
+        <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M21 21l-4.35-4.35" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="11" cy="11" r="6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></circle></svg>
         <input placeholder="Search obstacle name or type" bind:value={query} />
         {#if query}
           <button class="clear" on:click={clearSearch}>✕</button>
@@ -163,41 +164,44 @@
 </section>
 
 <style>
-  :global(:root) { --bg:#F7F7F8; --muted:#8E8E93; --text:#1C1C1E; --blue:#2F6FED }
-  .page { width:100%; height:100%; background: #fff; display:flex; align-items:flex-start; justify-content:center }
-  .safe-area { width:100%; max-width:1100px; padding:28px 32px; background: var(--bg); min-height:100vh }
+  .page {
+    position: fixed; inset: 0; z-index: var(--layer-dialog);
+    overflow-y: auto; overscroll-behavior: contain;
+    width:100%; height:100%; background: var(--color-background-raised); display:flex; align-items:flex-start; justify-content:center;
+  }
+  .safe-area { width:100%; max-width:1100px; padding:28px 32px; background: var(--color-background-page); min-height:100vh }
 
   .header { display:flex; align-items:center; justify-content:space-between; gap:16px }
   .left { display:flex; align-items:center; gap:14px }
   .back { font-size:28px; background:transparent; border:0; cursor:pointer }
   h1 { margin:0; font-size:30px }
 
-  .segmented { display:flex; background:#EFEFF4; border-radius:999px; padding:6px; gap:6px }
-  .segmented button { padding:8px 14px; border-radius:999px; border:0; background:transparent; color:var(--muted); font-weight:600; cursor:pointer }
-  .segmented button.active { background:#fff; color:var(--text); box-shadow: 0 1px 2px rgba(28,28,30,0.06); }
+  .segmented { display:flex; background:var(--color-background-subtle); border-radius:999px; padding:6px; gap:6px }
+  .segmented button { padding:8px 14px; border-radius:999px; border:0; background:transparent; color:var(--color-text-secondary); font-weight:600; cursor:pointer }
+  .segmented button.active { background:var(--color-background-raised); color:var(--color-text-primary); box-shadow: var(--shadow-surface); }
 
   .controls { display:flex; gap:12px; align-items:center; margin-top:18px }
-  .search { flex:1; display:flex; align-items:center; gap:8px; background:#F2F2F7; padding:10px 12px; border-radius:12px }
-  .search .icon { opacity:0.9 }
+  .search { flex:1; display:flex; align-items:center; gap:8px; background:var(--color-background-subtle); padding:10px 12px; border-radius:12px }
+  .search .icon { opacity:0.9; stroke: var(--color-text-secondary); }
   .search input { border:0; background:transparent; outline:none; flex:1; font-size:16px }
   .search .clear { background:transparent; border:0; cursor:pointer }
   .filter-wrap { position:relative }
-  .filter { padding:10px 14px; border-radius:12px; border:1px solid #D1D1D6; background:#fff; cursor:pointer; display:flex; align-items:center; gap:6px }
-  .filter.active { border-color:var(--blue); color:var(--blue); font-weight:600 }
-  .filter-dot { width:8px; height:8px; border-radius:50%; background:var(--blue) }
+  .filter { padding:10px 14px; border-radius:12px; border:var(--border-default); background:var(--color-background-raised); cursor:pointer; display:flex; align-items:center; gap:6px }
+  .filter.active { border-color:var(--color-action-secondary); color:var(--color-action-secondary); font-weight:600 }
+  .filter-dot { width:8px; height:8px; border-radius:50%; background:var(--color-action-secondary) }
 
   .chips { margin-top:12px }
-  .chip { background:var(--blue); color:#fff; padding:8px 12px; border-radius:999px; border:0; font-weight:600 }
-  .count { background:#fff; color:var(--blue); display:inline-block; width:22px; height:22px; border-radius:999px; text-align:center; margin-left:8px; font-weight:700 }
+  .chip { background:var(--color-action-secondary); color:var(--color-text-inverse); padding:8px 12px; border-radius:999px; border:0; font-weight:600 }
+  .count { background:var(--color-background-raised); color:var(--color-action-secondary); display:inline-block; width:22px; height:22px; border-radius:999px; text-align:center; margin-left:8px; font-weight:700 }
 
-  .divider { border:0; height:1px; background:#E9E9EB; margin:16px 0 }
+  .divider { border:0; height:1px; background:var(--color-border-default); margin:16px 0 }
 
-  .list-head { display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--muted); font-weight:700; letter-spacing:0.06em }
+  .list-head { display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--color-text-secondary); font-weight:700; letter-spacing:0.06em }
   .list-head .right { font-weight:400 }
 
   .grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:18px; margin-top:14px }
 
-  .empty { padding:48px; text-align:center; color:var(--muted); font-size:18px }
+  .empty { padding:48px; text-align:center; color:var(--color-text-secondary); font-size:18px }
 
   @media (max-width:800px) { .grid { grid-template-columns: 1fr } .safe-area { padding:20px } }
 </style>

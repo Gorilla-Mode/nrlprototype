@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+  import type { SettingsSection } from '../settings/settings';
+  import MenuDrawer from './MenuDrawer.svelte';
+  import GeometryIcon from './GeometryIcon.svelte';
   import MapCanvas from './MapCanvas.svelte';
   import MapToolbar from './MapToolbar.svelte';
   import RightMapControls from './RightMapControls.svelte';
@@ -9,16 +13,37 @@
   import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
 
-  let { oncomplete }: { oncomplete?: (obstacle: Obstacle) => void } = $props();
+  let { oncomplete, menuOpen = $bindable(false), visible = true, onfaq, onsettings, onreports,
+    opacity = $bindable(0), isGrayscale = $bindable(false),
+    geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
+    accuracy = $bindable<number | null>(null),
+  }: {
+    oncomplete?: (obstacle: Obstacle) => void;
+    menuOpen?: boolean;
+    visible?: boolean;
+    onfaq: () => void;
+    onsettings: (section: SettingsSection) => void;
+    onreports: () => void;
+    opacity?: number;
+    isGrayscale?: boolean;
+    geolocationState?: GeolocationState;
+    locationMessage?: string;
+    accuracy?: number | null;
+  } = $props();
+  let mapWrapper: HTMLElement;
 
-  let opacity = $state(0);
-  let isGrayscale = $state(false);
   let isLayerFadeOpen = $state(false);
-  let locationMessage = $state('');
-  let geolocationState = $state<GeolocationState>('unavailable');
   let mapCanvas: MapCanvas;
   let holdOrigin = $state<HoldOrigin | null>(null);
   let holdPointer = $state<{ x: number; y: number } | null>(null);
+  export function toggleGeolocation() { mapCanvas?.toggleGeolocation(); }
+
+  async function deleteSelection() {
+    mapCanvas?.deleteDrawing();
+    await tick();
+    mapCanvas?.focus();
+  }
+
   let drawing = $state.raw<DrawingState>(idleDrawingState);
 
   function handleMapClick() {
@@ -32,26 +57,13 @@
   }
 </script>
 
-{#snippet pointIcon()}
-  <circle cx="12" cy="12" r="8" />
-{/snippet}
+{#snippet pointIcon()}<GeometryIcon type="Point" />{/snippet}
 
-{#snippet lineIcon()}
-  <path d="M5 19C13 19 11 5 19 5" />
-  <circle cx="5" cy="19" r="1.7" fill="currentColor" />
-  <circle cx="19" cy="5" r="1.7" fill="currentColor" />
-{/snippet}
+{#snippet lineIcon()}<GeometryIcon type="LineString" />{/snippet}
 
-{#snippet polygonIcon()}
-  <path d="m5 7 8-4 7 6-3 11-12-2Z" />
-  <circle cx="5" cy="7" r="1.2" fill="currentColor" />
-  <circle cx="13" cy="3" r="1.2" fill="currentColor" />
-  <circle cx="20" cy="9" r="1.2" fill="currentColor" />
-  <circle cx="17" cy="20" r="1.2" fill="currentColor" />
-  <circle cx="5" cy="18" r="1.2" fill="currentColor" />
-{/snippet}
+{#snippet polygonIcon()}<GeometryIcon type="Polygon" />{/snippet}
 
-<main class="map-wrapper" aria-label="Home map">
+<main bind:this={mapWrapper} class="map-wrapper" aria-label="Home map">
   <RightMapControls
     bind:opacity
     bind:open={isLayerFadeOpen}
@@ -60,27 +72,35 @@
     ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
   />
   <MapCanvas
+    {visible}
     bind:this={mapCanvas}
     {opacity}
     grayscale={isGrayscale}
     onmapclick={handleMapClick}
     ongeolocationstatechange={handleGeolocationStateChange}
+    onaccuracychange={(value) => { accuracy = value; }}
     onholdchange={(origin) => { holdOrigin = origin; holdPointer = null; }}
     onholdmove={(x, y) => { holdPointer = { x, y }; }}
     ondrawingchange={(state) => { drawing = state; }}
     onobstacleregistered={oncomplete}
   />
   <MapToolbar
+    {menuOpen}
+    onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
     {drawing}
     onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}
     onundo={() => mapCanvas?.undoDrawing()}
-    ondelete={() => mapCanvas?.deleteDrawing()}
+    ondelete={deleteSelection}
     oncomplete={() => mapCanvas?.completeDrawing()}
+    onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
+
+  <MenuDrawer bind:open={menuOpen} {onfaq} {onsettings}
+    ondismiss={() => mapWrapper.querySelector<HTMLButtonElement>('[aria-label="Menu"]')?.focus({ preventScroll: true })} />
 
   {#if holdOrigin}
     {@const geometryIcons = { point: pointIcon, line: lineIcon, polygon: polygonIcon }}
-    <div class="hold-menu" style:left={`${holdOrigin.x}px`} style:top={`${holdOrigin.y}px`}>
+    <div class="hold-menu" style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}>
       <RadialMenu
         pointer={holdPointer}
         innerRadius={obstacleMenuInnerRadius}
@@ -102,11 +122,6 @@
 
 <style>
   .map-wrapper {
-    --map-control-size: 44px;
-    --map-control-gap: 4px;
-    --map-actions-top: 37.5%;
-    --map-right-inset: max(8px, env(safe-area-inset-right));
-
     position: relative;
     width: 100%;
     height: 100%;
@@ -117,27 +132,34 @@
 
   .location-status {
     position: absolute;
-    z-index: 2;
-    top: calc(max(6px, env(safe-area-inset-top)) + var(--map-control-size) + 12px);
-    right: var(--map-right-inset);
-    max-width: min(290px, calc(100% - 16px));
-  }
-
-  .hold-menu {
-    position: absolute;
-    z-index: 3;
-    transform: translate(-50%, -50%);
+    z-index: var(--layer-map-overlay);
+    top: calc(var(--map-control-inset-top) + var(--map-control-size) + var(--space-3));
+    right: var(--map-control-inset-right);
+    left: var(--map-control-inset-left);
+    display: flex;
+    justify-content: flex-end;
     pointer-events: none;
   }
 
   .location-status p {
+    width: fit-content;
+    max-width: var(--map-status-max);
     margin: 0;
-    padding: 12px 16px;
-    border-radius: 16px;
-    background: var(--color-surface);
+    padding: var(--space-3) var(--space-4);
+    border: var(--border-default);
+    border-radius: var(--radius-card);
+    background: var(--color-background-raised);
     box-shadow: var(--shadow-control);
-    color: var(--color-muted-strong);
-    font-size: 13px;
-    line-height: 1.5;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-body-small);
+    line-height: var(--line-height-body);
+  }
+  .hold-menu {
+    position: absolute;
+    z-index: var(--layer-popover);
+    left: var(--hold-x);
+    top: var(--hold-y);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
   }
 </style>

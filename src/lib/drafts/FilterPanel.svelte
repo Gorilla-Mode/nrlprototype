@@ -74,36 +74,36 @@
     right: 0;
     z-index: 21;
     width: 300px;
-    background: #fff;
+    background: var(--color-background-raised);
     border-radius: 16px;
-    box-shadow: 0 12px 32px rgba(28,28,30,0.18);
+    box-shadow: var(--shadow-control);
     padding: 20px;
     box-sizing: border-box;
   }
 
   .panel-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px }
   .panel-header h2 { margin:0; font-size:20px }
-  .reset { background:transparent; border:0; color:var(--blue, #2F6FED); font-weight:600; font-size:14px; cursor:pointer; padding:0 }
+  .reset { background:transparent; border:0; color:var(--color-action-secondary); font-weight:600; font-size:14px; cursor:pointer; padding:0 }
 
-  .section-label { font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--muted, #8E8E93); margin: 16px 0 8px }
+  .section-label { font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin: 16px 0 8px }
   .section-label:first-of-type { margin-top: 0 }
 
   .option-list { display:flex; flex-direction:column; gap:8px }
   .option {
     display:flex; align-items:center; gap:10px;
-    width:100%; text-align:left; font-size:15px; color:#1C1C1E;
-    background:#fff; border:1px solid #D1D1D6; border-radius:10px;
+    width:100%; text-align:left; font-size:15px; color:var(--color-text-primary);
+    background:var(--color-background-raised); border:var(--border-default); border-radius:10px;
     padding:10px 12px; cursor:pointer; box-sizing:border-box;
   }
   .radio-option { justify-content:space-between }
-  .option.selected { background:#EAF1FE; border-color: var(--blue, #2F6FED); color: var(--blue, #2F6FED); font-weight:600 }
+  .option.selected { background:var(--color-action-selected); border-color: var(--color-action-secondary); color: var(--color-action-secondary); font-weight:600 }
 
-  .box { width:18px; height:18px; border-radius:5px; border:1.5px solid #C7C7CC; display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff; flex-shrink:0 }
-  .checkbox-option.selected .box { background: var(--blue, #2F6FED); border-color: var(--blue, #2F6FED) }
-  .check { color: var(--blue, #2F6FED); font-weight:700 }
+  .box { width:18px; height:18px; border-radius:5px; border:1.5px solid var(--color-border-strong); display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--color-text-inverse); flex-shrink:0 }
+  .checkbox-option.selected .box { background: var(--color-action-secondary); border-color: var(--color-action-secondary) }
+  .check { color: var(--color-action-secondary); font-weight:700 }
 
   .apply {
     width:100%; margin-top:20px; padding:14px; border:0; border-radius:12px;
-    background: var(--blue, #2F6FED); color:#fff; font-weight:700; font-size:15px; cursor:pointer;
+    background: var(--color-action-secondary); color:var(--color-text-inverse); font-weight:700; font-size:15px; cursor:pointer;
   }
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import {
     createLocationSearchController,
     idleSearchState,
@@ -20,12 +20,21 @@
 
   let open = $derived(searchState.suggestions.length > 0);
   let note = $derived(
+    searchState.status === 'searching' ? 'Searching...' :
     searchState.status === 'empty' ? 'No matches found' :
     searchState.status === 'error' ? 'Search is unavailable right now' : '',
   );
   let announcement = $derived(
     open ? `${searchState.suggestions.length} suggestion${searchState.suggestions.length === 1 ? '' : 's'} available` : note,
   );
+
+  $effect(() => {
+    const highlighted = searchState.highlighted;
+    if (highlighted < 0) return;
+    void tick().then(() => {
+      field?.querySelector(`#${optionId(highlighted)}`)?.scrollIntoView({ block: 'nearest' });
+    });
+  });
 
   onMount(() => {
     const instance = createLocationSearchController({
@@ -54,7 +63,7 @@
     } else if (event.key === 'Enter' && searchState.highlighted >= 0) {
       event.preventDefault();
       controller?.selectHighlighted();
-} else if (event.key === 'Escape' && (open || note || searchState.status === 'searching')) {
+    } else if (event.key === 'Escape' && (open || note || searchState.status === 'searching')) {
       event.preventDefault();
       controller?.close();
     }
@@ -82,6 +91,7 @@
     aria-expanded={open}
     aria-controls={listboxId}
     aria-autocomplete="list"
+    aria-busy={searchState.status === 'searching'}
     aria-activedescendant={searchState.highlighted >= 0 ? optionId(searchState.highlighted) : undefined}
     autocomplete="off"
     value={searchState.query}
@@ -122,27 +132,19 @@
     display: flex;
     flex: 1;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-2);
     min-width: 0;
+    max-width: var(--map-search-max);
+    margin-inline-end: auto;
     height: var(--map-control-size);
-    padding: 0 14px;
-    border-radius: 999px;
-    background: var(--color-surface);
+    padding-inline: var(--map-search-padding-inline);
+    border: var(--border-strong);
+    border-radius: var(--radius-control);
+    background: var(--color-background-raised);
     box-shadow: var(--shadow-control);
-    color: var(--color-muted);
+    color: var(--color-text-secondary);
     pointer-events: auto;
   }
-
-  .search-bar svg {
-    flex: none;
-    width: 24px;
-    height: 24px;
-    stroke: currentColor;
-    stroke-width: 1.7;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
   .search-bar input {
     width: 100%;
     min-width: 0;
@@ -150,93 +152,44 @@
     border: 0;
     outline: none;
     background: transparent;
-    color: var(--color-text);
-    font-size: 13px;
-    opacity: 1;
-    -webkit-text-fill-color: var(--color-text);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-body);
+    -webkit-text-fill-color: currentColor;
   }
-
-  .search-bar input::placeholder {
-    color: var(--color-muted);
-    opacity: 1;
-  }
-
-  .search-bar:focus-within {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
-  }
-
-  .suggestions,
-  .search-note {
+  .search-bar input::placeholder { color: var(--color-text-secondary); opacity: var(--opacity-opaque); }
+  .search-bar:focus-within { outline: var(--border-width-emphasis) solid var(--color-focus-ring); outline-offset: var(--space-1); }
+  .suggestions, .search-note {
     position: absolute;
-    z-index: 3;
-    top: calc(100% + 8px);
+    z-index: var(--layer-popover);
+    top: calc(100% + var(--space-2));
     right: 0;
     left: 0;
     margin: 0;
     padding: 0;
-    overflow: hidden;
-    border-radius: 16px;
-    background: var(--color-surface);
+    max-height: min(var(--map-search-results-max), calc(100dvh - var(--map-control-inset-top) - var(--map-control-size) - var(--space-8)));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: var(--border-strong);
+    border-radius: var(--radius-card);
+    background: var(--color-background-raised);
     box-shadow: var(--shadow-control);
     pointer-events: auto;
   }
-
-  .suggestions[hidden] {
-    display: none;
-  }
-
+  .suggestions[hidden] { display: none; }
   .suggestions li {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 9px 16px;
+    justify-content: center;
+    gap: var(--space-1);
+    min-height: var(--target-size-min);
+    padding: var(--space-2) var(--space-4);
     cursor: pointer;
   }
-
-  .suggestions li + li {
-    border-top: 1px solid var(--color-track-muted);
-  }
-
-  .suggestions li:hover {
-    background: var(--color-surface-hover);
-  }
-
-  .suggestions li.is-highlighted {
-    background: var(--color-surface-active);
-  }
-
-  .suggestion-label {
-    color: var(--color-text);
-    font-size: 13px;
-    line-height: 1.3;
-  }
-
-  .suggestions li.is-highlighted .suggestion-label {
-    color: var(--color-accent-strong);
-  }
-
-  .suggestion-detail {
-    color: var(--color-muted);
-    font-size: 11px;
-    line-height: 1.3;
-  }
-
-  .search-note {
-    padding: 12px 16px;
-    color: var(--color-muted);
-    font-size: 13px;
-    line-height: 1.3;
-  }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
-  }
+  .suggestions li + li { border-top: var(--border-default); }
+  .suggestions li:hover { background: var(--color-map-control-hover); }
+  .suggestions li.is-highlighted { background: var(--color-action-selected); box-shadow: inset var(--space-1) 0 var(--color-action-secondary); }
+  .suggestion-label { color: var(--color-text-primary); font-size: var(--font-size-body-small); line-height: var(--line-height-body); }
+  .suggestions li.is-highlighted .suggestion-label { color: var(--color-action-secondary); font-weight: var(--font-weight-semibold); }
+  .suggestion-detail { color: var(--color-text-secondary); font-size: var(--font-size-caption); line-height: var(--line-height-body); }
+  .search-note { padding: var(--space-3) var(--space-4); color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
 </style>

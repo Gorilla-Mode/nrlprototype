@@ -6,9 +6,9 @@ export type ObstacleGeometryType = ObstacleGeometry['type'];
 export type GeographicVertex = readonly [longitude: number, latitude: number];
 
 export const obstacleGeometryChoices = [
-  { type: 'Point', id: 'point', label: 'Point', colorToken: '--color-radial-point' },
-  { type: 'LineString', id: 'line', label: 'Line', colorToken: '--color-radial-line' },
-  { type: 'Polygon', id: 'polygon', label: 'Polygon', colorToken: '--color-radial-polygon' },
+  { type: 'Point', id: 'point', label: 'Point', colorToken: '--color-map-point' },
+  { type: 'LineString', id: 'line', label: 'Line', colorToken: '--color-map-line' },
+  { type: 'Polygon', id: 'polygon', label: 'Polygon', colorToken: '--color-map-area' },
 ] as const;
 
 export enum ObstacleType {
