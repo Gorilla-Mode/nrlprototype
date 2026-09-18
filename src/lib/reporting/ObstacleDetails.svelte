@@ -15,12 +15,15 @@
     onphotos(Array.from(event.currentTarget.files ?? []));
     event.currentTarget.value = '';
   }
+  // Draft edits replace the parent's state; only navigation should move focus.
+  let visibleStep = $derived(open ? step : null);
   $effect(() => {
-    step;
-    if (open) {
+    let cancelled = false;
+    if (visibleStep !== null) {
       if (!dialog.open) dialog.showModal();
-      void tick().then(() => { if (open) heading?.focus({ preventScroll: true }); });
+      void tick().then(() => { if (!cancelled) heading?.focus({ preventScroll: true }); });
     } else dialog.close();
+    return () => { cancelled = true; };
   });
   let geometryLabel = $derived(obstacleGeometryChoices.find(({ type }) => type === draft.report.obstacle_position.type)?.label.toLowerCase());
   let pointerOnBackdrop = false;

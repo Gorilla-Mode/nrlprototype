@@ -78,14 +78,18 @@
     };
   });
 
+  // Draft edits replace the parent's state; only opening should move focus.
+  let dialogOpen = $derived(open);
   $effect(() => {
-    if (open) {
+    let cancelled = false;
+    if (dialogOpen) {
       if (!dialog.open) dialog.showModal();
-      void tick().then(() => { if (open) heading?.focus({ preventScroll: true }); });
+      void tick().then(() => { if (!cancelled) heading?.focus({ preventScroll: true }); });
     } else {
       dialog.close();
       heightInputOpen = false;
     }
+    return () => { cancelled = true; };
   });
 
   function outside(event: MouseEvent) {
