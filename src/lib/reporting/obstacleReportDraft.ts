@@ -16,7 +16,7 @@ export interface ObstacleReportDraft {
 }
 
 export const minObstacleHeightMeters = 5;
-export const maxObstacleHeightMeters = 15;
+export const maxObstacleHeightMeters = 300;
 export const defaultObstacleHeightMeters = 10;
 
 export const emptyObstacleReportDraft: ObstacleReportDraft = {
@@ -78,6 +78,11 @@ const metersToFeetFactor = 3.28084;
 /** Canonical height stays in metres; feet is a display-only conversion. */
 export function metersToDisplayUnit(meters: number, unit: HeightUnit): number {
   return unit === 'ft' ? Math.round(meters * metersToFeetFactor) : meters;
+}
+
+/** Inverse of metersToDisplayUnit: interpret a value typed in the active display unit as metres. */
+export function displayUnitToMeters(value: number, unit: HeightUnit): number {
+  return unit === 'ft' ? value / metersToFeetFactor : value;
 }
 
 export function formatHeightLabel(meters: number, unit: HeightUnit): string {

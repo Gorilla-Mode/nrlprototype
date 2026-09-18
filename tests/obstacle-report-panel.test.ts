@@ -111,6 +111,10 @@ test('lighting label and state follow the three-stage cycle', () => {
   assert.match(body(pointObstacle, { ...emptyObstacleReportDraft, lighting: 'none' }), /data-state="none"[\s\S]*?No lighting/);
 });
 
+test('the numeric height keypad is not rendered until requested', () => {
+  assert.doesNotMatch(body(pointObstacle, emptyObstacleReportDraft), /height-keypad/);
+});
+
 test('description textarea only renders once its toggle is enabled, carrying the current text', () => {
   assert.doesNotMatch(body(pointObstacle, emptyObstacleReportDraft), /<textarea/);
   const draft = { ...emptyObstacleReportDraft, descriptionEnabled: true, description: 'Crane boom over the taxiway' };

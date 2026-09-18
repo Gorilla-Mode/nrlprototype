@@ -4,6 +4,7 @@ import { ObstacleType } from '../src/lib/reporting/obstacle.js';
 import {
   canFinishReport,
   cycleLighting,
+  displayUnitToMeters,
   emptyObstacleReportDraft,
   formatHeightLabel,
   metersToDisplayUnit,
@@ -55,9 +56,10 @@ test('toggling description off clears any typed text', () => {
   assert.equal(draft.description, '');
 });
 
-test('height clamps to the 5-15 metre range', () => {
+test('height clamps to the 5-300 metre range', () => {
   assert.equal(setHeight(emptyObstacleReportDraft, 1).height, 5);
-  assert.equal(setHeight(emptyObstacleReportDraft, 42).height, 15);
+  assert.equal(setHeight(emptyObstacleReportDraft, 42).height, 42);
+  assert.equal(setHeight(emptyObstacleReportDraft, 999).height, 300);
   assert.equal(setHeight(emptyObstacleReportDraft, 9.6).height, 10);
 });
 
@@ -70,4 +72,10 @@ test('height unit toggle only changes the display conversion, not the canonical 
   assert.equal(metersToDisplayUnit(10, 'ft'), 33);
   assert.equal(formatHeightLabel(10, 'ft'), '33 ft');
   assert.equal(formatHeightLabel(10, 'm'), '10 m');
+});
+
+test('displayUnitToMeters is the inverse of metersToDisplayUnit, for typed height entry', () => {
+  assert.equal(displayUnitToMeters(10, 'm'), 10);
+  assert.equal(Math.round(displayUnitToMeters(metersToDisplayUnit(50, 'ft'), 'ft')), 50);
+  assert.equal(setHeight(emptyObstacleReportDraft, displayUnitToMeters(42, 'm')).height, 42);
 });

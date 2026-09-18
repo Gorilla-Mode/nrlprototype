@@ -4,6 +4,8 @@
   import {
     canFinishReport,
     cycleLighting,
+    defaultObstacleHeightMeters,
+    displayUnitToMeters,
     formatHeightLabel,
     maxObstacleHeightMeters,
     metersToDisplayUnit,
@@ -40,6 +42,8 @@
     takePhoto: 'M4 8h3l2-2h6l2 2h3v11H4ZM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
     notPresent: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM5 5l14 14',
     pin: 'M12 21s-7-4.35-7-10a7 7 0 0 1 14 0c0 5.65-7 10-7 10Z',
+    backspace: 'M8 6h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8l-5-6 5-6ZM12 10l4 4M16 10l-4 4',
+    confirm: 'M5 13l4 4L19 7',
   };
 
   const heightValues = Array.from(
@@ -65,6 +69,12 @@
 
   let dialog: HTMLDialogElement;
   let descriptionField = $state<HTMLTextAreaElement>();
+  let heightTrack = $state<HTMLDivElement>();
+  let heightItems = new Map<number, HTMLButtonElement>();
+  let scrollSettleTimer: ReturnType<typeof setTimeout> | undefined;
+  let heightInputOpen = $state(false);
+  let heightInputValue = $state('');
+  let heightInputField = $state<HTMLInputElement>();
 
   onMount(() => {
     dialog.showModal();
@@ -78,6 +88,75 @@
   }
 
   $effect(() => { if (draft.descriptionEnabled) resizeDescription(); });
+
+  $effect(() => {
+    if (draft.height === null) return;
+    const item = heightItems.get(draft.height);
+    item?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  });
+
+  $effect(() => {
+    if (heightInputOpen) heightInputField?.focus();
+  });
+
+  function openHeightInput() {
+    heightInputValue = draft.height !== null ? String(metersToDisplayUnit(draft.height, draft.heightUnit)) : '';
+    heightInputOpen = true;
+  }
+
+  function closeHeightInput() {
+    heightInputOpen = false;
+  }
+
+  function appendHeightDigit(digit: string) {
+    if (heightInputValue.length >= 3) return;
+    heightInputValue += digit;
+  }
+
+  function backspaceHeightDigit() {
+    heightInputValue = heightInputValue.slice(0, -1);
+  }
+
+  function confirmHeightInput() {
+    const parsed = Number.parseInt(heightInputValue, 10);
+    if (!Number.isNaN(parsed)) onchange(setHeight(draft, displayUnitToMeters(parsed, draft.heightUnit)));
+    heightInputOpen = false;
+  }
+
+  function registerHeightItem(node: HTMLButtonElement, meters: number) {
+    heightItems.set(meters, node);
+    return { destroy: () => heightItems.delete(meters) };
+  }
+
+  function handleHeightWheel(event: WheelEvent) {
+    if (draft.notPresent) return;
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? 1 : -1;
+    onchange(setHeight(draft, (draft.height ?? defaultObstacleHeightMeters) + delta));
+  }
+
+  function handleHeightScroll() {
+    if (!heightTrack || draft.notPresent) return;
+    if (scrollSettleTimer) clearTimeout(scrollSettleTimer);
+    scrollSettleTimer = setTimeout(() => {
+      if (!heightTrack) return;
+      const trackRect = heightTrack.getBoundingClientRect();
+      const center = trackRect.left + trackRect.width / 2;
+      let closestMeters: number | null = null;
+      let closestDistance = Infinity;
+      for (const [meters, element] of heightItems) {
+        const itemRect = element.getBoundingClientRect();
+        const distance = Math.abs(itemRect.left + itemRect.width / 2 - center);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestMeters = meters;
+        }
+      }
+      if (closestMeters !== null && closestMeters !== draft.height) {
+        onchange(setHeight(draft, closestMeters));
+      }
+    }, 120);
+  }
 </script>
 
 <dialog
@@ -85,7 +164,9 @@
   bind:this={dialog}
   aria-labelledby="report-heading"
   oncancel={(event) => { event.preventDefault(); oncancel(); }}
+  onclick={(event) => { if (event.target === dialog) oncancel(); }}
 >
+  <div class="report-shell" inert={heightInputOpen}>
   <header class="dialog-header report-header">
     <div>
       <h2 id="report-heading">New obstacle report</h2>
@@ -96,7 +177,7 @@
       {/if}
     </div>
     <button type="button" class="menu-close" aria-label="Cancel report" onclick={oncancel}>
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.close} /></svg>
+      <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.close} /></svg>
     </button>
   </header>
 
@@ -137,7 +218,15 @@
           {draft.heightUnit}
         </button>
       </div>
-      <div class="height-track" role="listbox" aria-label="Obstacle height" aria-disabled={draft.notPresent}>
+      <div
+        class="height-track"
+        role="listbox"
+        aria-label="Obstacle height"
+        aria-disabled={draft.notPresent}
+        bind:this={heightTrack}
+        onwheel={handleHeightWheel}
+        onscroll={handleHeightScroll}
+      >
         {#each heightValues as meters (meters)}
           <button
             type="button"
@@ -146,12 +235,10 @@
             class="height-item"
             class:selected={draft.height === meters}
             disabled={draft.notPresent}
-            onclick={() => onchange(setHeight(draft, meters))}
+            onclick={() => { if (draft.height === meters) openHeightInput(); else onchange(setHeight(draft, meters)); }}
+            use:registerHeightItem={meters}
           >
-            {#if draft.height === meters}
-              <span class="height-badge">{formatHeightLabel(meters, draft.heightUnit)}</span>
-            {/if}
-            <span class="height-value">{metersToDisplayUnit(meters, draft.heightUnit)}</span>
+            <span class="height-value">{draft.height === meters ? formatHeightLabel(meters, draft.heightUnit) : metersToDisplayUnit(meters, draft.heightUnit)}</span>
           </button>
         {/each}
       </div>
@@ -216,12 +303,61 @@
       Finish report
     </button>
   </footer>
+  </div>
+
+  {#if heightInputOpen}
+    <!-- Click-to-dismiss is a pointer convenience only; Escape (handled on the input) and the
+         visible Cancel button already give keyboard users the same outcome. -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="height-keypad-overlay"
+      onclick={(event) => { if (event.target === event.currentTarget) closeHeightInput(); }}
+    >
+      <div class="height-keypad" role="dialog" aria-modal="true" aria-label="Enter obstacle height">
+        <div class="height-keypad-display-row">
+          <input
+            class="height-keypad-display"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            aria-label="Obstacle height value"
+            value={heightInputValue}
+            bind:this={heightInputField}
+            oninput={(event) => { heightInputValue = event.currentTarget.value.replace(/\D/g, '').slice(0, 3); }}
+            onkeydown={(event) => {
+              if (event.key === 'Enter') confirmHeightInput();
+              if (event.key === 'Escape') closeHeightInput();
+            }}
+          />
+          <span class="height-keypad-unit">{draft.heightUnit}</span>
+        </div>
+        <div class="height-keypad-grid">
+          {#each ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as digit}
+            <button type="button" class="keypad-key" onclick={() => appendHeightDigit(digit)}>{digit}</button>
+          {/each}
+          <button type="button" class="keypad-key keypad-key--action" aria-label="Backspace" onclick={backspaceHeightDigit}>
+            <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.backspace} /></svg>
+          </button>
+          <button type="button" class="keypad-key" onclick={() => appendHeightDigit('0')}>0</button>
+          <button type="button" class="keypad-key keypad-key--confirm" aria-label="Confirm height" onclick={confirmHeightInput}>
+            <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.confirm} /></svg>
+          </button>
+        </div>
+        <div class="height-keypad-actions">
+          <button type="button" class="button" onclick={closeHeightInput}>Cancel</button>
+          <button type="button" class="button button--primary" disabled={heightInputValue === ''} onclick={confirmHeightInput}>Set height</button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </dialog>
 
 <style>
   .report-panel {
-    max-width: var(--report-panel-max);
-    max-height: min(90dvh, 48rem);
+    width: var(--report-panel-width);
+    max-width: none;
+    max-height: var(--report-panel-height);
     margin: auto;
     padding: 0;
     border: var(--border-default);
@@ -260,30 +396,28 @@
   .unit-toggle:hover { background: var(--color-map-control-hover); }
 
   .height-track {
-    display: flex; gap: var(--space-1); overflow-x: auto; padding: var(--space-5) var(--space-2) var(--space-2);
+    display: flex; gap: var(--space-1); overflow-x: auto; padding: var(--space-2);
+    padding-inline: 50%; scroll-padding-inline: 50%; scroll-snap-type: x mandatory;
     border: var(--border-default); border-radius: var(--radius-control); background: var(--color-background-subtle);
+    scrollbar-width: none;
   }
+  .height-track::-webkit-scrollbar { display: none; }
   .height-track[aria-disabled='true'] { opacity: var(--opacity-disabled); }
   .height-item {
     position: relative; flex: none; min-width: var(--target-size-min); min-height: var(--target-size-min);
     display: grid; place-items: center; border: 0; border-radius: var(--radius-small);
     background: transparent; color: var(--color-text-disabled); cursor: pointer; font-weight: var(--font-weight-medium);
+    scroll-snap-align: center;
   }
   .height-item:not(:disabled):hover { background: var(--color-map-control-hover); }
   .height-item.selected {
     background: var(--color-background-raised); color: var(--color-text-primary); font-weight: var(--font-weight-semibold);
     box-shadow: var(--shadow-surface);
   }
-  .height-badge {
-    position: absolute; top: calc(-1 * var(--space-5)); left: 50%; transform: translateX(-50%);
-    padding: var(--space-1) var(--space-2); border-radius: var(--radius-pill);
-    background: var(--color-action-primary); color: var(--color-action-primary-text);
-    font-size: var(--font-size-caption); font-weight: var(--font-weight-semibold); white-space: nowrap;
-  }
 
-  .optional-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .optional-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-2); }
   .optional-button {
-    display: flex; flex: 1 1 6rem; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1);
     min-height: var(--target-size-min); padding: var(--space-2);
     border: var(--border-default); border-radius: var(--radius-control);
     background: var(--color-background-subtle); color: var(--color-text-secondary); cursor: pointer;
@@ -305,8 +439,57 @@
   .report-footer { display: flex; gap: var(--space-3); }
   .report-footer .button { flex: 1; }
 
+  .height-keypad-overlay {
+    position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; padding: var(--space-4);
+    background: var(--report-backdrop); backdrop-filter: blur(var(--report-backdrop-blur));
+    -webkit-backdrop-filter: blur(var(--report-backdrop-blur)); border-radius: inherit;
+  }
+  .height-keypad {
+    display: flex; flex-direction: column; gap: var(--space-4); width: min(100%, 20rem);
+    padding: var(--space-4); border: var(--border-default); border-radius: var(--radius-dialog);
+    background: var(--color-background-raised); box-shadow: var(--shadow-surface);
+  }
+  .height-keypad-display-row {
+    display: flex; align-items: baseline; justify-content: center; gap: var(--space-2);
+    padding: var(--space-3); border: var(--border-default); border-radius: var(--radius-control);
+    background: var(--color-background-subtle);
+  }
+  .height-keypad-display {
+    width: 6ch; border: 0; background: transparent; color: var(--color-text-primary);
+    font-size: var(--font-size-display); font-weight: var(--font-weight-semibold); text-align: center;
+  }
+  .height-keypad-display:focus-visible { outline: none; }
+  .height-keypad-unit {
+    color: var(--color-text-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+  }
+  .height-keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+  .keypad-key {
+    min-height: var(--control-height-large); border: var(--border-default); border-radius: var(--radius-control);
+    background: var(--color-background-subtle); color: var(--color-text-primary); cursor: pointer;
+    font-size: var(--font-size-heading-small); font-weight: var(--font-weight-medium);
+    display: grid; place-items: center;
+  }
+  .keypad-key:hover { background: var(--color-map-control-hover); }
+  .keypad-key--confirm { border-color: var(--color-action-primary); color: var(--color-action-primary); }
+  .height-keypad-actions { display: flex; gap: var(--space-3); }
+  .height-keypad-actions .button { flex: 1; }
+
+  /* Fluid scaling: every value below ramps continuously between its 375px-viewport
+     token and its 1440px-viewport token, so nothing snaps at a breakpoint — it tracks
+     the viewport the same way --report-panel-width/--report-panel-height do above. */
+  .report-header, .report-footer { padding-block: clamp(var(--space-6), 1.324rem + 0.751vw, var(--space-8)); }
+  .report-content { padding-block: 0 clamp(var(--space-6), 1.324rem + 0.751vw, var(--space-8)); gap: clamp(var(--space-5), 1.162rem + 0.376vw, var(--space-6)); }
+  .report-header h2 { font-size: clamp(var(--font-size-heading-small), 1.162rem + 0.376vw, var(--font-size-heading)); }
+  .section-label { font-size: clamp(var(--font-size-body-small), 0.831rem + 0.188vw, var(--font-size-body)); }
+  .type-button { padding: clamp(var(--space-3), 0.662rem + 0.376vw, var(--space-4)); font-size: clamp(var(--font-size-body-small), 0.831rem + 0.188vw, var(--font-size-body)); }
+  .optional-button { min-height: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); font-size: clamp(var(--font-size-caption), 0.706rem + 0.188vw, var(--font-size-body-small)); }
+  .height-item { min-width: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); min-height: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); font-size: var(--font-size-body); }
+  .height-item.selected { font-size: clamp(var(--font-size-body), 0.912rem + 0.376vw, var(--font-size-heading-small)); }
+  .report-footer .button { min-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large)); }
+
   @media (max-width: 26rem) {
     .type-grid { grid-template-columns: 1fr 1fr; }
-    .optional-button { flex-basis: 40%; }
+    .optional-row { grid-template-columns: repeat(3, 1fr); }
   }
 </style>

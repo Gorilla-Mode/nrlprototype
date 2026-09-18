@@ -1034,6 +1034,11 @@ button {
   --report-backdrop: var(--color-background-scrim);
   --report-backdrop-blur: 0.75rem;
   --report-panel-max: 32rem;
+  /* Fluid width: tracks viewport width continuously (no breakpoint jump) between a
+     24rem floor around a 375px phone and a 64rem ceiling around a 1440px desktop. */
+  --report-panel-width: clamp(24rem, 9.91rem + 60.1vw, 64rem);
+  /* Height tracks viewport height directly via dvh, which is already continuous. */
+  --report-panel-height: min(94dvh, 68rem);
 }
 .obstacle-report-dialog::backdrop {
   background: var(--report-backdrop);
