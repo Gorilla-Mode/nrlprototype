@@ -34,9 +34,12 @@ To add another flow, add its view and registry entry; keep map drawing and GPS s
 
 One-step is the default. `?reporting=one-step` and `?reporting=two-step` select a flow;
 `?debug=1` exposes the menu selector. Combine them with `&` before any route hash.
-Changing the selector updates the URL without reloading or using browser storage.
-The active variant is captured when drawing starts, so changes apply to the next report,
-including while geometry or reporter GPS is pending.
+Changing the debug selector replaces the current URL and reloads the application,
+clearing the drawing, draft, map view and other session state. Selecting the current
+variant does nothing. The URL keeps its deployment path, unrelated query parameters
+and hash; report routes without an in-memory draft or result fall back to the map.
+The active variant is captured when drawing starts. Reloading starts a fresh session
+using the selected variant, including if geometry or reporter GPS was pending.
 
 App supplies session-only Save Draft and Finish handlers, awaiting optional external
 `onSaveDraft(payload, reason)` and `onFinish(report, { variantId })` hooks. Existing
