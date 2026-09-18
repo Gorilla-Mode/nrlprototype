@@ -13,7 +13,7 @@
     <span class="badge">Ready</span>
   </div>
 
-  <div class="meta">{report.category} · <span class="muted">{report.value}</span></div>
+  <div class="meta"><span class="type-highlight">{report.category}</span> · <span class="muted">{report.value}</span></div>
   <div class="status muted">Ready to send for review</div>
   <div class="edited muted">Edited {report.editedDate}</div>
 
@@ -40,6 +40,7 @@
   .title { margin:0; font-size:17px; font-weight:700; color:var(--color-text-primary) }
   .badge { background:var(--color-status-info-surface); color:var(--color-status-info); padding:6px 8px; border-radius:var(--radius-pill); font-size:12px; font-weight:600 }
   .meta { font-size:14px; color:var(--color-text-secondary) }
+  .type-highlight { font-weight:700; color:var(--color-text-primary) }
   .muted { color:var(--color-text-secondary); font-size:13px }
   .status { font-size:13px }
   .edited { font-size:13px }

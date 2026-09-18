@@ -13,7 +13,7 @@
     <span class="badge">Draft</span>
   </div>
 
-  <div class="meta">{draft.category} · <span class="muted">{draft.value}</span></div>
+  <div class="meta"><span class="type-highlight">{draft.category}</span> · <span class="muted">{draft.value}</span></div>
   <div class="status muted">Step {draft.currentStep} of {draft.totalSteps} · {draft.stepLabel}</div>
   <div class="edited muted">Edited {draft.editedDate}</div>
 
@@ -40,6 +40,7 @@
   .title { margin:0; font-size:17px; font-weight:700; color:var(--color-text-primary) }
   .badge { background:var(--color-background-subtle); color:var(--color-text-secondary); padding:6px 8px; border-radius:var(--radius-pill); font-size:12px }
   .meta { font-size:14px; color:var(--color-text-secondary) }
+  .type-highlight { font-weight:700; color:var(--color-text-primary) }
   .muted { color:var(--color-text-secondary); font-size:13px }
   .status { font-size:13px }
   .edited { font-size:13px }
