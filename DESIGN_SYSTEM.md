@@ -47,7 +47,8 @@ Selection completion must not claim that a report was submitted or saved. This i
 workflow prototype, not an operational navigation product.
 
 The reporting-details dialog follows a 684 × 1064 portrait reference and scales
-uniformly to fit the viewport in either orientation. Only its height wheel scrolls.
+uniformly to fit the viewport in either orientation. Only its height wheel and the
+step-2 description textarea scroll; the dialog itself does not.
 This requested exception to the usual minimum target size also scales text and controls
 down in narrow Split View and phone viewports. Type selection never changes typography.
 
