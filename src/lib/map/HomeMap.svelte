@@ -12,6 +12,7 @@
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
   import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
+  import ObstacleReportFlow from '../reporting/ObstacleReportFlow.svelte';
 
   let { oncomplete, menuOpen = $bindable(false), visible = true, onfaq, onsettings, onreports,
     opacity = $bindable(0), isGrayscale = $bindable(false),
@@ -45,6 +46,17 @@
   }
 
   let drawing = $state.raw<DrawingState>(idleDrawingState);
+  let activeObstacle = $state<Obstacle | null>(null);
+
+  async function resetReportFlow() {
+    activeObstacle = null;
+    await deleteSelection();
+  }
+
+  function handleObstacleRegistered(obstacle: Obstacle) {
+    activeObstacle = obstacle;
+    oncomplete?.(obstacle);
+  }
 
   function handleMapClick() {
     isLayerFadeOpen = false;
@@ -82,7 +94,7 @@
     onholdchange={(origin) => { holdOrigin = origin; holdPointer = null; }}
     onholdmove={(x, y) => { holdPointer = { x, y }; }}
     ondrawingchange={(state) => { drawing = state; }}
-    onobstacleregistered={oncomplete}
+    onobstacleregistered={handleObstacleRegistered}
   />
   <MapToolbar
     {menuOpen}
@@ -118,6 +130,12 @@
       <p>{locationMessage}</p>
     {/if}
   </div>
+
+  {#if activeObstacle}
+    <div class="report-flow">
+      <ObstacleReportFlow obstacle={activeObstacle} oncancel={resetReportFlow} onclose={resetReportFlow} />
+    </div>
+  {/if}
 </main>
 
 <style>
@@ -161,5 +179,11 @@
     top: var(--hold-y);
     transform: translate(-50%, -50%);
     pointer-events: none;
+  }
+
+  .report-flow {
+    position: absolute;
+    inset: 0;
+    z-index: var(--layer-dialog);
   }
 </style>

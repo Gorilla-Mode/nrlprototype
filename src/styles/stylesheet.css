@@ -940,3 +940,15 @@ button {
 .map-container .nrl-map-scale { width: var(--map-scale-width); margin: 0 var(--space-3) var(--space-2); color: var(--color-map-scale-ink); pointer-events: none; }
 .nrl-map-scale-label { display: block; text-align: center; white-space: nowrap; font-family: var(--font-family-sans); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); text-shadow: 0 0 var(--map-scale-halo-width) var(--color-map-scale-halo), 0 var(--map-scale-halo-width) var(--color-map-scale-halo), var(--map-scale-halo-width) 0 var(--color-map-scale-halo), 0 calc(-1 * var(--map-scale-halo-width)) var(--color-map-scale-halo), calc(-1 * var(--map-scale-halo-width)) 0 var(--color-map-scale-halo); }
 .nrl-map-scale-line { display: block; height: var(--map-scale-cap-height); border: var(--border-width-default) solid currentColor; border-top: 0; filter: drop-shadow(0 0 var(--map-scale-halo-width) var(--color-map-scale-halo)); }
+
+/* 26. Obstacle report overlay: dimensions are local aliases; colours reuse semantic roles. */
+:root {
+  --report-backdrop: var(--color-background-scrim);
+  --report-backdrop-blur: 0.75rem;
+  --report-panel-max: 32rem;
+}
+.obstacle-report-dialog::backdrop {
+  background: var(--report-backdrop);
+  backdrop-filter: blur(var(--report-backdrop-blur));
+  -webkit-backdrop-filter: blur(var(--report-backdrop-blur));
+}
