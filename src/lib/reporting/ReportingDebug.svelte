@@ -1,9 +1,8 @@
 <script lang="ts">
   import type { ReportingVariant } from './reporting';
-  let { variants, selectedId, activeVariant, onchange }: {
+  let { variants, selectedId, onchange }: {
     variants: readonly ReportingVariant[];
     selectedId: string;
-    activeVariant: ReportingVariant | null;
     onchange: (id: string) => void;
   } = $props();
 </script>
@@ -15,9 +14,7 @@
     aria-describedby="reporting-variant-help" onchange={(event) => onchange(event.currentTarget.value)}>
     {#each variants as variant (variant.id)}<option value={variant.id}>{variant.label}</option>{/each}
   </select>
-  <p id="reporting-variant-help">Applies to the next report. The current URL can be shared.
-    {#if activeVariant && activeVariant.id !== selectedId}Current report: {activeVariant.label}.{/if}
-  </p>
+  <p id="reporting-variant-help">Switching reloads the page and clears the current drawing, draft and map view. The current URL can be shared.</p>
 </section>
 
 <style>

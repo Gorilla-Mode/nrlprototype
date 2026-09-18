@@ -82,9 +82,8 @@
 
   function selectReportingVariant(id: string) {
     const variant = reportingVariants.find((entry) => entry.id === id);
-    if (!variant) return;
-    history.replaceState(history.state, '', reportingVariantUrl(window.location.href, variant));
-    syncRoute();
+    if (!variant || variant.id === reporting.variant.id) return;
+    window.location.replace(reportingVariantUrl(window.location.href, variant));
   }
 
   function openDetails(report?: Obstacle) {
@@ -173,7 +172,7 @@
 </script>
 
 {#snippet reportingDebug()}
-  <ReportingDebug variants={reportingVariants} selectedId={reporting.variant.id} activeVariant={details.variant} onchange={selectReportingVariant} />
+  <ReportingDebug variants={reportingVariants} selectedId={reporting.variant.id} onchange={selectReportingVariant} />
 {/snippet}
 
 <div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || reportOpen} aria-hidden={pageOpen || reportOpen}>
