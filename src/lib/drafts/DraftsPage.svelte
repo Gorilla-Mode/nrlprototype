@@ -1,16 +1,19 @@
 <script lang="ts">
   import DraftCard from './DraftCard.svelte';
+  import ReportCard from './ReportCard.svelte';
   import FilterPanel from './FilterPanel.svelte';
   import { onMount } from 'svelte';
-  import type { Draft, GeometryFilter, HeightFilter } from './types';
+  import type { Draft, GeometryFilter, HeightFilter, Report } from './types';
   import { geometryTypeFor, matchesHeightFilter } from './types';
 
   export let onOpenDraft: (draft: Draft) => void = () => {};
+  export let onOpenReport: (report: Report) => void = () => {};
   export let onBack: () => void = () => {};
+  export let view: 'reports' | 'drafts' = 'drafts';
 
-  let view: 'reports' | 'drafts' = 'drafts';
   let query = '';
   let drafts: Draft[] = [];
+  let reports: Report[] = [];
 
   let filterPanelOpen = false;
   let appliedGeometries = new Set<GeometryFilter>();
@@ -49,9 +52,25 @@
         coordinates: null, vertexCount: 0
       }
     ];
+
+    reports = [
+      {
+        id: 'r1', title: 'Kraftlinje Sør', category: 'Aerial span', value: '40 ft (12 m)',
+        status: 'ready', createdDate: '12.10.2024', editedDate: '14.10.2024',
+        heightAboveGround: '40 ft (12 m)', lighting: 'Unknown', lightingNote: 'Reported as unknown — accepted',
+        pilotReportText: 'Power line crossing the valley between two masts. Cables are unlit and hard to see against the ridge.',
+        reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten',
+        coordinates: { lat: 60.3913, lng: 5.3221 }, vertexCount: 2
+      }
+    ];
   });
 
-  function matchesQuery(d: Draft, rawQuery: string): boolean {
+  type Searchable = {
+    title: string; category: string; value: string; heightAboveGround: string;
+    lighting: string; pilotReportText: string; reportedByName: string; reportedByOrg: string;
+  };
+
+  function matchesQuery(d: Searchable, rawQuery: string): boolean {
     const q = rawQuery.trim().toLowerCase();
     if (!q) return true;
     const searchableFields = [
@@ -67,13 +86,16 @@
     return searchableFields.some(field => field.toLowerCase().includes(q));
   }
 
-  function matchesFilters(d: Draft, geometries: Set<GeometryFilter>, heightFilter: HeightFilter): boolean {
+  function matchesFilters(d: { category: string; heightAboveGround: string }, geometries: Set<GeometryFilter>, heightFilter: HeightFilter): boolean {
     if (geometries.size > 0 && !geometries.has(geometryTypeFor(d.category))) return false;
     return matchesHeightFilter(d.heightAboveGround, heightFilter);
   }
 
-  $: filtered = drafts.filter(d => matchesQuery(d, query) && matchesFilters(d, appliedGeometries, appliedHeightFilter));
-  $: pendingResultCount = drafts.filter(d => matchesQuery(d, query) && matchesFilters(d, pendingGeometries, pendingHeightFilter)).length;
+  $: filteredDrafts = drafts.filter(d => matchesQuery(d, query) && matchesFilters(d, appliedGeometries, appliedHeightFilter));
+  $: filteredReports = reports.filter(r => matchesQuery(r, query) && matchesFilters(r, appliedGeometries, appliedHeightFilter));
+  $: pendingResultCount = view === 'drafts'
+    ? drafts.filter(d => matchesQuery(d, query) && matchesFilters(d, pendingGeometries, pendingHeightFilter)).length
+    : reports.filter(r => matchesQuery(r, query) && matchesFilters(r, pendingGeometries, pendingHeightFilter)).length;
   $: filtersActive = appliedGeometries.size > 0 || appliedHeightFilter !== 'any';
 
   const clearSearch = () => query = '';
@@ -141,28 +163,48 @@
       </div>
 
       <div class="chips">
-        <button class="chip active">All drafts <span class="count">{drafts.length}</span></button>
+        {#if view === 'drafts'}
+          <button class="chip active">All drafts <span class="count">{drafts.length}</span></button>
+        {:else}
+          <button class="chip active">All reports <span class="count">{reports.length}</span></button>
+        {/if}
       </div>
     </div>
   </header>
 
   <div class="scroll-area">
   <div class="safe-area">
-    <div class="list-head">
-      <div class="left">{filtered.length} DRAFTS</div>
-      <div class="right">Sorted by last edited</div>
-    </div>
-
-    {#if filtered.length === 0}
-      <div class="empty">No drafts yet</div>
-    {:else}
-      <div class="grid">
-        {#each filtered as d}
-          <DraftCard draft={d} onEdit={onOpenDraft} />
-        {/each}
+    {#if view === 'drafts'}
+      <div class="list-head">
+        <div class="left">{filteredDrafts.length} DRAFTS</div>
+        <div class="right">Sorted by last edited</div>
       </div>
-    {/if}
 
+      {#if filteredDrafts.length === 0}
+        <div class="empty">No drafts yet</div>
+      {:else}
+        <div class="grid">
+          {#each filteredDrafts as d}
+            <DraftCard draft={d} onEdit={onOpenDraft} />
+          {/each}
+        </div>
+      {/if}
+    {:else}
+      <div class="list-head">
+        <div class="left">{filteredReports.length} REPORTS</div>
+        <div class="right">Sorted by last edited</div>
+      </div>
+
+      {#if filteredReports.length === 0}
+        <div class="empty">No reports yet</div>
+      {:else}
+        <div class="grid">
+          {#each filteredReports as r}
+            <ReportCard report={r} onOpen={onOpenReport} />
+          {/each}
+        </div>
+      {/if}
+    {/if}
   </div>
   </div>
 </section>

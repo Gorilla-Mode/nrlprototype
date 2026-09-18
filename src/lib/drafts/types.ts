@@ -19,9 +19,29 @@ export type Draft = {
   vertexCount: number;
 };
 
+const lineCategories = new Set(['Bridge', 'Aerial span']);
+
 export function geometryTypeFor(category: string): 'Line' | 'Point' {
-  return category === 'Bridge' ? 'Line' : 'Point';
+  return lineCategories.has(category) ? 'Line' : 'Point';
 }
+
+export type Report = {
+  id: string;
+  title: string;
+  category: string;
+  value: string;
+  status: 'ready';
+  createdDate: string;
+  editedDate: string;
+  heightAboveGround: string;
+  lighting: string;
+  lightingNote: string;
+  pilotReportText: string;
+  reportedByName: string;
+  reportedByOrg: string;
+  coordinates: { lat: number; lng: number } | null;
+  vertexCount: number;
+};
 
 export type GeometryFilter = 'Point' | 'Line' | 'Area';
 export type HeightFilter = 'any' | 'under30' | '30to60' | 'over60';
