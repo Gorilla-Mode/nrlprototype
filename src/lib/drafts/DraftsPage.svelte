@@ -113,41 +113,41 @@
         <button class:active={view === 'drafts'} on:click={() => view = 'drafts'}>My drafts</button>
       </div>
     </div>
+
+    <div class="top-bar-inner controls-row">
+      <div class="controls">
+        <div class="search">
+          <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M21 21l-4.35-4.35" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="11" cy="11" r="6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></circle></svg>
+          <input placeholder="Search obstacle name or type" bind:value={query} />
+          {#if query}
+            <button class="clear" on:click={clearSearch}>✕</button>
+          {/if}
+        </div>
+        <div class="filter-wrap">
+          <button class="filter" class:active={filtersActive} on:click={openFilterPanel}>
+            ⚙︎ Filter{#if filtersActive}<span class="filter-dot"></span>{/if}
+          </button>
+          {#if filterPanelOpen}
+            <FilterPanel
+              bind:geometries={pendingGeometries}
+              bind:heightFilter={pendingHeightFilter}
+              resultCount={pendingResultCount}
+              onReset={resetPendingFilters}
+              onApply={applyFilters}
+              onDismiss={dismissFilterPanel}
+            />
+          {/if}
+        </div>
+      </div>
+
+      <div class="chips">
+        <button class="chip active">All drafts <span class="count">{drafts.length}</span></button>
+      </div>
+    </div>
   </header>
 
   <div class="scroll-area">
   <div class="safe-area">
-    <div class="controls">
-      <div class="search">
-        <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M21 21l-4.35-4.35" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="11" cy="11" r="6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></circle></svg>
-        <input placeholder="Search obstacle name or type" bind:value={query} />
-        {#if query}
-          <button class="clear" on:click={clearSearch}>✕</button>
-        {/if}
-      </div>
-      <div class="filter-wrap">
-        <button class="filter" class:active={filtersActive} on:click={openFilterPanel}>
-          ⚙︎ Filter{#if filtersActive}<span class="filter-dot"></span>{/if}
-        </button>
-        {#if filterPanelOpen}
-          <FilterPanel
-            bind:geometries={pendingGeometries}
-            bind:heightFilter={pendingHeightFilter}
-            resultCount={pendingResultCount}
-            onReset={resetPendingFilters}
-            onApply={applyFilters}
-            onDismiss={dismissFilterPanel}
-          />
-        {/if}
-      </div>
-    </div>
-
-    <div class="chips">
-      <button class="chip active">All drafts <span class="count">{drafts.length}</span></button>
-    </div>
-
-    <hr class="divider" />
-
     <div class="list-head">
       <div class="left">{filtered.length} DRAFTS</div>
       <div class="right">Sorted by last edited</div>
@@ -175,9 +175,9 @@
   }
 
   .top-bar { flex-shrink: 0; background: var(--color-background-raised); border-bottom: var(--border-default); }
-  .top-bar-inner { width:100%; max-width:1100px; margin:0 auto; padding:28px 32px; box-sizing:border-box; }
+  .top-bar-inner { width:100%; max-width:1100px; margin:0 auto; padding:28px 32px 0; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between; gap:16px }
+  .top-bar-inner.controls-row { padding:16px 32px 20px; display:block }
 
-  .top-bar-inner { display:flex; align-items:center; justify-content:space-between; gap:16px }
   .left { display:flex; align-items:center; gap:14px }
   .back { font-size:28px; background:transparent; border:0; cursor:pointer }
   h1 { margin:0; font-size:30px }
@@ -190,7 +190,7 @@
   .safe-area { width:100%; max-width:1100px; padding:20px 32px 32px; box-sizing:border-box; }
 
   .controls { display:flex; gap:12px; align-items:center; }
-  .search { flex:1; display:flex; align-items:center; gap:8px; background:var(--color-background-raised); border:var(--border-default); padding:10px 12px; border-radius:12px; box-sizing:border-box }
+  .search { flex:1; display:flex; align-items:center; gap:8px; background:var(--color-background-subtle); padding:10px 12px; border-radius:12px; box-sizing:border-box }
   .search .icon { opacity:0.9; stroke: var(--color-text-secondary); }
   .search input { border:0; background:transparent; outline:none; flex:1; font-size:16px }
   .search .clear { background:transparent; border:0; cursor:pointer }
@@ -202,8 +202,6 @@
   .chips { margin-top:12px }
   .chip { background:var(--color-action-secondary); color:var(--color-text-inverse); padding:8px 12px; border-radius:999px; border:0; font-weight:600 }
   .count { color:var(--color-text-inverse); margin-left:8px; font-weight:700 }
-
-  .divider { border:0; height:1px; background:var(--color-border-default); margin:16px 0 }
 
   .list-head { display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--color-text-secondary); font-weight:700; letter-spacing:0.06em }
   .list-head .right { font-weight:400 }
