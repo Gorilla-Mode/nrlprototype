@@ -204,7 +204,7 @@
         <input
           class="form-control other-type-input"
           type="text"
-          placeholder="Specify type"
+          placeholder="Specify type" aria-label="Other obstacle type"
           value={draft.otherTypeLabel}
           oninput={(event) => onchange(setOtherTypeLabel(draft, event.currentTarget.value))}
         />
