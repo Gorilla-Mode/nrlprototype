@@ -101,8 +101,8 @@
 </script>
 
 <section class="page">
-  <div class="safe-area">
-    <header class="header">
+  <header class="top-bar">
+    <div class="top-bar-inner">
       <div class="left">
         <button class="back" on:click={goBack}>‹</button>
         <h1>Reports</h1>
@@ -112,8 +112,11 @@
         <button class:active={view === 'reports'} on:click={() => view = 'reports'}>My reports</button>
         <button class:active={view === 'drafts'} on:click={() => view = 'drafts'}>My drafts</button>
       </div>
-    </header>
+    </div>
+  </header>
 
+  <div class="scroll-area">
+  <div class="safe-area">
     <div class="controls">
       <div class="search">
         <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M21 21l-4.35-4.35" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="11" cy="11" r="6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></circle></svg>
@@ -161,17 +164,20 @@
     {/if}
 
   </div>
+  </div>
 </section>
 
 <style>
   .page {
     position: fixed; inset: 0; z-index: var(--layer-dialog);
-    overflow-y: auto; overscroll-behavior: contain;
-    width:100%; height:100%; background: var(--color-background-raised); display:flex; align-items:flex-start; justify-content:center;
+    display: flex; flex-direction: column;
+    background: var(--color-background-page);
   }
-  .safe-area { width:100%; max-width:1100px; padding:28px 32px; background: var(--color-background-page); min-height:100vh }
 
-  .header { display:flex; align-items:center; justify-content:space-between; gap:16px }
+  .top-bar { flex-shrink: 0; background: var(--color-background-raised); border-bottom: var(--border-default); }
+  .top-bar-inner { width:100%; max-width:1100px; margin:0 auto; padding:28px 32px; box-sizing:border-box; }
+
+  .top-bar-inner { display:flex; align-items:center; justify-content:space-between; gap:16px }
   .left { display:flex; align-items:center; gap:14px }
   .back { font-size:28px; background:transparent; border:0; cursor:pointer }
   h1 { margin:0; font-size:30px }
@@ -180,7 +186,10 @@
   .segmented button { padding:8px 14px; border-radius:999px; border:0; background:transparent; color:var(--color-text-secondary); font-weight:600; cursor:pointer }
   .segmented button.active { background:var(--color-background-raised); color:var(--color-text-primary); box-shadow: var(--shadow-surface); }
 
-  .controls { display:flex; gap:12px; align-items:center; margin-top:18px }
+  .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; display:flex; justify-content:center; }
+  .safe-area { width:100%; max-width:1100px; padding:20px 32px 32px; box-sizing:border-box; }
+
+  .controls { display:flex; gap:12px; align-items:center; }
   .search { flex:1; display:flex; align-items:center; gap:8px; background:var(--color-background-subtle); padding:10px 12px; border-radius:12px }
   .search .icon { opacity:0.9; stroke: var(--color-text-secondary); }
   .search input { border:0; background:transparent; outline:none; flex:1; font-size:16px }
@@ -203,5 +212,9 @@
 
   .empty { padding:48px; text-align:center; color:var(--color-text-secondary); font-size:18px }
 
-  @media (max-width:800px) { .grid { grid-template-columns: 1fr } .safe-area { padding:20px } }
+  @media (max-width:800px) {
+    .grid { grid-template-columns: 1fr }
+    .top-bar-inner { padding:20px }
+    .safe-area { padding:16px 20px 20px }
+  }
 </style>
