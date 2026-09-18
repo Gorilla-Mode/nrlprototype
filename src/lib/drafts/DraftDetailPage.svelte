@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Draft } from './types';
   import { geometryTypeFor, heightInMeters, formatHeightFromMeters, formatToday } from './types';
-  import { drafts, reports } from './mockData';
+  import { drafts } from './mockData';
+  import { reports } from '../reports/reportsData';
 
   export let draft: Draft;
   export let onBack: () => void = () => {};
@@ -25,15 +26,16 @@
     if (!canSend) return;
     const index = drafts.findIndex(d => d.id === draft.id);
     if (index !== -1) drafts.splice(index, 1);
+    const meters = heightInMeters(draft.heightAboveGround) ?? 0;
     reports.push({
       id: draft.id,
-      title: draft.title,
-      category: draft.category,
-      value: draft.heightAboveGround,
+      name: draft.title,
+      obstacleType: draft.category,
+      heightFeet: Math.round(meters * 3.28084),
+      heightMeters: meters,
       status: 'pending',
       createdDate: draft.createdDate,
-      editedDate: formatToday(),
-      heightAboveGround: draft.heightAboveGround,
+      secondaryDate: formatToday(),
       lighting: draft.lighting,
       pilotReportText: draft.pilotReportText,
       reportedByName: draft.reportedByName,

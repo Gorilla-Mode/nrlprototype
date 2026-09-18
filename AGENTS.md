@@ -1,96 +1,89 @@
 # AGENTS.md
 
-Start here when working on the Kartverket NRL reporting prototype. It is a static,
-map-based frontend for evaluating workflows and design before real implementation.
-Prioritise clarity, reviewable changes and portrait iPad usability. Preserve working
-map interactions; do not turn a focused task into a redesign or rewrite.
+This static Kartverket NRL map frontend evaluates workflows and design. Prioritise
+reviewable changes and portrait iPad use. Preserve map interactions; avoid redesigns.
 
-## Read for your task
+## Read for the task
 
-| Task | Read |
-| --- | --- |
-| UI, CSS, icons, responsive or accessibility | DESIGN_SYSTEM.md and surrounding components |
-| Map/controller, geolocation, API or data behaviour | Relevant ARCHITECTURE.md sections and existing tests |
-| Backend, storage, database or security proposal | ARCHITECTURE.md including Security and data handling; none of these systems exists yet |
-| Large feature | README.md product brief, IMPLEMENTATION_STATUS.md, then relevant architecture/design sections |
-| Small correction | Nearby code and applicable guidance only; do not read every document |
+| Task                                      | Read                                          |
+|-------------------------------------------|-----------------------------------------------|
+| UI, CSS, icons, responsive, accessibility | `DESIGN_SYSTEM.md`; nearby components         |
+| Map, controller, geolocation, API, data   | Relevant `ARCHITECTURE.md`; nearby tests      |
+| Backend, storage, database, security      | `ARCHITECTURE.md`; these systems do not exist |
+| Large feature                             | relevant guidance, code and tests             |
+| Small correction                          | Nearby code and guidance only                 |
 
-Update the relevant document when a change makes it inaccurate. Do not add documents
-or abstractions merely to satisfy a template.
+The request, code and tests define current behaviour. Update inaccurate guidance; do
+not create documents or abstractions for a template.
 
-## Technical constraints
+## Working method
 
-- Svelte 5 runes, TypeScript, Vite and MapLibre GL JS. Existing package dependencies
-  include svelte-maplibre and Turf. Do not add dependencies without permission.
-- Entry: src/main.ts → App → HomeMap. Controls live in src/lib/map; MapCanvas forwards
-  typed commands through createMapController. New controls register through the toolbar.
-- Map sources/layers live in mapConfig.ts. Drawing/reporting controllers are separate
-  from their UI. Follow existing boundaries and naming; avoid a new state framework.
-- Preserve geolocation's iOS paths and tests. Runtime measurements, coordinates and
-  device state must not be replaced by presentation assumptions.
-- Tests live in tests/, compiled by tsconfig.test.json. New behaviour needs coverage.
-  Never use any or ts-ignore to bypass a type error.
+Implement obvious, isolated corrections directly after inspecting the affected code.
+Before editing for multi-file, architectural, map, data or substantial visual work,
+briefly state intended behaviour, affected areas and acceptance criteria.
 
-## UX constraints
+Inspect relevant code, nearby tests and only task-specific guidance. Modify only files
+necessary for the request and test behaviour changes. Do not combine cleanup, formatting
+or refactoring with the task. Report unrelated problems. Review the complete diff; the
+programmer reads it, so the final report need not narrate every line.
 
-- DESIGN_SYSTEM.md and src/styles/stylesheet.css define the visual baseline. Keep base,
-  semantic and component tokens distinct; components normally consume semantic tokens.
-- Do not hardcode design values or raw palette colours in components. Read CSS values
-  through the typed drawing-display bridge when MapLibre needs them. Only documented,
-  runtime-derived custom properties belong in inline styles.
-- Keep search and information panels opaque, map buttons visually stable, text legible
-  over maps and targets at least 44 × 44 px. Use shared gutters and safe-area insets.
-- Keep labelled geometry, keyboard access, focus-visible, reduced motion and explicit
-  loading/error/empty/completion states. Colour alone must never convey meaning.
-- Preserve good work. Do not implement language/units/help/persistence just because they
-  appear in the roadmap. Selection completion is not submission or durable saving.
+## Technical and UX constraints
 
-## Verification
+- Use Svelte 5 runes, TypeScript, Vite, MapLibre GL JS, svelte-maplibre and Turf. Do not
+  add dependencies without permission.
+- Entry is `src/main.ts` → App → HomeMap. Controls live in `src/lib/map`; MapCanvas
+  forwards typed commands through createMapController. Register controls through the
+  toolbar; keep sources/layers in `mapConfig.ts`.
+- Keep drawing/reporting controllers separate from UI. Follow typed boundaries and
+  naming; do not add a state framework locally.
+- Preserve geolocation's iOS permission, cancellation and camera-following paths and
+  regression tests. Runtime measurements, coordinates and device state must not be
+  replaced by presentation assumptions.
+- Tests live in `tests/`, compiled by `tsconfig.test.json`. Never evade types with `any`
+  or `ts-ignore`.
+- `DESIGN_SYSTEM.md` and `src/styles/stylesheet.css` define the visual baseline.
+  Components consume semantic tokens, not raw palette or hardcoded design values.
+- Keep panels opaque, map controls stable, targets at least 44 × 44 px and shared safe
+  areas. Preserve keyboard access, focus, reduced motion, labels and explicit states.
+  Colour alone conveys no meaning. Selection is not submission.
 
-| Task | Command |
-| --- | --- |
-| Development | npm run dev |
-| Type and Svelte checks | npm run check |
-| Tests | npm test |
-| Production build | npm run build |
+## Verification and handoff
 
-Run check and tests before calling any change done; run the build for application
-changes. If a check fails, report the failing output and fix the cause within scope.
-There is no configured lint command; the residual .oxlintrc.json is not an executable
-verification step. Do not install a linter for an unrelated task.
+| Scope                  | Command            |
+|------------------------|--------------------|
+| Type and Svelte checks | `npm run check`    |
+| Behaviour              | `npm test`         |
+| Application change     | `npm run build`    |
+| Every change           | `git diff --check` |
 
-For visual changes inspect 390 × 844, portrait iPad 834 × 1194 and 1440 × 1024 in both
-light/dark themes. Check map backgrounds, focus/hover/selected/disabled states,
-loading/errors, text clipping, safe areas and overlapping controls. Emulation is not
-physical iPad/Safari verification: report exactly what was tested and what remains.
+Run check and tests before calling code done; build application changes. Fix in-scope
+failures and report the rest. Documentation-only, trivial text and mechanical changes
+need content checks and `git diff --check`, not application tests. Do not install a linter.
+
+For visual work inspect 390 × 844, 834 × 1194 portrait iPad and 1440 × 1024 in both
+themes. Check map backgrounds, states, clipping, safe areas and overlap. Report the
+environment; emulation is not physical iPad/Safari testing.
+
+After meaningful features, fixes, refactors or behaviour changes, give two quiz question of medium difficulty, it should have
+three options to pick from, a,b and c. Questions must be relevant to the changes made.
+Grade answers but dont be pedantic, correct them with file references
+and explain before unrelated work. Skip documentation-only, trivial and mechanical work.
+quiz is answered in the format 1 a 2b.
+
+Final reports contain only changed behaviour, passed/failed checks and material limits
+or unverified conditions.
 
 ## Git and data hygiene
 
-1. Inspect branch, status, recent history and changed/untracked files before editing.
-   Do not overwrite or revert unrelated local changes.
-2. Keep scope focused; no unrelated formatting, asset cleanup or architecture changes.
-3. Do not commit or push unless explicitly requested. Use clear conventional messages
-   when asked (feat:, fix:, tests:, docs:, chore:).
-4. Do not touch .github/workflows/, LICENSE, deployment configuration or pr-reports/
-   without explicit instruction. Preserve package-lock.json unless an approved install
-   changes it. npm install is not part of routine verification.
-5. Never commit secrets, credentials, .env files, editor settings, temporary screenshots,
-   node_modules, dist or .test-build. Classify uncertain untracked files before acting;
-   do not delete them merely because they are untracked.
-6. Review the complete final diff, run git diff --check and inspect remaining untracked
-   files. Distinguish task changes ready for Git from existing unrelated work.
-7. No server secrets belong in this frontend. Read the architecture's data notes before
-   changing geolocation, search requests, reporting or persistence.
+- Before editing inspect branch, status, recent history and changed/untracked files.
+  Preserve unrelated work. Never commit or push unless explicitly requested.
+- Do not touch `.github/workflows/`, `LICENSE`, deployment or `pr-reports/` without
+  explicit instruction. Preserve `package-lock.json`; `npm install` is not verification.
 
 ## Response protocol
 
-**Every response you finish must end with a sign-off line** — on its own line, as the very
-last thing in the reply, after any summary, code, or next-step notes. It signals that your
-turn is complete and you await further instruction.
-
-Do not use the same sign-off twice in a row. Cycle through the list below in order,
-starting from the top on the first reply of a session and advancing by one each turn.
-After number 10, wrap back to number 1.
+End every completed response with the next sign-off below, alone on the final line.
+Cycle from the top and wrap after 10; never repeat the previous sign-off.
 
 1. Will that be all?
 2. Another triumph for the ages. What's next?
