@@ -8,14 +8,14 @@
   import { isReportsHash, reportsRoute } from './lib/reports/reports';
   import type { GeolocationState } from './lib/map/createGeolocationController';
   import ObstacleDetails from './lib/reporting/ObstacleDetails.svelte';
-  import { createDetailsController, detailsRoute, initialDetailsState, type DetailsHooks, type DetailsState } from './lib/reporting/createDetailsController';
+  import { createDetailsController, detailsRoute, additionalInformationRoute, detailsStepFromHash, initialDetailsState, type DetailsHooks, type DetailsState } from './lib/reporting/createDetailsController';
   import type { Obstacle } from './lib/reporting/obstacle';
 
-  let { onSaveDraft, onContinue }: DetailsHooks = $props();
+  let { onSaveDraft, onContinue, onFinish }: DetailsHooks = $props();
   let details = $state.raw<DetailsState>(initialDetailsState);
   const detailsController = createDetailsController({
     onChange: (state) => { details = state; },
-    getHooks: () => ({ onSaveDraft, onContinue }),
+    getHooks: () => ({ onSaveDraft, onContinue, onFinish }),
   });
   let returnFocus: HTMLElement | null = null;
 
@@ -36,17 +36,25 @@
 
   function syncRoute() {
     const wasOpen = pageOpen;
+    const wasDetailsRoute = detailsStepFromHash(hash) !== null;
     hash = window.location.hash;
-    if (hash === detailsRoute) {
-      if (details.draft) detailsController.resume();
+    const requestedStep = detailsStepFromHash(hash);
+    if (requestedStep) {
+      if (details.draft) {
+        detailsController.resume(requestedStep);
+        if (requestedStep === 2 && details.step === 1) {
+          history.replaceState(history.state, '', detailsRoute);
+          hash = detailsRoute;
+        }
+      }
       else {
         history.replaceState(null, '', window.location.pathname + window.location.search);
         hash = '';
       }
-    } else if (details.open) {
+    } else if (details.open || wasDetailsRoute) {
       void detailsController.dismiss();
       void tick().then(() => {
-        if (pageOpen) return;
+        if (pageOpen || details.open) return;
         if (returnFocus?.isConnected && !returnFocus.closest('[inert]')) returnFocus.focus({ preventScroll: true });
         else homeMap?.focusDetails();
       });
@@ -62,16 +70,38 @@
     returnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     if (report) detailsController.begin(report);
     if (!details.draft) return;
-    history.pushState({ nrlDetailsEntry: true }, '', detailsRoute);
+    const step = details.step;
+    history.pushState({ nrlDetailsDepth: 1 }, '', detailsRoute);
+    if (step === 2) history.pushState({ nrlDetailsDepth: 2 }, '', additionalInformationRoute);
     syncRoute();
   }
 
   function closeDetails() {
-    if (history.state?.nrlDetailsEntry) history.back();
+    if (history.state?.nrlDetailsDepth) history.go(-history.state.nrlDetailsDepth);
     else {
       history.replaceState(null, '', window.location.pathname + window.location.search);
       syncRoute();
     }
+  }
+
+  async function continueDetails() {
+    if (!await detailsController.continue()) return;
+    history.pushState({ nrlDetailsDepth: (history.state?.nrlDetailsDepth ?? 0) + 1 }, '', additionalInformationRoute);
+    syncRoute();
+  }
+
+  function previousDetailsStep() {
+    if (history.state?.nrlDetailsDepth === 2) history.back();
+    else {
+      history.replaceState(history.state, '', detailsRoute);
+      syncRoute();
+    }
+  }
+
+  async function finishDetails() {
+    if (!await detailsController.finish()) return;
+    homeMap.clearSelection();
+    if (detailsStepFromHash(window.location.hash)) closeDetails();
   }
 
   function openPage(nextHash: string) {
@@ -112,11 +142,14 @@
     onselectiondelete={() => detailsController.clear()} />
 </div>
 {#if details.open && details.draft}
-  <ObstacleDetails draft={details.draft} busy={details.busy} error={details.error}
-    canSave={!!onSaveDraft} canContinue={!!onContinue}
+  <ObstacleDetails draft={details.draft} step={details.step} busy={details.busy} error={details.error}
+    canSave={!!onSaveDraft} canFinish={!!onFinish}
     ontype={detailsController.setType} onheight={detailsController.setHeight}
     onillumination={detailsController.cycleIllumination} onabsence={detailsController.setNotPresent}
-    onsave={detailsController.save} oncontinue={detailsController.continue} ondismiss={closeDetails} />
+    oncustomtype={detailsController.setCustomType} ondescription={detailsController.setDescription}
+    onphotos={detailsController.addPhotos} onremovephoto={detailsController.removePhoto}
+    onsave={detailsController.save} oncontinue={continueDetails} onfinish={finishDetails}
+    onback={previousDetailsStep} ondismiss={closeDetails} />
 {:else if details.error}
   <p class="details-error" role="alert">{details.error}</p>
 {/if}

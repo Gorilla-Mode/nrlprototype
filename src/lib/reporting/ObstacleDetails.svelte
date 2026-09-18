@@ -1,24 +1,42 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import HeightWheel from './HeightWheel.svelte';
-  import { illuminationLabels, obstacleTypeChoices, type DetailsDraft } from './createDetailsController';
+  import { illuminationLabels, obstacleTypeChoices, maxPhotos, type DetailsDraft, type DetailsStep } from './createDetailsController';
   import { obstacleGeometryChoices, type ObstacleType } from './obstacle';
 
-  let { draft, busy, error, canSave, canContinue, ontype, onheight, onillumination, onabsence, onsave, oncontinue, ondismiss }: {
+  let { draft, step, busy, error, canSave, canFinish, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, onsave, oncontinue, onfinish, onback, ondismiss }: {
     draft: DetailsDraft;
+    step: DetailsStep;
     busy: boolean;
     error: string;
     canSave: boolean;
-    canContinue: boolean;
+    canFinish: boolean;
     ontype: (type: ObstacleType) => void;
     onheight: (height: number) => void;
     onillumination: () => void;
     onabsence: (notPresent: boolean) => void;
+    oncustomtype: (value: string) => void;
+    ondescription: (value: string) => void;
+    onphotos: (files: readonly File[]) => void;
+    onremovephoto: (index: number) => void;
     onsave: () => void;
     oncontinue: () => void;
+    onfinish: () => void;
+    onback: () => void;
     ondismiss: () => void;
   } = $props();
   let dialog: HTMLDialogElement;
+  let heading: HTMLHeadingElement;
+  let attachmentInput = $state<HTMLInputElement>();
+  let cameraInput = $state<HTMLInputElement>();
+  function selectPhotos(event: Event & { currentTarget: HTMLInputElement }) {
+    onphotos(Array.from(event.currentTarget.files ?? []));
+    event.currentTarget.value = '';
+  }
+  $effect(() => {
+    step;
+    void tick().then(() => heading?.focus({ preventScroll: true }));
+  });
   let geometryLabel = $derived(obstacleGeometryChoices.find(({ type }) => type === draft.report.obstacle_position.type)?.label.toLowerCase());
   let pointerOnBackdrop = false;
   function outside(event: MouseEvent) {
@@ -38,15 +56,21 @@
   <div class="details-layout">
   <header>
     <div class="heading-row">
-      <h1 id="details-title">Obstacle Details</h1>
-      <p id="details-step">Step 1 of 2 · {geometryLabel}</p>
+      {#if step === 2}
+        <button class="button close" type="button" aria-label="Back to step 1" onclick={onback}>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
+        </button>
+      {/if}
+      <h1 bind:this={heading} id="details-title" tabindex="-1">{step === 1 ? 'Obstacle Details' : 'Additional Information'}</h1>
+      <p id="details-step">Step {step} of 2 · {geometryLabel}</p>
       <button class="button close" type="button" aria-label="Close obstacle details" onclick={ondismiss}>
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
       </button>
     </div>
-    <div class="progress" aria-hidden="true"><span class="active"></span><span></span></div>
+    <div class="progress" aria-hidden="true"><span class="active"></span><span class:active={step === 2}></span></div>
   </header>
   <div class="body">
+    {#if step === 1}
     <fieldset class="types" disabled={busy}>
       <legend>Obstacle type</legend>
       <div class="type-grid">
@@ -85,19 +109,59 @@
         </button>
       </div>
     </section>
+    {:else}
+      {#if draft.type === 'other'}
+        <label class="text-field">
+          <span>Obstacle type <span class="optional">(optional)</span></span>
+          <input type="text" placeholder="Custom obstacle type…" value={draft.customType} disabled={busy}
+            oninput={(event) => oncustomtype(event.currentTarget.value)} />
+        </label>
+      {/if}
+      <label class="text-field description">
+        <span>Description <span class="optional">(optional)</span></span>
+        <textarea placeholder="Add any additional information…" value={draft.description} disabled={busy}
+          oninput={(event) => ondescription(event.currentTarget.value)}></textarea>
+      </label>
+      <section class="photos" aria-label="Photos">
+        <p id="photo-limit">Photos (optional) · {draft.photos.length} of {maxPhotos}</p>
+        {#if draft.photos.length}
+          <ul class="photo-list">
+            {#each draft.photos as photo, index}
+              <li>
+                <span class="filename" title={photo.name}>{photo.name}</span>
+                <button class="button remove-photo" type="button" aria-label={`Remove photo ${index + 1}: ${photo.name}`}
+                  disabled={busy} onclick={() => onremovephoto(index)}>
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+        <input bind:this={attachmentInput} type="file" accept="image/*" multiple hidden onchange={selectPhotos} />
+        <input bind:this={cameraInput} type="file" accept="image/*" capture="environment" hidden onchange={selectPhotos} />
+        <div class="photo-actions">
+          <button class="button" type="button" disabled={busy} aria-describedby="photo-limit" onclick={() => attachmentInput?.click()}>Attach photo</button>
+          <button class="button" type="button" disabled={busy} aria-describedby="photo-limit" onclick={() => cameraInput?.click()}>Take photo</button>
+        </div>
+      </section>
+    {/if}
+
   </div>
   <footer>
     {#if error}<p role="alert" class="error">{error}</p>{/if}
     <p id="details-availability" class="sr-only">
-      {#if !canSave && !canContinue}Save Draft and Continue are not connected yet. Details stay in memory for this session.
-      {:else if !canSave}Save Draft is not connected yet.
-      {:else if !canContinue}Continue is not connected yet.
-      {:else if !draft.type}Choose an obstacle type to continue.
-      {:else}Review your details before continuing.{/if}
+      {#if !canSave}Save Draft is not connected yet. {/if}
+      {#if step === 2 && !canFinish}Finish Report is not connected yet. {/if}
+      {#if !draft.type}Choose an obstacle type to continue. {/if}
+      Details and photos stay in memory for this session.
     </p>
     <div class="footer-actions" aria-busy={busy}>
       <button type="button" class="button" disabled={!canSave || busy} aria-describedby="details-availability" onclick={onsave}>Save Draft</button>
-      <button type="button" class="button continue" disabled={!canContinue || !draft.type || busy} aria-describedby="details-availability" onclick={oncontinue}>Continue</button>
+      {#if step === 1}
+        <button type="button" class="button continue" disabled={!draft.type || busy} aria-describedby="details-availability" onclick={oncontinue}>Continue</button>
+      {:else}
+        <button type="button" class="button continue" disabled={!canFinish || !draft.type || busy} aria-describedby="details-availability" onclick={onfinish}>Finish Report</button>
+      {/if}
     </div>
   </footer>
   </div>
@@ -132,7 +196,19 @@
   .type-card:has(:focus-visible) { outline: var(--border-width-emphasis) solid var(--color-focus-ring); outline-offset: var(--details-focus-offset); }
   fieldset:disabled .type-card { opacity: var(--opacity-disabled); cursor: default; }
   section { flex: none; }
-  .options-row, .footer-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--details-card-gap); }
+  .options-row, .footer-actions, .photo-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--details-card-gap); }
+  .text-field { display: flex; flex-direction: column; gap: var(--details-small-gap); }
+  .optional { color: var(--color-text-secondary); }
+  .text-field input, textarea { width: 100%; min-width: 0; border: var(--details-border); border-radius: var(--details-control-radius); padding: var(--details-small-gap); background: var(--color-background-subtle); color: var(--color-text-primary); font: inherit; }
+  .text-field input { min-height: var(--details-button-height); }
+  .text-field input::placeholder, textarea::placeholder { color: var(--color-text-secondary); opacity: var(--opacity-opaque); }
+  .description { flex: 1; min-height: 0; }
+  textarea { flex: 1; min-height: 0; resize: none; overflow-y: auto; overscroll-behavior: contain; }
+  .photos { display: flex; flex-direction: column; gap: var(--details-small-gap); }
+  .photo-list { list-style: none; padding: 0; margin: 0; }
+  .photo-list li { display: flex; align-items: center; gap: var(--details-small-gap); min-width: 0; border-bottom: var(--details-border); }
+  .filename { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .button.remove-photo { flex: none; width: var(--details-close-size); min-height: var(--details-close-size); padding: 0; border: 0; }
   .options-row .button { background: var(--color-background-subtle); }
   .button.absence[aria-pressed='true'] { border-color: var(--color-status-warning); color: var(--color-status-warning); background: var(--color-status-warning-surface); }
   .button.absence[aria-pressed='true']:hover { border-color: var(--color-text-primary); }

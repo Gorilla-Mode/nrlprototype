@@ -1,6 +1,12 @@
 import { ObstacleType, type Obstacle } from './obstacle.js';
 
 export const detailsRoute = '#/Report/details';
+export const additionalInformationRoute = '#/Report/additional-information';
+export const maxPhotos = 3;
+export type DetailsStep = 1 | 2;
+export function detailsStepFromHash(hash: string): DetailsStep | null {
+  return hash === detailsRoute ? 1 : hash === additionalInformationRoute ? 2 : null;
+}
 export const obstacleTypeChoices = [
   { value: ObstacleType.Bridge, label: 'Bridge' },
   { value: ObstacleType.Airspan, label: 'Airspan' },
@@ -19,31 +25,41 @@ export interface DetailsDraft {
   readonly illumination: Illumination;
   readonly notPresent: boolean;
   readonly dirty: boolean;
+  readonly customType: string;
+  readonly description: string;
+  readonly photos: readonly File[];
 }
 type ActiveDetails =
   | { notPresent: true; height?: never; illumination?: never }
   | { notPresent: false; height: number; illumination: Illumination };
 export type DetailsPayload = Omit<Obstacle, 'type' | 'height'> & {
   type: ObstacleType | null;
+  customType?: string;
+  photos: readonly File[];
 } & ActiveDetails;
 export type ContinueDetailsPayload = DetailsPayload & { type: ObstacleType };
+export type CompleteReport = ContinueDetailsPayload;
 export type DraftSaveReason = 'explicit' | 'dismissal';
 export interface DetailsHooks {
   onSaveDraft?: (payload: DetailsPayload, reason: DraftSaveReason) => void | Promise<void>;
   onContinue?: (payload: ContinueDetailsPayload) => void | Promise<void>;
+  onFinish?: (payload: CompleteReport) => void | Promise<void>;
 }
 export interface DetailsState {
   draft: DetailsDraft | null;
   open: boolean;
   busy: boolean;
   error: string;
+  step: DetailsStep;
 }
-export const initialDetailsState: DetailsState = { draft: null, open: false, busy: false, error: '' };
+export const initialDetailsState: DetailsState = { draft: null, open: false, busy: false, error: '', step: 1 };
 
 export function detailsPayload(draft: DetailsDraft): DetailsPayload {
   const { type: _type, height: _height, ...report } = draft.report;
   return {
     ...report, type: draft.type,
+    description: draft.description, photos: [...draft.photos],
+    ...(draft.type === ObstacleType.Other ? { customType: draft.customType } : {}),
     ...(draft.notPresent
       ? { notPresent: true }
       : { notPresent: false, height: draft.height, illumination: draft.illumination }),
@@ -57,11 +73,12 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
 }) {
   let state = initialDetailsState;
   let generation = 0;
+  let navigation = 0;
   function publish(next: Partial<DetailsState>) {
     state = { ...state, ...next };
     onChange(state);
   }
-  function edit(values: Partial<Pick<DetailsDraft, 'type' | 'height' | 'illumination' | 'notPresent'>>) {
+  function edit(values: Partial<Pick<DetailsDraft, 'type' | 'height' | 'illumination' | 'notPresent' | 'customType' | 'description' | 'photos'>>) {
     if (!state.draft || state.busy) return;
     if (Object.entries(values).every(([key, value]) => state.draft?.[key as keyof DetailsDraft] === value)) return;
     publish({ draft: { ...state.draft, ...values, dirty: true }, error: '' });
@@ -72,8 +89,10 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
     try {
       await action();
       if (current === generation && saved && state.draft) publish({ draft: { ...state.draft, dirty: false } });
+      return current === generation;
     } catch {
-      if (current === generation) publish({ error: 'The action could not be completed. Your details remain in this session; reopen them to retry.' });
+      if (current === generation) publish({ error: 'The action could not be completed. Your details remain in this session. Please retry.' });
+      return false;
     } finally {
       if (current === generation) publish({ busy: false });
     }
@@ -88,11 +107,17 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
     getState: () => state,
     begin(report: Obstacle) {
       generation++;
-      publish({ draft: { report, type: null, height: 30, illumination: 'unknown', notPresent: false, dirty: false }, open: true, busy: false, error: '' });
+      publish({ draft: { report, type: null, height: 30, illumination: 'unknown', notPresent: false, dirty: false, customType: '', description: report.description, photos: [] }, open: true, busy: false, error: '', step: 1 });
     },
-    resume() { if (state.draft) publish({ open: true }); },
+    resume(step: DetailsStep = state.step) {
+      if (!state.draft) return;
+      const nextStep = state.draft.type ? step : 1;
+      if (!state.open || state.step !== nextStep) navigation++;
+      publish({ open: true, step: nextStep });
+    },
     dismiss() {
       if (!state.open) return Promise.resolve();
+      navigation++;
       publish({ open: false });
       return save('dismissal');
     },
@@ -108,12 +133,40 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
       edit({ illumination: next[state.draft.illumination] });
     },
     setNotPresent(notPresent: boolean) { edit({ notPresent }); },
+    setCustomType(customType: string) { edit({ customType }); },
+    setDescription(description: string) { edit({ description }); },
+    addPhotos(files: readonly File[]) {
+      if (!state.draft || state.busy || files.length === 0) return;
+      const remaining = maxPhotos - state.draft.photos.length;
+      if (files.length > remaining) {
+        publish({ error: remaining === 0 ? 'You can attach up to 3 photos. Remove one first.' : `Choose up to ${remaining} more photo${remaining === 1 ? '' : 's'}.` });
+        return;
+      }
+      edit({ photos: [...state.draft.photos, ...files] });
+    },
+    removePhoto(index: number) {
+      if (!state.draft || !Number.isInteger(index) || index < 0 || index >= state.draft.photos.length) return;
+      edit({ photos: state.draft.photos.filter((_, position) => position !== index) });
+    },
     save: () => save('explicit'),
-    continue() {
+    async continue() {
       const hook = getHooks().onContinue;
-      if (!state.draft?.type || state.busy || !hook) return Promise.resolve();
+      if (!state.draft?.type || state.busy || !state.open || state.step !== 1) return false;
       const payload = { ...detailsPayload(state.draft), type: state.draft.type };
-      return run(() => hook(payload), false);
+      const currentNavigation = navigation;
+      const succeeded = !hook || await run(() => hook(payload), false);
+      if (!succeeded || currentNavigation !== navigation) return false;
+      publish({ step: 2, error: '' });
+      return true;
+    },
+    async finish() {
+      const hook = getHooks().onFinish;
+      if (!state.draft?.type || state.busy || !hook || !state.open || state.step !== 2) return false;
+      const payload = { ...detailsPayload(state.draft), type: state.draft.type };
+      if (!await run(() => hook(payload), false)) return false;
+      generation++;
+      publish(initialDetailsState);
+      return true;
     },
   };
 }

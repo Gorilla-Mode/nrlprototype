@@ -39,6 +39,7 @@
   let holdOrigin = $state<HoldOrigin | null>(null);
   let holdPointer = $state<{ x: number; y: number } | null>(null);
   export function toggleGeolocation() { mapCanvas?.toggleGeolocation(); }
+  export function clearSelection() { mapCanvas?.deleteDrawing(); }
   export function focusDetails() {
     const resume = mapWrapper.querySelector<HTMLButtonElement>('[data-resume-details]');
     if (resume) resume.focus({ preventScroll: true });
