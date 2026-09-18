@@ -1,4 +1,5 @@
 import {
+  AttributionControl,
   Map,
   setWorkerUrl,
   type ErrorEvent,
@@ -65,6 +66,7 @@ export function createMapController(
     container,
     style: createRasterStyle(satelliteOpacity, grayscale),
   });
+  map.addControl(new AttributionControl({ compact: true }), 'bottom-left');
   const scaleWidth = Number.parseFloat(getComputedStyle(container).getPropertyValue('--map-scale-max-width'));
   map.addControl(new MetricScaleControl({ maxWidth: scaleWidth }), 'bottom-right');
   const locationDisplay = createGeolocationDisplay(map, () => geolocation.stopFollowing());

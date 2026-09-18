@@ -149,8 +149,9 @@ content. Forms use 16 px text and 44 px minimum labelled touch targets. Unsuppor
 account/auth/notification/offline controls stay explicitly unavailable; no example
 identity data is displayed. The native language select offers only Norsk and English.
 
-The metric scale is a thin line with end caps and a centred label above attribution.
+The metric scale sits bottom-right as a thin line with end caps and a centred label.
 Its light halo keeps dark ink readable across basemaps without a decorative card.
+Compact attribution sits bottom-left; both corners respect their own safe-area insets.
 Drawing controls reserve footer clearance. Scale width is geographic runtime data;
 all other visual values remain in stylesheet tokens.
 
