@@ -192,7 +192,7 @@
 
   .chips { margin-top:12px }
   .chip { background:var(--color-action-secondary); color:var(--color-text-inverse); padding:8px 12px; border-radius:999px; border:0; font-weight:600 }
-  .count { background:var(--color-background-raised); color:var(--color-action-secondary); display:inline-block; width:22px; height:22px; border-radius:999px; text-align:center; margin-left:8px; font-weight:700 }
+  .count { color:var(--color-text-inverse); margin-left:8px; font-weight:700 }
 
   .divider { border:0; height:1px; background:var(--color-border-default); margin:16px 0 }
 
