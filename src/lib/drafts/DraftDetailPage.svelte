@@ -28,7 +28,7 @@
     <div class="top-bar-inner title-row">
       <div>
         <h1>{draft.title}</h1>
-        <div class="subtitle">{geometryType} · {draft.category} · {draft.value}</div>
+        <div class="subtitle">{geometryType} · <strong class="type-highlight">{draft.category}</strong> · {draft.value}</div>
       </div>
     </div>
   </header>
@@ -154,6 +154,7 @@
 
   h1 { margin:0 0 4px; font-size:26px; color:var(--color-text-primary) }
   .subtitle { color:var(--color-text-secondary); font-size:14px }
+  .type-highlight { font-weight:700; color:var(--color-text-primary) }
   .muted { color:var(--color-text-secondary) }
 
   .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; }
