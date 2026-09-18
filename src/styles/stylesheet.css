@@ -480,7 +480,6 @@
   --map-search-padding-inline: var(--space-2);
   --map-search-max: 38rem;
   --map-status-max: 20rem;
-  --map-slider-panel-gap: var(--space-2);
   --map-slider-panel-padding-block: var(--space-4);
   --map-slider-hit-width: var(--target-size-min);
   --map-slider-track-width: var(--space-1);
@@ -570,13 +569,23 @@
   pointer-events: none;
 }
 
+.map-container .maplibregl-ctrl-bottom-left {
+  left: var(--map-footer-inset-left);
+  bottom: var(--map-footer-inset-bottom);
+  /* Reserve the scale's maximum width, margins and a gap when credits expand. */
+  max-width: calc(100% - var(--map-footer-inset-left) - var(--map-footer-inset-right) - var(--map-scale-max-width) - var(--space-6) - var(--space-2));
+}
+
 .map-container .maplibregl-ctrl-bottom-right {
-  right: var(--map-attribution-inset-inline);
-  bottom: var(--map-attribution-inset-block);
+  right: var(--map-footer-inset-right);
+  bottom: var(--map-footer-inset-bottom);
 }
 
 .map-container .maplibregl-ctrl-attrib {
-  border-radius: var(--radius-small) 0 0 0;
+  box-sizing: border-box;
+  max-width: calc(100% - var(--space-5));
+  overflow-wrap: anywhere;
+  border-radius: 0 var(--radius-small) 0 0;
   background: var(--color-map-control-surface);
   color: var(--color-text-secondary);
 }
@@ -595,8 +604,9 @@
   --map-control-inset-right: max(var(--layout-gutter-inline), var(--safe-area-right));
   --map-control-inset-bottom: max(var(--layout-gutter-inline), var(--safe-area-bottom));
   --map-control-inset-left: max(var(--layout-gutter-inline), var(--safe-area-left));
-  --map-attribution-inset-inline: max(var(--space-1), var(--safe-area-right));
-  --map-attribution-inset-block: max(var(--space-1), var(--safe-area-bottom));
+  --map-footer-inset-left: max(var(--space-1), var(--safe-area-left));
+  --map-footer-inset-right: max(var(--space-1), var(--safe-area-right));
+  --map-footer-inset-bottom: max(var(--space-1), var(--safe-area-bottom));
 }
 
 /* Breakpoints are intentionally limited to tablet and large-screen gutters. */
