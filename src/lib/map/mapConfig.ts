@@ -7,7 +7,7 @@ export const mapDefaults = {
   center: [5.3435, 60.4055],
   zoom: 13.5,
   maxZoom: 18,
-  attributionControl: { compact: true },
+  attributionControl: false,
 } satisfies Pick<MapOptions, 'center' | 'zoom' | 'maxZoom' | 'attributionControl'>;
 
 /* Future regional basemap APIs:

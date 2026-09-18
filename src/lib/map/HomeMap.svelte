@@ -87,12 +87,12 @@
   <MapToolbar
     {menuOpen}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
-    {onreports}
     {drawing}
     onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}
     onundo={() => mapCanvas?.undoDrawing()}
     ondelete={deleteSelection}
     oncomplete={() => mapCanvas?.completeDrawing()}
+    onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
 
   <MenuDrawer bind:open={menuOpen} {onfaq} {onsettings}

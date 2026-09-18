@@ -21,19 +21,19 @@ are limited to pointer/sector positions (`--hold-x/y`, `--radial-item-x/y`), sli
 
 ## Surfaces and interaction
 
-| Role | Treatment |
-| --- | --- |
-| Search, results, notices, geometry picker, drawing toolbar | Opaque raised surface, shared border and control shadow |
-| Floating map buttons | Opaque raised background; fully opaque foreground; circular shape retained |
-| Radial sectors | Opaque neutral surface, geometry-coloured icons; hover adds a 12% colour tint, outline and expansion |
-| Map polygon fill | 15% dark neutral; boundary and vertices remain visible |
-| Primary action | Green fill with paired action text token; one dominant action per task |
-| Secondary action | Neutral surface and border; coloured hover/pressed surface |
-| Selected toggle/result | Blue foreground, tinted surface and border/inset indicator; use ARIA state |
-| Destructive action | Red text and labelled action, error-surface hover/press; press also adds a red border |
-| Disabled | Native disabled attribute, muted text, stable opaque surface; no enabled hover styling |
-| Focus | Shared blue 2 px outline with 4 px offset; never remove without an equivalent visible indicator |
-| Status | Green success, blue information, amber warning, red error; always add text/icon |
+| Role                                                       | Treatment                                                                                            |
+|------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| Search, results, notices, geometry picker, drawing toolbar | Opaque raised surface, shared border and control shadow                                              |
+| Floating map buttons                                       | Opaque raised background; fully opaque foreground; circular shape retained                           |
+| Radial sectors                                             | Opaque neutral surface, geometry-coloured icons; hover adds a 12% colour tint, outline and expansion |
+| Map polygon fill                                           | 15% dark neutral; boundary and vertices remain visible                                               |
+| Primary action                                             | Green fill with paired action text token; one dominant action per task                               |
+| Secondary action                                           | Neutral surface and border; coloured hover/pressed surface                                           |
+| Selected toggle/result                                     | Blue foreground, tinted surface and border/inset indicator; use ARIA state                           |
+| Destructive action                                         | Red text and labelled action, error-surface hover/press; press also adds a red border                |
+| Disabled                                                   | Native disabled attribute, muted text, stable opaque surface; no enabled hover styling               |
+| Focus                                                      | Shared blue 2 px outline with 4 px offset; never remove without an equivalent visible indicator      |
+| Status                                                     | Green success, blue information, amber warning, red error; always add text/icon                      |
 
 Use the existing subtle shadows; do not compensate for unreadable transparency with
 blur or text shadows. Background opacity must not fade the contents. Contrast targets:
@@ -104,8 +104,11 @@ menu can still be clipped; geometry starts only through the hold/radial interact
   are 400/500/600; preserve the existing line-height scale.
 - Search is capped at 38rem on desktop. Results scroll within the viewport. Keep
   navigation at the right; the map remains edge to edge.
-- Place the layer slider beside its trigger, never over the next control. Drawing
-  guidance and actions use natural height and wrap on portrait tablets/phones.
+- Expand the layer slider downward from its trigger's top edge, matching its width
+  and rounded ends. Geolocation remains visible above it. Covered controls stay in
+  place but are hidden and inert until
+  the slider closes. Escape restores trigger focus; tapping the map dismisses it.
+  Respect reduced motion. Drawing guidance and actions use natural height and wrap on portrait tablets/phones.
   Reserve attribution and bottom safe-area space.
 - Dialog header/body/footer, when added, share `--dialog-padding-inline`.
 
@@ -149,8 +152,9 @@ content. Forms use 16 px text and 44 px minimum labelled touch targets. Unsuppor
 account/auth/notification/offline controls stay explicitly unavailable; no example
 identity data is displayed. The native language select offers only Norsk and English.
 
-The metric scale is a thin line with end caps and a centred label above attribution.
+The metric scale sits bottom-right as a thin line with end caps and a centred label.
 Its light halo keeps dark ink readable across basemaps without a decorative card.
+Compact attribution sits bottom-left; both corners respect their own safe-area insets.
 Drawing controls reserve footer clearance. Scale width is geographic runtime data;
 all other visual values remain in stylesheet tokens.
 
