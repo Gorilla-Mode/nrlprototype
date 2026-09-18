@@ -5,7 +5,7 @@
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { LocationSuggestion } from './locationSearch';
 
-  let { drawing, onundo, ondelete, oncomplete, onsearchselect, onmenu, menuOpen }: {
+  let { drawing, onundo, ondelete, oncomplete, onsearchselect, onmenu, menuOpen, onreports }: {
     onmenu: () => void;
     menuOpen: boolean;
     drawing: DrawingState;
@@ -13,6 +13,7 @@
     ondelete: () => void;
     oncomplete: () => void;
     onsearchselect: (suggestion: LocationSuggestion) => void;
+    onreports: () => void;
   } = $props();
 
 </script>
@@ -20,7 +21,7 @@
 <div class="map-toolbar" role="group" aria-label="Map tools">
   <SearchBar onselect={onsearchselect} />
 
-  <MapButton type="button" aria-label="Reports" disabled>
+  <MapButton type="button" aria-label="Reports" onclick={onreports}>
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M13 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9l-6-6Z" />
       <path d="M13 3v6h6M8.5 13h7M8.5 16.5h7M8.5 9h1" />

@@ -13,7 +13,7 @@
   import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
 
-  let { oncomplete, menuOpen = $bindable(false), visible = true, onfaq, onsettings,
+  let { oncomplete, menuOpen = $bindable(false), visible = true, onfaq, onsettings, onreports,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
@@ -23,6 +23,7 @@
     visible?: boolean;
     onfaq: () => void;
     onsettings: (section: SettingsSection) => void;
+    onreports: () => void;
     opacity?: number;
     isGrayscale?: boolean;
     geolocationState?: GeolocationState;
@@ -91,6 +92,7 @@
     onundo={() => mapCanvas?.undoDrawing()}
     ondelete={deleteSelection}
     oncomplete={() => mapCanvas?.completeDrawing()}
+    onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
 
   <MenuDrawer bind:open={menuOpen} {onfaq} {onsettings}
