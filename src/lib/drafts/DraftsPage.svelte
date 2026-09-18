@@ -190,7 +190,7 @@
   .safe-area { width:100%; max-width:1100px; padding:20px 32px 32px; box-sizing:border-box; }
 
   .controls { display:flex; gap:12px; align-items:center; }
-  .search { flex:1; display:flex; align-items:center; gap:8px; background:var(--color-background-subtle); padding:10px 12px; border-radius:12px }
+  .search { flex:1; display:flex; align-items:center; gap:8px; background:var(--color-background-raised); border:var(--border-default); padding:10px 12px; border-radius:12px; box-sizing:border-box }
   .search .icon { opacity:0.9; stroke: var(--color-text-secondary); }
   .search input { border:0; background:transparent; outline:none; flex:1; font-size:16px }
   .search .clear { background:transparent; border:0; cursor:pointer }
