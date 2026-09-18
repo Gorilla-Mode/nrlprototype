@@ -1,4 +1,4 @@
-import type { Draft, Report } from './types';
+import type { Draft } from './types';
 
 // Module-scoped so the same objects persist across DraftsPage mounts/unmounts
 // (e.g. navigating into a draft/report and back), letting in-place edits like
@@ -30,16 +30,5 @@ export const drafts: Draft[] = [
     pilotReportText: 'Unidentified obstacle spotted during low-altitude flight, needs follow-up before details can be confirmed.',
     reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten',
     coordinates: null, vertexCount: 0
-  }
-];
-
-export const reports: Report[] = [
-  {
-    id: 'r1', title: 'Kraftlinje Sør', category: 'Aerial span', value: '40 ft (12 m)',
-    status: 'ready', createdDate: '12.10.2024', editedDate: '14.10.2024',
-    heightAboveGround: '40 ft (12 m)', lighting: 'No',
-    pilotReportText: 'Power line crossing the valley between two masts. Cables are unlit and hard to see against the ridge.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten',
-    coordinates: { lat: 60.3913, lng: 5.3221 }, vertexCount: 2
   }
 ];

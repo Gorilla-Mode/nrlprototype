@@ -2,10 +2,10 @@
   import StatusBadge from './StatusBadge.svelte';
   import { reportActionLabel, reportSecondaryLine, type Report } from './reportsData';
 
-  let { report }: { report: Report } = $props();
+  let { report, onopen }: { report: Report; onopen: (report: Report) => void } = $props();
 </script>
 
-<button type="button" class="reports-card">
+<button type="button" class="reports-card" onclick={() => onopen(report)}>
   <div class="reports-card-top">
     <span class="reports-card-name">{report.name}</span>
     <StatusBadge status={report.status} />
