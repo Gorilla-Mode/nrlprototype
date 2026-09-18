@@ -18,7 +18,8 @@ when behaviour changes; do not turn it into a chronological work log.
 | Drafts/autosave | In-memory geometry only; durable recovery has value, but retention and lifecycle must be decided before storage |
 | Shared components | Existing MapButton, shared button styles and geometry symbols; no new framework needed |
 | Responsive | Mobile, portrait tablet and desktop tokens; physical-device validation remains distinct from browser emulation |
-| Menu / Reports buttons | High-level drawer links to shared Settings profile, Settings, Language and FAQ; Reports/Notifications/support/Log Out remain unavailable |
+| Menu / Reports buttons | High-level drawer links to shared Settings profile, Settings, Language and FAQ; the toolbar Reports button opens the report list page at #/Reports; Notifications/support/Log Out remain unavailable |
+| Reports | Full-screen list at #/Reports with 10 mock reports, status badges and computed tab counts; search, Filter, Select and My drafts are shown but not wired, and there is no detail page yet |
 | Settings | Responsive shell with seven views; map blend/grayscale and location actions share live map state; profile, security, notification and offline features are unavailable placeholders |
 
 ## Deliberately deferred
