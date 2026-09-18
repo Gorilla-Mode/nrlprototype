@@ -1,9 +1,18 @@
 <script lang="ts">
   import type { Draft } from './types';
-  import { geometryTypeFor, heightOptions, lightingOptions } from './types';
+  import { geometryTypeFor, heightInMeters, formatHeightFromMeters } from './types';
 
   export let draft: Draft;
   export let onBack: () => void = () => {};
+
+  function updateHeight(raw: string) {
+    if (raw.trim() === '') {
+      draft.heightAboveGround = 'Not set';
+      return;
+    }
+    const meters = Number(raw);
+    draft.heightAboveGround = formatHeightFromMeters(Number.isNaN(meters) ? null : meters);
+  }
 
   $: geometryType = geometryTypeFor(draft.category);
 
@@ -51,26 +60,25 @@
 
         <div class="field-box" class:missing={draft.heightAboveGround === 'Not set'}>
           <div class="field-label">HEIGHT ABOVE GROUND</div>
-          <div class="field-value select-wrap">
-            <select bind:value={draft.heightAboveGround}>
-              {#each heightOptions as option}
-                <option value={option}>{option}</option>
-              {/each}
-            </select>
-            <span class="chev">⌄</span>
+          <div class="field-value height-input-wrap">
+            <input
+              type="number"
+              min="0"
+              inputmode="decimal"
+              placeholder="Enter height"
+              value={heightInMeters(draft.heightAboveGround) ?? ''}
+              on:input={(e) => updateHeight(e.currentTarget.value)}
+            />
+            <span class="unit">m</span>
           </div>
           <div class="field-caption muted">Highest point reported</div>
         </div>
 
         <div class="field-box" class:missing={draft.lighting === 'Not set'}>
           <div class="field-label">LIGHTING</div>
-          <div class="field-value select-wrap">
-            <select bind:value={draft.lighting}>
-              {#each lightingOptions as option}
-                <option value={option}>{option}</option>
-              {/each}
-            </select>
-            <span class="chev">⌄</span>
+          <div class="lighting-toggle">
+            <button type="button" class:active={draft.lighting === 'Yes'} on:click={() => draft.lighting = 'Yes'}>Yes</button>
+            <button type="button" class:active={draft.lighting === 'No'} on:click={() => draft.lighting = 'No'}>No</button>
           </div>
           <div class="field-caption muted">Marking on the obstacle</div>
         </div>
@@ -165,18 +173,28 @@
   .field-box.missing { border-color: var(--color-status-error) }
   .field-label { font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-bottom:6px }
   .field-value { font-size:17px; font-weight:700; color:var(--color-text-primary); display:flex; align-items:center; justify-content:space-between }
-  .chev { color:var(--color-text-secondary); font-weight:400; pointer-events:none }
   .field-caption { font-size:12px; margin-top:4px }
 
-  .select-wrap { position:relative }
-  .select-wrap select {
-    -webkit-appearance:none; appearance:none;
+  .height-input-wrap { display:flex; align-items:baseline; gap:6px }
+  .height-input-wrap input {
     width:100%; border:0; background:transparent; padding:0; margin:0;
     font:inherit; font-size:17px; font-weight:700; color:var(--color-text-primary);
-    cursor:pointer;
+    -moz-appearance:textfield; appearance:textfield;
   }
-  .select-wrap select:focus { outline:none }
-  .select-wrap .chev { position:absolute; right:0; top:50%; transform:translateY(-50%) }
+  .height-input-wrap input::-webkit-outer-spin-button,
+  .height-input-wrap input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0 }
+  .height-input-wrap input:focus { outline:none }
+  .height-input-wrap .unit { color:var(--color-text-secondary); font-weight:600; font-size:14px }
+
+  .lighting-toggle { display:flex; gap:8px }
+  .lighting-toggle button {
+    flex:1; padding:8px 0; border-radius:10px; border:var(--border-default);
+    background:var(--color-background-raised); font-weight:700; font-size:15px;
+    color:var(--color-text-primary); cursor:pointer;
+  }
+  .lighting-toggle button.active {
+    background:var(--color-action-selected); border-color:var(--color-action-secondary); color:var(--color-action-secondary);
+  }
 
   .needed-box { border:var(--border-default); border-radius:12px; padding:14px 16px; margin-bottom:20px; background:var(--color-background-raised) }
   .needed-title { font-weight:700; color:var(--color-text-primary); margin-bottom:4px }

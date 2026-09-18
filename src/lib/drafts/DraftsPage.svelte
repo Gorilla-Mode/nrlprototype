@@ -57,7 +57,7 @@
       {
         id: 'r1', title: 'Kraftlinje Sør', category: 'Aerial span', value: '40 ft (12 m)',
         status: 'ready', createdDate: '12.10.2024', editedDate: '14.10.2024',
-        heightAboveGround: '40 ft (12 m)', lighting: 'Unknown',
+        heightAboveGround: '40 ft (12 m)', lighting: 'No',
         pilotReportText: 'Power line crossing the valley between two masts. Cables are unlit and hard to see against the ridge.',
         reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten',
         coordinates: { lat: 60.3913, lng: 5.3221 }, vertexCount: 2

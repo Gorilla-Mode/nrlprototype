@@ -42,29 +42,10 @@ export type Report = {
   vertexCount: number;
 };
 
-export const heightOptions = [
-  'Not set',
-  '49 ft (15 m)',
-  '98 ft (30 m)',
-  '148 ft (45 m)',
-  '197 ft (60 m)',
-  '328 ft (100 m)',
-  '492 ft (150 m)'
-];
-
-export const lightingOptions = [
-  'Not set',
-  'No lighting',
-  'Steady red light',
-  'Flashing red light',
-  'Flashing white light',
-  'Unknown'
-];
-
 export function lightingSummary(lighting: string): string {
-  if (lighting === 'Not set') return 'Not set';
-  if (lighting === 'Unknown') return 'Reported as unknown — accepted';
-  return `Reported as ${lighting.toLowerCase()}`;
+  if (lighting === 'Yes') return 'Lit — reported by pilot';
+  if (lighting === 'No') return 'Not lit — reported by pilot';
+  return 'Not set';
 }
 
 export type GeometryFilter = 'Point' | 'Line' | 'Area';
@@ -73,6 +54,12 @@ export type HeightFilter = 'any' | 'under30' | '30to60' | 'over60';
 export function heightInMeters(value: string): number | null {
   const match = value.match(/\(([\d.]+)\s*m\)/);
   return match ? parseFloat(match[1]) : null;
+}
+
+export function formatHeightFromMeters(meters: number | null): string {
+  if (meters === null || Number.isNaN(meters)) return 'Not set';
+  const feet = Math.round(meters * 3.28084);
+  return `${feet} ft (${meters} m)`;
 }
 
 export function matchesHeightFilter(value: string, filter: HeightFilter): boolean {

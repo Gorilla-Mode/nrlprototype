@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Report } from './types';
-  import { geometryTypeFor, heightOptions, lightingOptions, lightingSummary } from './types';
+  import { geometryTypeFor, heightInMeters, formatHeightFromMeters, lightingSummary } from './types';
 
   export let report: Report;
   export let onBack: () => void = () => {};
@@ -12,6 +12,15 @@
     editing = !editing;
     if (editing) onEdit();
   };
+
+  function updateHeight(raw: string) {
+    if (raw.trim() === '') {
+      report.heightAboveGround = 'Not set';
+      return;
+    }
+    const meters = Number(raw);
+    report.heightAboveGround = formatHeightFromMeters(Number.isNaN(meters) ? null : meters);
+  }
 
   $: geometryType = geometryTypeFor(report.category);
 
@@ -48,13 +57,16 @@
         <div class="field-box">
           <div class="field-label">HEIGHT ABOVE GROUND</div>
           {#if editing}
-            <div class="field-value select-wrap">
-              <select bind:value={report.heightAboveGround}>
-                {#each heightOptions as option}
-                  <option value={option}>{option}</option>
-                {/each}
-              </select>
-              <span class="chev">⌄</span>
+            <div class="field-value height-input-wrap">
+              <input
+                type="number"
+                min="0"
+                inputmode="decimal"
+                placeholder="Enter height"
+                value={heightInMeters(report.heightAboveGround) ?? ''}
+                on:input={(e) => updateHeight(e.currentTarget.value)}
+              />
+              <span class="unit">m</span>
             </div>
           {:else}
             <div class="field-value">{report.heightAboveGround}</div>
@@ -65,16 +77,12 @@
         <div class="field-box">
           <div class="field-label">LIGHTING</div>
           {#if editing}
-            <div class="field-value select-wrap">
-              <select bind:value={report.lighting}>
-                {#each lightingOptions as option}
-                  <option value={option}>{option}</option>
-                {/each}
-              </select>
-              <span class="chev">⌄</span>
+            <div class="lighting-toggle">
+              <button type="button" class:active={report.lighting === 'Yes'} on:click={() => report.lighting = 'Yes'}>Yes</button>
+              <button type="button" class:active={report.lighting === 'No'} on:click={() => report.lighting = 'No'}>No</button>
             </div>
           {:else}
-            <div class="field-value">{report.lighting}</div>
+            <div class="field-value">{report.lighting === 'Yes' ? 'Lit' : report.lighting === 'No' ? 'Not lit' : report.lighting}</div>
           {/if}
           <div class="field-caption muted">Marking on the obstacle</div>
         </div>
@@ -205,15 +213,26 @@
   .field-value { font-size:17px; font-weight:700; color:var(--color-text-primary) }
   .field-caption { font-size:12px; margin-top:4px }
 
-  .select-wrap { position:relative; display:flex; align-items:center; justify-content:space-between }
-  .select-wrap select {
-    -webkit-appearance:none; appearance:none;
+  .height-input-wrap { display:flex; align-items:baseline; gap:6px }
+  .height-input-wrap input {
     width:100%; border:0; background:transparent; padding:0; margin:0;
     font:inherit; font-size:17px; font-weight:700; color:var(--color-text-primary);
-    cursor:pointer;
+    -moz-appearance:textfield; appearance:textfield;
   }
-  .select-wrap select:focus { outline:none }
-  .select-wrap .chev { position:absolute; right:0; top:50%; transform:translateY(-50%); color:var(--color-text-secondary); font-weight:400; pointer-events:none }
+  .height-input-wrap input::-webkit-outer-spin-button,
+  .height-input-wrap input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0 }
+  .height-input-wrap input:focus { outline:none }
+  .height-input-wrap .unit { color:var(--color-text-secondary); font-weight:600; font-size:14px }
+
+  .lighting-toggle { display:flex; gap:8px }
+  .lighting-toggle button {
+    flex:1; padding:8px 0; border-radius:10px; border:var(--border-default);
+    background:var(--color-background-raised); font-weight:700; font-size:15px;
+    color:var(--color-text-primary); cursor:pointer;
+  }
+  .lighting-toggle button.active {
+    background:var(--color-action-selected); border-color:var(--color-action-secondary); color:var(--color-action-secondary);
+  }
 
   .ready-card { border:var(--border-default); border-radius:12px; padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
   .ready-title { font-weight:700; font-size:17px; color:var(--color-text-primary) }
