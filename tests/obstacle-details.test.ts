@@ -28,13 +28,14 @@ test('two-step first view exposes the same six types and shared height range, wi
   assert.doesNotMatch(html, /Finish Report/);
 });
 
-test('two-step final view exposes custom type, description, photos, Back, and Finish', () => {
+test('two-step final view exposes custom type, description, photos, and Finish without a back button', () => {
   const html = render(Details, { props: viewProps(draft({ type: ObstacleType.Other, photos: [new File([], 'photo.jpg')] }), { step: 2, totalSteps: 2 }) }).body;
   assert.ok(html.includes('Custom obstacle type'));
   assert.ok(html.includes('Remove photo 1: photo.jpg'));
   assert.ok(html.includes('accept="image/*" multiple'));
   assert.ok(html.includes('capture="environment"'));
-  assert.ok(html.includes('Back to step 1'));
+  assert.doesNotMatch(html, /Back to step 1/);
+  assert.ok(html.includes('Close obstacle details'));
   assert.match(html, />Finish Report/);
 });
 

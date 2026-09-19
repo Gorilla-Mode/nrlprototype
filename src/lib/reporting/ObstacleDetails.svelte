@@ -6,7 +6,7 @@
   import ObstacleTypeIcon from './ObstacleTypeIcon.svelte';
   import type { ReportingVariantProps } from './reportingVariantProps';
 
-  let { draft, open, step, totalSteps, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, onsave, oncontinue, onfinish, onback, ondismiss }: ReportingVariantProps = $props();
+  let { draft, open, step, totalSteps, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, onsave, oncontinue, onfinish, ondismiss }: ReportingVariantProps = $props();
   let dialog: HTMLDialogElement;
   let heading: HTMLHeadingElement;
   let attachmentInput = $state<HTMLInputElement>();
@@ -43,11 +43,6 @@
   <div class="details-layout">
   <header>
     <div class="heading-row">
-      {#if step === 2}
-        <button class="button close" type="button" aria-label="Back to step 1" onclick={onback}>
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
-        </button>
-      {/if}
       <h1 bind:this={heading} id="details-title" tabindex="-1">{step === 1 ? 'Obstacle Details' : 'Additional Information'}</h1>
       <p id="details-step">Step {step} of {totalSteps} · {geometryLabel}</p>
       <button class="button close" type="button" aria-label="Close obstacle details" onclick={ondismiss}>
