@@ -59,7 +59,7 @@
   <div class="body">
     {#if step === 1}
     <fieldset class="types" disabled={busy}>
-      <legend>Obstacle type</legend>
+      <legend>Obstacle type - Required</legend>
       <div class="type-grid">
         {#each obstacleTypeChoices as choice}
           <label class="type-card" class:selected={draft.type === choice.type}>
@@ -78,11 +78,11 @@
       </div>
     </fieldset>
     <section aria-labelledby="height-title">
-      <h2 id="height-title">Height</h2>
+      <h2 id="height-title">Approx Height - Required</h2>
       <HeightWheel value={draft.height} disabled={draft.notPresent || busy} onchange={onheight} />
     </section>
     <section aria-labelledby="options-title">
-      <h2 id="options-title">Options</h2>
+      <h2 id="options-title">Options - Optional</h2>
       <div class="options-row">
         <button type="button" class="button illumination" disabled={draft.notPresent || busy} onclick={onillumination} aria-label={`Illumination: ${illuminationLabels[draft.illumination]}. Change illumination`}>
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -100,18 +100,18 @@
     {:else}
       {#if draft.type === 'other'}
         <label class="text-field">
-          <span>Obstacle type <span class="optional">(optional)</span></span>
+          <span>Obstacle type - <span class="optional">Optional</span></span>
           <input type="text" placeholder="Custom obstacle type…" value={draft.customType} disabled={busy}
             oninput={(event) => oncustomtype(event.currentTarget.value)} />
         </label>
       {/if}
       <label class="text-field description">
-        <span>Description <span class="optional">(optional)</span></span>
+        <span>Description - <span class="optional">Optional</span></span>
         <textarea placeholder="Add any additional information…" value={draft.description} disabled={busy}
           oninput={(event) => ondescription(event.currentTarget.value)}></textarea>
       </label>
       <section class="photos" aria-label="Photos">
-        <p id="photo-limit">Photos (optional) · {draft.photos.length} of {maxPhotos}</p>
+        <p id="photo-limit">Photos - Optional · {draft.photos.length} of {maxPhotos}</p>
         {#if draft.photos.length}
           <ul class="photo-list">
             {#each draft.photos as photo, index}

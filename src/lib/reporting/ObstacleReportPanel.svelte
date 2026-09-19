@@ -202,7 +202,7 @@
 
   <div class="dialog-content report-content">
     <section>
-      <h3 class="section-label">Obstacle Type</h3>
+      <h3 class="section-label">Obstacle Type - Required</h3>
       <div class="type-grid" role="group" aria-label="Obstacle type">
         {#each obstacleTypeChoices as choice (choice.id)}
           <button
@@ -233,7 +233,7 @@
 
     <section>
       <div class="section-label-row">
-        <h3 class="section-label">Obstacle Height{draft.notPresent ? ' (optional)' : ''}</h3>
+        <h3 class="section-label">Obstacle Height - {draft.notPresent ? 'Disabled' : 'Required'}</h3>
         <button type="button" class="unit-toggle" aria-label="Toggle height unit" disabled={busy} onclick={() => { heightUnit = heightUnit === 'm' ? 'ft' : 'm'; }}>
           {heightUnit}
         </button>
@@ -302,7 +302,6 @@
     </div>
 
     <section class="report-photos" aria-label="Photos">
-      <p id="one-step-photo-limit">Photos (optional) · {draft.photos.length} of {maxPhotos}</p>
       <input bind:this={attachmentInput} type="file" accept="image/*" multiple hidden onchange={selectPhotos} />
       <input bind:this={cameraInput} type="file" accept="image/*" capture="environment" hidden onchange={selectPhotos} />
       {#if draft.photos.length}
@@ -333,7 +332,6 @@
 
   <div class="report-feedback">
     {#if error}<p class="report-error" role="alert">{error}</p>{/if}
-    <p>Details and photos stay in memory for this session.</p>
   </div>
   <footer class="dialog-footer report-footer" aria-busy={busy}>
     <button type="button" class="button" disabled={busy} onclick={onsave}>Save draft</button>
