@@ -24,6 +24,7 @@ const panelUrl = await compileSvelteComponent('src/lib/reporting/ObstacleReportP
   './ObstacleTypeIcon.svelte': iconUrl,
   './createDetailsController': new URL('../src/lib/reporting/createDetailsController.js', import.meta.url).href,
   './reporting': new URL('../src/lib/reporting/reporting.js', import.meta.url).href,
+  './createHeightPickerController': new URL('../src/lib/reporting/createHeightPickerController.js', import.meta.url).href,
 });
 
 type PanelProps = ReportingVariantProps;
@@ -89,12 +90,13 @@ test('Save draft is never disabled, even on an empty draft', () => {
   assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /disabled[^>]*>Save draft/);
 });
 
-test('Not present relabels height as optional, greys out the picker, and shows the warning note', () => {
+test('Not present relabels required height as disabled, greys out the picker, and shows the warning note', () => {
   const draft = toggleNotPresent(emptyDetailsDraft);
   const html = body(pointObstacle, draft);
-  assert.match(html, /Obstacle Height \(optional\)/);
+  assert.match(html, /Obstacle Height - Disabled/);
   assert.match(html, /aria-disabled="true"/);
   assert.match(html, /This obstacle no longer exists in reality\./);
+  assert.match(body(pointObstacle, emptyDetailsDraft), /Obstacle Height - Required/);
   assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /This obstacle no longer exists in reality\./);
 });
 
