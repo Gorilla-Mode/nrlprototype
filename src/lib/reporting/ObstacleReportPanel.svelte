@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { obstacleTypeChoices, obstacleGeometryChoices, ObstacleType } from './obstacle';
   import { displayUnitToMeters, formatHeightLabel, metersToDisplayUnit, type HeightUnit } from './obstacleReportDraft';
   import { maxPhotos, type Illumination } from './createDetailsController';
   import { minObstacleHeightMeters, maxObstacleHeightMeters } from './reporting';
   import type { ReportingVariantProps } from './reportingVariantProps';
   import ObstacleTypeIcon from './ObstacleTypeIcon.svelte';
+  import { createHeightPickerController } from './createHeightPickerController';
 
   let { draft, open, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, ondismiss, onsave, onfinish }: ReportingVariantProps = $props();
   let obstacle = $derived(draft.report);
@@ -64,16 +65,15 @@
   let heightTrigger: HTMLButtonElement | undefined;
   let backdropPress = false;
   let descriptionField = $state<HTMLTextAreaElement>();
-  let heightTrack = $state<HTMLDivElement>();
   let heightItems = new Map<number, HTMLButtonElement>();
-  let scrollSettleTimer: ReturnType<typeof setTimeout> | undefined;
+  let heightSizer: HTMLSpanElement;
+  let heightPicker = $state<ReturnType<typeof createHeightPickerController>>();
   let heightInputOpen = $state(false);
   let heightInputValue = $state('');
   let heightInputField = $state<HTMLInputElement>();
 
   onMount(() => {
     return () => {
-      if (scrollSettleTimer) clearTimeout(scrollSettleTimer);
       if (dialog.open) dialog.close();
     };
   });
@@ -106,9 +106,13 @@
   $effect(() => { if (showDescription) resizeDescription(); });
 
   $effect(() => {
-    if (!open) return;
-    const item = heightItems.get(draft.height);
-    item?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+    const picker = heightPicker;
+    const value = draft.height;
+    if (!open || busy || draft.notPresent) {
+      untrack(() => picker?.stop());
+      return;
+    }
+    untrack(() => picker?.sync(value));
   });
 
   $effect(() => {
@@ -123,7 +127,7 @@
 
   function closeHeightInput() {
     heightInputOpen = false;
-    void tick().then(() => { if (open) heightTrigger?.focus({ preventScroll: true }); });
+    void tick().then(() => { if (open) (heightItems.get(draft.height) ?? heightTrigger)?.focus({ preventScroll: true }); });
   }
 
   function appendHeightDigit(digit: string) {
@@ -137,7 +141,7 @@
 
   function confirmHeightInput() {
     const parsed = Number.parseInt(heightInputValue, 10);
-    if (Number.isFinite(parsed)) onheight(displayUnitToMeters(parsed, heightUnit));
+    if (Number.isFinite(parsed)) heightPicker?.select(Math.round(displayUnitToMeters(parsed, heightUnit)));
     closeHeightInput();
   }
 
@@ -149,31 +153,52 @@
   function handleHeightWheel(event: WheelEvent) {
     if (draft.notPresent || busy) return;
     event.preventDefault();
-    const delta = event.deltaY > 0 ? 1 : -1;
-    onheight(draft.height + delta);
+    const delta = event.deltaY || event.deltaX;
+    if (delta) heightPicker?.select(draft.height + Math.sign(delta));
   }
 
-  function handleHeightScroll() {
-    if (!heightTrack || draft.notPresent || busy) return;
-    if (scrollSettleTimer) clearTimeout(scrollSettleTimer);
-    scrollSettleTimer = setTimeout(() => {
-      if (!heightTrack || !open || busy || draft.notPresent) return;
-      const trackRect = heightTrack.getBoundingClientRect();
-      const center = trackRect.left + trackRect.width / 2;
-      let closestMeters: number | null = null;
-      let closestDistance = Infinity;
-      for (const [meters, element] of heightItems) {
-        const itemRect = element.getBoundingClientRect();
-        const distance = Math.abs(itemRect.left + itemRect.width / 2 - center);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestMeters = meters;
-        }
-      }
-      if (closestMeters !== null && closestMeters !== draft.height) {
-        onheight(closestMeters);
-      }
-    }, 120);
+  function handleHeightKeydown(event: KeyboardEvent) {
+    if (draft.notPresent || busy) return;
+    const values: Record<string, number> = {
+      ArrowLeft: draft.height - 1, ArrowRight: draft.height + 1,
+      Home: minObstacleHeightMeters, End: maxObstacleHeightMeters,
+    };
+    if (!(event.key in values)) return;
+    event.preventDefault();
+    const next = Math.max(minObstacleHeightMeters, Math.min(maxObstacleHeightMeters, values[event.key]));
+    heightPicker?.select(next);
+    heightItems.get(next)?.focus({ preventScroll: true });
+  }
+
+  function setupHeightPicker(track: HTMLDivElement) {
+    const picker = createHeightPickerController({
+      track, items: heightItems, getValue: () => draft.height,
+      enabled: () => open && !busy && !draft.notPresent,
+      onchange: (value) => onheight(value),
+      reducedMotion: () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      requestFrame: (callback) => requestAnimationFrame(callback),
+      cancelFrame: (id) => cancelAnimationFrame(id),
+    });
+    heightPicker = picker;
+    let resizeFrame: number | undefined;
+    const observer = new ResizeObserver(() => {
+      if (resizeFrame !== undefined) return;
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = undefined;
+        const width = heightSizer.getBoundingClientRect().width;
+        if (!open || !width) return;
+        track.parentElement?.style.setProperty('--height-item-width', `${width}px`);
+        picker.sync(draft.height, true);
+      });
+    });
+    observer.observe(track);
+    observer.observe(heightSizer);
+    return { destroy() {
+      observer.disconnect();
+      if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame);
+      picker.stop();
+      heightPicker = undefined;
+    } };
   }
 </script>
 
@@ -238,29 +263,37 @@
           {heightUnit}
         </button>
       </div>
-      <div
-        class="height-track"
-        role="listbox"
-        aria-label="Obstacle height"
-        aria-disabled={draft.notPresent || busy}
-        bind:this={heightTrack}
-        onwheel={handleHeightWheel}
-        onscroll={handleHeightScroll}
-      >
-        {#each heightValues as meters (meters)}
-          <button
-            type="button"
-            role="option"
-            aria-selected={draft.height === meters}
-            class="height-item"
-            class:selected={draft.height === meters}
-            disabled={draft.notPresent || busy}
-            onclick={(event) => { if (draft.height === meters) openHeightInput(event.currentTarget); else onheight(meters); }}
-            use:registerHeightItem={meters}
-          >
-            <span class="height-value">{draft.height === meters ? formatHeightLabel(meters, heightUnit) : metersToDisplayUnit(meters, heightUnit)}</span>
-          </button>
-        {/each}
+      <div class="height-picker" aria-disabled={draft.notPresent || busy}>
+        <span bind:this={heightSizer} class="height-item selected height-sizer" aria-hidden="true">{formatHeightLabel(maxObstacleHeightMeters, heightUnit)}</span>
+        <div class="height-selection" aria-hidden="true"></div>
+        <div
+          class="height-track"
+          role="listbox"
+          tabindex="-1"
+          aria-label="Obstacle height"
+          aria-disabled={draft.notPresent || busy}
+          use:setupHeightPicker
+          onwheel={handleHeightWheel}
+          onscroll={() => heightPicker?.scroll()}
+          onpointerdown={() => heightPicker?.stop()}
+          onkeydown={handleHeightKeydown}
+        >
+          {#each heightValues as meters (meters)}
+            <button
+              type="button"
+              role="option"
+              aria-selected={draft.height === meters}
+              class="height-item"
+              class:selected={draft.height === meters}
+              disabled={draft.notPresent || busy}
+              tabindex={draft.height === meters ? 0 : -1}
+              onclick={(event) => { if (draft.height === meters) openHeightInput(event.currentTarget); else heightPicker?.select(meters); }}
+              use:registerHeightItem={meters}
+            >
+              <span class="height-value">{draft.height === meters ? formatHeightLabel(meters, heightUnit) : metersToDisplayUnit(meters, heightUnit)}</span>
+            </button>
+          {/each}
+        </div>
       </div>
     </section>
 
@@ -432,25 +465,41 @@ onkeydown={(event) => {
   }
   .unit-toggle:hover { background: var(--color-map-control-hover); }
 
-  .height-track {
-    display: flex; gap: var(--space-1); overflow-x: auto; padding: var(--space-2);
-    padding-inline: 50%; scroll-padding-inline: 50%; scroll-snap-type: x mandatory;
+  .height-picker {
+    /* Replaced by the measured widest label, including its unit and padding. */
+    --height-item-width: var(--report-height-item-size);
+    position: relative; min-width: 0; overflow: hidden;
     border: var(--border-default); border-radius: var(--radius-control); background: var(--color-background-subtle);
-    scrollbar-width: none;
+  }
+  .height-selection {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: var(--height-item-width, var(--report-height-item-size)); height: var(--report-height-item-size);
+    border-radius: var(--radius-small); background: var(--color-background-raised); box-shadow: var(--shadow-surface); pointer-events: none;
+  }
+  .height-track {
+    position: relative; box-sizing: border-box;
+    display: flex; gap: var(--space-1); overflow-x: auto; padding: var(--space-2);
+    padding-inline: max(0px, calc((100% - var(--height-item-width, var(--report-height-item-size))) / 2)); scroll-snap-type: x mandatory;
+    scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x pan-y;
   }
   .height-track::-webkit-scrollbar { display: none; }
-  .height-track[aria-disabled='true'] { opacity: var(--opacity-disabled); }
+  .height-picker[aria-disabled='true'] { opacity: var(--opacity-disabled); }
+  .height-track[aria-disabled='true'] { overflow-x: hidden; }
   .height-item {
-    position: relative; flex: none; min-width: var(--target-size-min); min-height: var(--target-size-min);
+    position: relative; box-sizing: border-box; flex: none;
+    width: var(--height-item-width, var(--report-height-item-size)); min-width: var(--report-height-item-size); height: var(--report-height-item-size);
+    padding: var(--space-1) var(--space-2); font-variant-numeric: tabular-nums; white-space: nowrap;
     display: grid; place-items: center; border: 0; border-radius: var(--radius-small);
     background: transparent; color: var(--color-text-disabled); cursor: pointer; font-weight: var(--font-weight-medium);
     scroll-snap-align: center;
   }
-  .height-item:not(:disabled):hover { background: var(--color-map-control-hover); }
-  .height-item.selected {
-    background: var(--color-background-raised); color: var(--color-text-primary); font-weight: var(--font-weight-semibold);
-    box-shadow: var(--shadow-surface);
+  @media (hover: hover) {
+    .height-item:not(:disabled):not(.selected):hover { background: var(--color-map-control-hover); }
   }
+  .height-item.selected {
+    color: var(--color-text-primary); font-weight: var(--font-weight-semibold);
+  }
+  .height-sizer { position: absolute; width: max-content; visibility: hidden; pointer-events: none; }
 
   .optional-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-2); }
   .optional-button {
@@ -527,7 +576,7 @@ onkeydown={(event) => {
   .section-label { font-size: clamp(var(--font-size-body-small), 0.831rem + 0.188vw, var(--font-size-body)); }
   .type-button { padding: clamp(var(--space-3), 0.662rem + 0.376vw, var(--space-4)); font-size: clamp(var(--font-size-body-small), 0.831rem + 0.188vw, var(--font-size-body)); }
   .optional-button { min-height: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); font-size: clamp(var(--font-size-caption), 0.706rem + 0.188vw, var(--font-size-body-small)); }
-  .height-item { min-width: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); min-height: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); font-size: var(--font-size-body); }
+  .height-item { font-size: var(--font-size-body); }
   .height-item.selected { font-size: clamp(var(--font-size-body), 0.912rem + 0.376vw, var(--font-size-heading-small)); }
   .report-footer .button { min-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large)); }
 

@@ -77,12 +77,12 @@
 <style>
   .height-control { min-width: 0; }
   .wheel-frame { position: relative; border: var(--details-border); border-radius: var(--details-control-radius); overflow: hidden; background: var(--color-background-raised); }
-  .height-wheel { position: relative; height: calc(3 * var(--details-wheel-row)); overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; padding-block: var(--details-wheel-row); scrollbar-width: none; touch-action: pan-y; mask-image: var(--details-wheel-fade); }
+  .height-wheel { position: relative; box-sizing: border-box; height: calc(3 * var(--details-wheel-row)); overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; padding-block: var(--details-wheel-row); scrollbar-width: none; touch-action: pan-y; mask-image: var(--details-wheel-fade); }
   .height-wheel::-webkit-scrollbar { display: none; }
   .height-wheel:focus-visible { outline-offset: calc(-1 * var(--details-focus-offset)); }
   .height-row { display: flex; align-items: center; justify-content: center; height: var(--details-wheel-row); scroll-snap-align: center; font-size: var(--details-text-size); color: var(--color-text-secondary); cursor: pointer; }
   .height-row.selected { color: var(--color-text-primary); }
-  .centre-row { position: absolute; inset-inline: var(--details-small-gap); top: var(--details-wheel-row); height: var(--details-wheel-row); display: flex; align-items: center; justify-content: flex-end; padding-inline: var(--details-small-gap); border: var(--details-border); border-radius: var(--details-control-radius); pointer-events: none; color: var(--color-text-secondary); font-size: var(--details-caption-size); }
+  .centre-row { position: absolute; box-sizing: border-box; inset-inline: var(--details-small-gap); top: 50%; transform: translateY(-50%); height: var(--details-wheel-row); display: flex; align-items: center; justify-content: flex-end; padding-inline: var(--details-small-gap); border: var(--details-border); border-radius: var(--details-control-radius); background: var(--color-background-subtle); pointer-events: none; color: var(--color-text-secondary); font-size: var(--details-caption-size); }
   .disabled { opacity: var(--opacity-disabled); }
   .disabled .height-wheel { overflow: hidden; pointer-events: none; }
 </style>

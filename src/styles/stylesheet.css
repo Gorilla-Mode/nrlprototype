@@ -1062,6 +1062,7 @@ button {
   --report-backdrop: var(--color-background-scrim);
   --report-backdrop-blur: 0.75rem;
   --report-panel-max: 32rem;
+  --report-height-item-size: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default));
   /* Fluid width: tracks viewport width continuously (no breakpoint jump) between a
      24rem floor around a 375px phone and a 64rem ceiling around a 1440px desktop. */
   --report-panel-width: min(calc(100dvw - (2 * var(--layout-gutter-inline))), clamp(24rem, 9.91rem + 60.1vw, 64rem));
