@@ -1,35 +1,28 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { obstacleTypeChoices, obstacleGeometryChoices, ObstacleType, type Obstacle } from './obstacle';
-  import {
-    canFinishReport,
-    cycleLighting,
-    defaultObstacleHeightMeters,
-    displayUnitToMeters,
-    formatHeightLabel,
-    maxObstacleHeightMeters,
-    metersToDisplayUnit,
-    minObstacleHeightMeters,
-    setDescription,
-    setHeight,
-    setObstacleType,
-    setOtherTypeLabel,
-    toggleDescription,
-    toggleHeightUnit,
-    toggleNotPresent,
-    type LightingStatus,
-    type ObstacleReportDraft,
-  } from './obstacleReportDraft';
+  import { onMount, tick, untrack } from 'svelte';
+  import { obstacleTypeChoices, obstacleGeometryChoices, ObstacleType } from './obstacle';
+  import { displayUnitToMeters, formatHeightLabel, metersToDisplayUnit, type HeightUnit } from './obstacleReportDraft';
+  import { maxPhotos, type Illumination } from './createDetailsController';
+  import { minObstacleHeightMeters, maxObstacleHeightMeters } from './reporting';
+  import type { ReportingVariantProps } from './reportingVariantProps';
   import ObstacleTypeIcon from './ObstacleTypeIcon.svelte';
+  import { createHeightPickerController } from './createHeightPickerController';
 
-  let { obstacle, draft, onchange, oncancel, onsavedraft, onfinish }: {
-    obstacle: Obstacle;
-    draft: ObstacleReportDraft;
-    onchange: (draft: ObstacleReportDraft) => void;
-    oncancel: () => void;
-    onsavedraft: () => void;
-    onfinish: () => void;
-  } = $props();
+  let { draft, open, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, ondismiss, onsave, onfinish }: ReportingVariantProps = $props();
+  let obstacle = $derived(draft.report);
+  let heightUnit = $state<HeightUnit>('m');
+  let descriptionEnabled = $state(false);
+  let showDescription = $derived(descriptionEnabled || draft.description.length > 0);
+  let attachmentInput: HTMLInputElement;
+  let cameraInput: HTMLInputElement;
+  function toggleDescription() {
+    descriptionEnabled = !showDescription;
+    if (!descriptionEnabled) ondescription('');
+  }
+  function selectPhotos(event: Event & { currentTarget: HTMLInputElement }) {
+    onphotos(Array.from(event.currentTarget.files ?? []));
+    event.currentTarget.value = '';
+  }
 
   const actionIcons = {
     close: 'm6 6 12 12M6 18 18 6',
@@ -51,9 +44,9 @@
     (_, index) => minObstacleHeightMeters + index,
   );
 
-  function lightingLabel(status: LightingStatus): string {
+  function lightingLabel(status: Illumination): string {
     if (status === 'unknown') return 'Lighting unknown';
-    if (status === 'lit') return 'Lighting';
+    if (status === 'illuminated') return 'Lighting';
     return 'No lighting';
   }
 
@@ -68,18 +61,41 @@
   });
 
   let dialog: HTMLDialogElement;
+  let heading: HTMLHeadingElement;
+  let heightTrigger: HTMLButtonElement | undefined;
+  let backdropPress = false;
   let descriptionField = $state<HTMLTextAreaElement>();
-  let heightTrack = $state<HTMLDivElement>();
   let heightItems = new Map<number, HTMLButtonElement>();
-  let scrollSettleTimer: ReturnType<typeof setTimeout> | undefined;
+  let heightSizer: HTMLSpanElement;
+  let heightPicker = $state<ReturnType<typeof createHeightPickerController>>();
   let heightInputOpen = $state(false);
   let heightInputValue = $state('');
   let heightInputField = $state<HTMLInputElement>();
 
   onMount(() => {
-    dialog.showModal();
-    return () => { if (dialog.open) dialog.close(); };
+    return () => {
+      if (dialog.open) dialog.close();
+    };
   });
+
+  // Draft edits replace the parent's state; only opening should move focus.
+  let dialogOpen = $derived(open);
+  $effect(() => {
+    let cancelled = false;
+    if (dialogOpen) {
+      if (!dialog.open) dialog.showModal();
+      void tick().then(() => { if (!cancelled) heading?.focus({ preventScroll: true }); });
+    } else {
+      dialog.close();
+      heightInputOpen = false;
+    }
+    return () => { cancelled = true; };
+  });
+
+  function outside(event: MouseEvent) {
+    const bounds = dialog.getBoundingClientRect();
+    return event.target === dialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom);
+  }
 
   function resizeDescription() {
     if (!descriptionField) return;
@@ -87,29 +103,35 @@
     descriptionField.style.height = `${descriptionField.scrollHeight}px`;
   }
 
-  $effect(() => { if (draft.descriptionEnabled) resizeDescription(); });
+  $effect(() => { if (showDescription) resizeDescription(); });
 
   $effect(() => {
-    if (draft.height === null) return;
-    const item = heightItems.get(draft.height);
-    item?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    const picker = heightPicker;
+    const value = draft.height;
+    if (!open || busy || draft.notPresent) {
+      untrack(() => picker?.stop());
+      return;
+    }
+    untrack(() => picker?.sync(value));
   });
 
   $effect(() => {
     if (heightInputOpen) heightInputField?.focus();
   });
 
-  function openHeightInput() {
-    heightInputValue = draft.height !== null ? String(metersToDisplayUnit(draft.height, draft.heightUnit)) : '';
+  function openHeightInput(trigger: HTMLButtonElement) {
+    heightTrigger = trigger;
+    heightInputValue = String(metersToDisplayUnit(draft.height, heightUnit));
     heightInputOpen = true;
   }
 
   function closeHeightInput() {
     heightInputOpen = false;
+    void tick().then(() => { if (open) (heightItems.get(draft.height) ?? heightTrigger)?.focus({ preventScroll: true }); });
   }
 
   function appendHeightDigit(digit: string) {
-    if (heightInputValue.length >= 3) return;
+    if (heightInputValue.length >= String(metersToDisplayUnit(maxObstacleHeightMeters, heightUnit)).length) return;
     heightInputValue += digit;
   }
 
@@ -119,8 +141,8 @@
 
   function confirmHeightInput() {
     const parsed = Number.parseInt(heightInputValue, 10);
-    if (!Number.isNaN(parsed)) onchange(setHeight(draft, displayUnitToMeters(parsed, draft.heightUnit)));
-    heightInputOpen = false;
+    if (Number.isFinite(parsed)) heightPicker?.select(Math.round(displayUnitToMeters(parsed, heightUnit)));
+    closeHeightInput();
   }
 
   function registerHeightItem(node: HTMLButtonElement, meters: number) {
@@ -129,33 +151,54 @@
   }
 
   function handleHeightWheel(event: WheelEvent) {
-    if (draft.notPresent) return;
+    if (draft.notPresent || busy) return;
     event.preventDefault();
-    const delta = event.deltaY > 0 ? 1 : -1;
-    onchange(setHeight(draft, (draft.height ?? defaultObstacleHeightMeters) + delta));
+    const delta = event.deltaY || event.deltaX;
+    if (delta) heightPicker?.select(draft.height + Math.sign(delta));
   }
 
-  function handleHeightScroll() {
-    if (!heightTrack || draft.notPresent) return;
-    if (scrollSettleTimer) clearTimeout(scrollSettleTimer);
-    scrollSettleTimer = setTimeout(() => {
-      if (!heightTrack) return;
-      const trackRect = heightTrack.getBoundingClientRect();
-      const center = trackRect.left + trackRect.width / 2;
-      let closestMeters: number | null = null;
-      let closestDistance = Infinity;
-      for (const [meters, element] of heightItems) {
-        const itemRect = element.getBoundingClientRect();
-        const distance = Math.abs(itemRect.left + itemRect.width / 2 - center);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestMeters = meters;
-        }
-      }
-      if (closestMeters !== null && closestMeters !== draft.height) {
-        onchange(setHeight(draft, closestMeters));
-      }
-    }, 120);
+  function handleHeightKeydown(event: KeyboardEvent) {
+    if (draft.notPresent || busy) return;
+    const values: Record<string, number> = {
+      ArrowLeft: draft.height - 1, ArrowRight: draft.height + 1,
+      Home: minObstacleHeightMeters, End: maxObstacleHeightMeters,
+    };
+    if (!(event.key in values)) return;
+    event.preventDefault();
+    const next = Math.max(minObstacleHeightMeters, Math.min(maxObstacleHeightMeters, values[event.key]));
+    heightPicker?.select(next);
+    heightItems.get(next)?.focus({ preventScroll: true });
+  }
+
+  function setupHeightPicker(track: HTMLDivElement) {
+    const picker = createHeightPickerController({
+      track, items: heightItems, getValue: () => draft.height,
+      enabled: () => open && !busy && !draft.notPresent,
+      onchange: (value) => onheight(value),
+      reducedMotion: () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      requestFrame: (callback) => requestAnimationFrame(callback),
+      cancelFrame: (id) => cancelAnimationFrame(id),
+    });
+    heightPicker = picker;
+    let resizeFrame: number | undefined;
+    const observer = new ResizeObserver(() => {
+      if (resizeFrame !== undefined) return;
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = undefined;
+        const width = heightSizer.getBoundingClientRect().width;
+        if (!open || !width) return;
+        track.parentElement?.style.setProperty('--height-item-width', `${width}px`);
+        picker.sync(draft.height, true);
+      });
+    });
+    observer.observe(track);
+    observer.observe(heightSizer);
+    return { destroy() {
+      observer.disconnect();
+      if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame);
+      picker.stop();
+      heightPicker = undefined;
+    } };
   }
 </script>
 
@@ -163,35 +206,37 @@
   class="obstacle-report-dialog dialog-shell report-panel"
   bind:this={dialog}
   aria-labelledby="report-heading"
-  oncancel={(event) => { event.preventDefault(); oncancel(); }}
-  onclick={(event) => { if (event.target === dialog) oncancel(); }}
+  oncancel={(event) => { event.preventDefault(); if (heightInputOpen) closeHeightInput(); else ondismiss(); }}
+  onpointerdown={(event) => { backdropPress = outside(event); }}
+  onclick={(event) => { if (backdropPress && outside(event)) ondismiss(); backdropPress = false; }}
 >
   <div class="report-shell" inert={heightInputOpen}>
   <header class="dialog-header report-header">
     <div>
-      <h2 id="report-heading">New obstacle report</h2>
+      <h2 id="report-heading" bind:this={heading} tabindex="-1">New obstacle report</h2>
       {#if geometryChoice}
         <p class="report-subtitle" style:color={`var(${geometryChoice.colorToken})`}>
           {geometryChoice.label} Geometry · {pointCount} {pointCount === 1 ? 'point' : 'points'} placed
         </p>
       {/if}
     </div>
-    <button type="button" class="menu-close" aria-label="Cancel report" onclick={oncancel}>
+    <button type="button" class="menu-close" aria-label="Close report" onclick={ondismiss}>
       <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.close} /></svg>
     </button>
   </header>
 
   <div class="dialog-content report-content">
     <section>
-      <h3 class="section-label">Obstacle Type</h3>
+      <h3 class="section-label">Obstacle Type - Required</h3>
       <div class="type-grid" role="group" aria-label="Obstacle type">
         {#each obstacleTypeChoices as choice (choice.id)}
           <button
             type="button"
             class="type-button"
-            class:selected={draft.obstacleType === choice.type}
-            aria-pressed={draft.obstacleType === choice.type}
-            onclick={() => onchange(setObstacleType(draft, choice.type))}
+            class:selected={draft.type === choice.type}
+            aria-pressed={draft.type === choice.type}
+            disabled={busy}
+            onclick={() => ontype(choice.type)}
           >
             <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <ObstacleTypeIcon type={choice.type} />
@@ -200,72 +245,80 @@
           </button>
         {/each}
       </div>
-      {#if draft.obstacleType === ObstacleType.Other}
+      {#if draft.type === ObstacleType.Other}
         <input
           class="form-control other-type-input"
           type="text"
           placeholder="Specify type" aria-label="Other obstacle type"
-          value={draft.otherTypeLabel}
-          oninput={(event) => onchange(setOtherTypeLabel(draft, event.currentTarget.value))}
+          value={draft.customType}
+          disabled={busy} oninput={(event) => oncustomtype(event.currentTarget.value)}
         />
       {/if}
     </section>
 
     <section>
       <div class="section-label-row">
-        <h3 class="section-label">Obstacle Height{draft.notPresent ? ' (optional)' : ''}</h3>
-        <button type="button" class="unit-toggle" aria-label="Toggle height unit" onclick={() => onchange(toggleHeightUnit(draft))}>
-          {draft.heightUnit}
+        <h3 class="section-label">Obstacle Height - {draft.notPresent ? 'Disabled' : 'Required'}</h3>
+        <button type="button" class="unit-toggle" aria-label="Toggle height unit" disabled={busy} onclick={() => { heightUnit = heightUnit === 'm' ? 'ft' : 'm'; }}>
+          {heightUnit}
         </button>
       </div>
-      <div
-        class="height-track"
-        role="listbox"
-        aria-label="Obstacle height"
-        aria-disabled={draft.notPresent}
-        bind:this={heightTrack}
-        onwheel={handleHeightWheel}
-        onscroll={handleHeightScroll}
-      >
-        {#each heightValues as meters (meters)}
-          <button
-            type="button"
-            role="option"
-            aria-selected={draft.height === meters}
-            class="height-item"
-            class:selected={draft.height === meters}
-            disabled={draft.notPresent}
-            onclick={() => { if (draft.height === meters) openHeightInput(); else onchange(setHeight(draft, meters)); }}
-            use:registerHeightItem={meters}
-          >
-            <span class="height-value">{draft.height === meters ? formatHeightLabel(meters, draft.heightUnit) : metersToDisplayUnit(meters, draft.heightUnit)}</span>
-          </button>
-        {/each}
+      <div class="height-picker" aria-disabled={draft.notPresent || busy}>
+        <span bind:this={heightSizer} class="height-item selected height-sizer" aria-hidden="true">{formatHeightLabel(maxObstacleHeightMeters, heightUnit)}</span>
+        <div class="height-selection" aria-hidden="true"></div>
+        <div
+          class="height-track"
+          role="listbox"
+          tabindex="-1"
+          aria-label="Obstacle height"
+          aria-disabled={draft.notPresent || busy}
+          use:setupHeightPicker
+          onwheel={handleHeightWheel}
+          onscroll={() => heightPicker?.scroll()}
+          onpointerdown={() => heightPicker?.stop()}
+          onkeydown={handleHeightKeydown}
+        >
+          {#each heightValues as meters (meters)}
+            <button
+              type="button"
+              role="option"
+              aria-selected={draft.height === meters}
+              class="height-item"
+              class:selected={draft.height === meters}
+              disabled={draft.notPresent || busy}
+              tabindex={draft.height === meters ? 0 : -1}
+              onclick={(event) => { if (draft.height === meters) openHeightInput(event.currentTarget); else heightPicker?.select(meters); }}
+              use:registerHeightItem={meters}
+            >
+              <span class="height-value">{draft.height === meters ? formatHeightLabel(meters, heightUnit) : metersToDisplayUnit(meters, heightUnit)}</span>
+            </button>
+          {/each}
+        </div>
       </div>
     </section>
 
     <div class="optional-row" role="group" aria-label="Additional details">
-      <button type="button" class="optional-button" data-state={draft.lighting} onclick={() => onchange(cycleLighting(draft))}>
+      <button type="button" class="optional-button" data-state={draft.illumination} disabled={draft.notPresent || busy} onclick={onillumination}>
         <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d={draft.lighting === 'lit' ? actionIcons.lightingLit : actionIcons.lightingCrossed} />
+          <path d={draft.illumination === 'illuminated' ? actionIcons.lightingLit : actionIcons.lightingCrossed} />
         </svg>
-        <span>{lightingLabel(draft.lighting)}</span>
+        <span>{lightingLabel(draft.illumination)}</span>
       </button>
       <button
         type="button"
         class="optional-button"
-        class:active={draft.descriptionEnabled}
-        aria-pressed={draft.descriptionEnabled}
-        onclick={() => onchange(toggleDescription(draft))}
+        class:active={showDescription}
+        aria-pressed={showDescription}
+        disabled={busy} onclick={toggleDescription}
       >
         <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.description} /></svg>
         <span>Description</span>
       </button>
-      <button type="button" class="optional-button" disabled>
+      <button type="button" class="optional-button" disabled={busy} aria-describedby="one-step-photo-limit" onclick={() => attachmentInput.click()}>
         <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.attachPhoto} /></svg>
         <span>Attach photo</span>
       </button>
-      <button type="button" class="optional-button" disabled>
+      <button type="button" class="optional-button" disabled={busy} aria-describedby="one-step-photo-limit" onclick={() => cameraInput.click()}>
         <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.takePhoto} /></svg>
         <span>Take photo</span>
       </button>
@@ -274,20 +327,34 @@
         class="optional-button not-present"
         class:active={draft.notPresent}
         aria-pressed={draft.notPresent}
-        onclick={() => onchange(toggleNotPresent(draft))}
+        disabled={busy} onclick={() => onabsence(!draft.notPresent)}
       >
         <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.notPresent} /></svg>
         <span>Not present</span>
       </button>
     </div>
 
-    {#if draft.descriptionEnabled}
+    <section class="report-photos" aria-label="Photos">
+      <input bind:this={attachmentInput} type="file" accept="image/*" multiple hidden onchange={selectPhotos} />
+      <input bind:this={cameraInput} type="file" accept="image/*" capture="environment" hidden onchange={selectPhotos} />
+      {#if draft.photos.length}
+        <ul class="report-photo-list">
+          {#each draft.photos as photo, index}
+            <li><span title={photo.name}>{photo.name}</span><button type="button" class="button" disabled={busy}
+              aria-label={'Remove photo ' + (index + 1) + ': ' + photo.name} onclick={() => onremovephoto(index)}>Remove</button></li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
+    {#if showDescription}
       <textarea
         bind:this={descriptionField}
         class="form-control description-field"
         placeholder="Add details about the obstacle…"
         value={draft.description}
-        oninput={(event) => { onchange(setDescription(draft, event.currentTarget.value)); resizeDescription(); }}
+        aria-label="Description" disabled={busy}
+        oninput={(event) => { ondescription(event.currentTarget.value); resizeDescription(); }}
       ></textarea>
     {/if}
 
@@ -296,9 +363,12 @@
     {/if}
   </div>
 
-  <footer class="dialog-footer report-footer">
-    <button type="button" class="button" onclick={onsavedraft}>Save draft</button>
-    <button type="button" class="button button--primary" disabled={!canFinishReport(draft)} onclick={onfinish}>
+  <div class="report-feedback">
+    {#if error}<p class="report-error" role="alert">{error}</p>{/if}
+  </div>
+  <footer class="dialog-footer report-footer" aria-busy={busy}>
+    <button type="button" class="button" disabled={busy} onclick={onsave}>Save draft</button>
+    <button type="button" class="button button--primary" disabled={!draft.type || busy} onclick={onfinish}>
       <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.pin} /><circle cx="12" cy="11" r="2.25" /></svg>
       Finish report
     </button>
@@ -324,13 +394,13 @@
             aria-label="Obstacle height value"
             value={heightInputValue}
             bind:this={heightInputField}
-            oninput={(event) => { heightInputValue = event.currentTarget.value.replace(/\D/g, '').slice(0, 3); }}
+            oninput={(event) => { heightInputValue = event.currentTarget.value.replace(/\D/g, '').slice(0, String(metersToDisplayUnit(maxObstacleHeightMeters, heightUnit)).length); }}
 onkeydown={(event) => {
   if (event.key === 'Enter') confirmHeightInput();
   if (event.key === 'Escape') { event.preventDefault(); closeHeightInput(); }
 }}
           />
-          <span class="height-keypad-unit">{draft.heightUnit}</span>
+          <span class="height-keypad-unit">{heightUnit}</span>
         </div>
         <div class="height-keypad-grid">
           {#each ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as digit}
@@ -395,25 +465,41 @@ onkeydown={(event) => {
   }
   .unit-toggle:hover { background: var(--color-map-control-hover); }
 
-  .height-track {
-    display: flex; gap: var(--space-1); overflow-x: auto; padding: var(--space-2);
-    padding-inline: 50%; scroll-padding-inline: 50%; scroll-snap-type: x mandatory;
+  .height-picker {
+    /* Replaced by the measured widest label, including its unit and padding. */
+    --height-item-width: var(--report-height-item-size);
+    position: relative; min-width: 0; overflow: hidden;
     border: var(--border-default); border-radius: var(--radius-control); background: var(--color-background-subtle);
-    scrollbar-width: none;
+  }
+  .height-selection {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: var(--height-item-width, var(--report-height-item-size)); height: var(--report-height-item-size);
+    border-radius: var(--radius-small); background: var(--color-background-raised); box-shadow: var(--shadow-surface); pointer-events: none;
+  }
+  .height-track {
+    position: relative; box-sizing: border-box;
+    display: flex; gap: var(--space-1); overflow-x: auto; padding: var(--space-2);
+    padding-inline: max(0px, calc((100% - var(--height-item-width, var(--report-height-item-size))) / 2)); scroll-snap-type: x mandatory;
+    scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x pan-y;
   }
   .height-track::-webkit-scrollbar { display: none; }
-  .height-track[aria-disabled='true'] { opacity: var(--opacity-disabled); }
+  .height-picker[aria-disabled='true'] { opacity: var(--opacity-disabled); }
+  .height-track[aria-disabled='true'] { overflow-x: hidden; }
   .height-item {
-    position: relative; flex: none; min-width: var(--target-size-min); min-height: var(--target-size-min);
+    position: relative; box-sizing: border-box; flex: none;
+    width: var(--height-item-width, var(--report-height-item-size)); min-width: var(--report-height-item-size); height: var(--report-height-item-size);
+    padding: var(--space-1) var(--space-2); font-variant-numeric: tabular-nums; white-space: nowrap;
     display: grid; place-items: center; border: 0; border-radius: var(--radius-small);
     background: transparent; color: var(--color-text-disabled); cursor: pointer; font-weight: var(--font-weight-medium);
     scroll-snap-align: center;
   }
-  .height-item:not(:disabled):hover { background: var(--color-map-control-hover); }
-  .height-item.selected {
-    background: var(--color-background-raised); color: var(--color-text-primary); font-weight: var(--font-weight-semibold);
-    box-shadow: var(--shadow-surface);
+  @media (hover: hover) {
+    .height-item:not(:disabled):not(.selected):hover { background: var(--color-map-control-hover); }
   }
+  .height-item.selected {
+    color: var(--color-text-primary); font-weight: var(--font-weight-semibold);
+  }
+  .height-sizer { position: absolute; width: max-content; visibility: hidden; pointer-events: none; }
 
   .optional-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-2); }
   .optional-button {
@@ -425,8 +511,8 @@ onkeydown={(event) => {
     transition: background-color var(--duration-default) var(--ease-standard), border-color var(--duration-default) var(--ease-standard), color var(--duration-default) var(--ease-standard);
   }
   .optional-button:not(:disabled):hover { background: var(--color-map-control-hover); }
-  .optional-button[data-state='lit'] { border-color: var(--color-status-warning); color: var(--color-status-warning); }
-  .optional-button[data-state='none'] { border-color: var(--color-status-error); color: var(--color-status-error); }
+  .optional-button[data-state='illuminated'] { border-color: var(--color-status-warning); color: var(--color-status-warning); }
+  .optional-button[data-state='not-illuminated'] { border-color: var(--color-status-error); color: var(--color-status-error); }
   .optional-button.active { border-color: var(--color-status-success); color: var(--color-status-success); }
   .optional-button.not-present.active { border-color: var(--color-status-warning); color: var(--color-status-warning); }
 
@@ -436,6 +522,12 @@ onkeydown={(event) => {
     background: var(--color-status-warning-surface); color: var(--color-status-warning); font-size: var(--font-size-body-small);
   }
 
+  .report-photos p, .report-feedback p { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
+  .report-photo-list { list-style: none; margin: 0; padding: 0; }
+  .report-photo-list li { display: flex; align-items: center; gap: var(--space-2); border-bottom: var(--border-default); }
+  .report-photo-list li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .report-feedback { padding-inline: var(--space-6); }
+  .report-feedback .report-error { color: var(--color-status-error); }
   .report-footer { display: flex; gap: var(--space-3); }
   .report-footer .button { flex: 1; }
 
@@ -484,7 +576,7 @@ onkeydown={(event) => {
   .section-label { font-size: clamp(var(--font-size-body-small), 0.831rem + 0.188vw, var(--font-size-body)); }
   .type-button { padding: clamp(var(--space-3), 0.662rem + 0.376vw, var(--space-4)); font-size: clamp(var(--font-size-body-small), 0.831rem + 0.188vw, var(--font-size-body)); }
   .optional-button { min-height: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); font-size: clamp(var(--font-size-caption), 0.706rem + 0.188vw, var(--font-size-body-small)); }
-  .height-item { min-width: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); min-height: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); font-size: var(--font-size-body); }
+  .height-item { font-size: var(--font-size-body); }
   .height-item.selected { font-size: clamp(var(--font-size-body), 0.912rem + 0.376vw, var(--font-size-heading-small)); }
   .report-footer .button { min-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large)); }
 

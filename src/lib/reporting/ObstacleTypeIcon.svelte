@@ -3,10 +3,10 @@
   let { type }: { type: ObstacleType } = $props();
 </script>
 
-{#if type === ObstacleType.AerialSpan}
+{#if type === ObstacleType.Airspan}
   <path d="M4 4v16M20 4v16" />
   <path d="M4 11q8 6 16 0" />
-{:else if type === ObstacleType.PoleTower}
+{:else if type === ObstacleType.Pole}
   <path d="M12 3v18" />
   <path d="M12 4l7 3-7 3" />
 {:else if type === ObstacleType.Building}

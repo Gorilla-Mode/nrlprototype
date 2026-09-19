@@ -12,17 +12,17 @@ export const obstacleGeometryChoices = [
 ] as const;
 
 export enum ObstacleType {
-  AerialSpan = 'aerial_span',
-  PoleTower = 'pole_tower',
+  Bridge = 'bridge',
+  Airspan = 'airspan',
+  Pole = 'pole',
   Building = 'building',
   Construction = 'construction',
-  Bridge = 'bridge',
   Other = 'other',
 }
 
 export const obstacleTypeChoices = [
-  { type: ObstacleType.AerialSpan, id: 'aerial-span', label: 'Aerial Span', iconKey: 'aerial-span' },
-  { type: ObstacleType.PoleTower, id: 'pole-tower', label: 'Pole/Tower', iconKey: 'pole-tower' },
+  { type: ObstacleType.Airspan, id: 'aerial-span', label: 'Aerial Span', iconKey: 'aerial-span' },
+  { type: ObstacleType.Pole, id: 'pole-tower', label: 'Pole/Tower', iconKey: 'pole-tower' },
   { type: ObstacleType.Building, id: 'building', label: 'Building', iconKey: 'building' },
   { type: ObstacleType.Construction, id: 'construction', label: 'Construction', iconKey: 'construction' },
   { type: ObstacleType.Bridge, id: 'bridge', label: 'Bridge', iconKey: 'bridge' },

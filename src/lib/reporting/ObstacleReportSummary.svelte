@@ -1,43 +1,33 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { obstacleGeometryChoices, obstacleTypeChoices, ObstacleType, type Obstacle } from './obstacle';
-  import { formatHeightLabel, type ObstacleReportDraft } from './obstacleReportDraft';
+  import { obstacleGeometryChoices, obstacleTypeChoices, ObstacleType } from './obstacle';
+  import { illuminationLabels, type CompleteReport } from './createDetailsController';
 
-  let { obstacle, draft, mode, onclose }: {
-    obstacle: Obstacle;
-    draft: ObstacleReportDraft;
-    mode: 'draft' | 'finished';
-    onclose: () => void;
-  } = $props();
-
+  let { report, onclose }: { report: CompleteReport; onclose: () => void } = $props();
   let dialog: HTMLDialogElement;
-
+  let heading: HTMLHeadingElement;
   onMount(() => {
     dialog.showModal();
+    heading.focus({ preventScroll: true });
     return () => { if (dialog.open) dialog.close(); };
   });
-
-  let geometryChoice = $derived(
-    obstacleGeometryChoices.find((choice) => choice.type === obstacle.obstacle_position.type),
-  );
-  let typeChoice = $derived(obstacleTypeChoices.find((choice) => choice.type === draft.obstacleType));
-
-  const lightingLabels = { unknown: 'Unknown', lit: 'Lit', none: 'No lighting' } as const;
-
+  let geometryChoice = $derived(obstacleGeometryChoices.find((choice) => choice.type === report.obstacle_position.type));
+  let typeChoice = $derived(obstacleTypeChoices.find((choice) => choice.type === report.type));
   let rows = $derived([
     { label: 'Geometry', value: geometryChoice?.label ?? '—' },
-    { label: 'Obstacle type', value: draft.obstacleType === ObstacleType.Other ? (draft.otherTypeLabel || 'Other') : (typeChoice?.label ?? '—') },
-    { label: 'Height', value: draft.notPresent || draft.height === null ? '—' : formatHeightLabel(draft.height, draft.heightUnit) },
-    { label: 'Lighting', value: lightingLabels[draft.lighting] },
-    { label: 'Description', value: draft.descriptionEnabled ? (draft.description || '—') : 'Not added' },
-    { label: 'Not present', value: draft.notPresent ? 'Yes' : 'No' },
+    { label: 'Obstacle type', value: report.type === ObstacleType.Other ? (report.customType || 'Other') : (typeChoice?.label ?? '—') },
+    { label: 'Height', value: report.notPresent ? '—' : report.height + ' m' },
+    { label: 'Lighting', value: report.notPresent ? '—' : illuminationLabels[report.illumination] },
+    { label: 'Description', value: report.description || 'Not added' },
+    { label: 'Not present', value: report.notPresent ? 'Yes' : 'No' },
+    { label: 'Photos', value: report.photos.length ? report.photos.map((photo) => photo.name).join(', ') : 'Not added' },
   ]);
 </script>
 
 <dialog class="obstacle-report-dialog dialog-shell summary-panel" bind:this={dialog} aria-labelledby="summary-heading" oncancel={(event) => { event.preventDefault(); onclose(); }}>
   <header class="dialog-header">
-    <h2 id="summary-heading">{mode === 'draft' ? 'Draft saved' : 'Report completed'}</h2>
-    <p class="summary-note">Prototype summary — not sent anywhere yet.</p>
+    <h2 id="summary-heading" bind:this={heading} tabindex="-1">Report completed</h2>
+    <p class="summary-note">Session-only summary — not saved or submitted.</p>
   </header>
 
   <div class="dialog-content">
@@ -59,7 +49,7 @@
 </dialog>
 
 <style>
-  .summary-panel { max-width: var(--report-panel-max); margin: auto; padding: 0; border: var(--border-default); }
+  .summary-panel { width: min(var(--report-panel-max), calc(100dvw - var(--map-control-inset-left) - var(--map-control-inset-right))); max-height: calc(100dvh - var(--map-control-inset-top) - var(--map-control-inset-bottom)); overflow-y: auto; margin: auto; padding: 0; border: var(--border-default); }
   .summary-panel h2 { margin: 0; font-size: var(--font-size-heading-small); }
   .summary-note { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
   .summary-table { width: 100%; border-collapse: collapse; }

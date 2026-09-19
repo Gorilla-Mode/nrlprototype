@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
   import type { SettingsSection } from '../settings/settings';
   import MenuDrawer from './MenuDrawer.svelte';
   import GeometryIcon from './GeometryIcon.svelte';
@@ -12,14 +12,17 @@
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
   import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
-  import ObstacleReportFlow from '../reporting/ObstacleReportFlow.svelte';
 
-  let { oncomplete, menuOpen = $bindable(false), visible = true, onfaq, onreports, onsettings,
+  let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, onfaq, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
   }: {
     oncomplete?: (obstacle: Obstacle) => void;
+    onreportstart?: () => void;
+    debugContent?: Snippet;
+    onresumedetails?: () => void;
+    onselectiondelete?: () => void;
     menuOpen?: boolean;
     visible?: boolean;
     onfaq: () => void;
@@ -38,24 +41,24 @@
   let holdOrigin = $state<HoldOrigin | null>(null);
   let holdPointer = $state<{ x: number; y: number } | null>(null);
   export function toggleGeolocation() { mapCanvas?.toggleGeolocation(); }
+  export function clearSelection() { mapCanvas?.deleteDrawing(); }
+  export function focusDetails() {
+    const resume = mapWrapper.querySelector<HTMLButtonElement>('[data-resume-details]');
+    if (resume) resume.focus({ preventScroll: true });
+    else mapCanvas?.focus();
+  }
 
   async function deleteSelection() {
     mapCanvas?.deleteDrawing();
+    onselectiondelete?.();
     await tick();
     mapCanvas?.focus();
   }
 
   let drawing = $state.raw<DrawingState>(idleDrawingState);
-  let activeObstacle = $state<Obstacle | null>(null);
-
-  async function resetReportFlow() {
-    activeObstacle = null;
-    await deleteSelection();
-  }
-
-  function handleObstacleRegistered(obstacle: Obstacle) {
-    activeObstacle = obstacle;
-    oncomplete?.(obstacle);
+  function handleDrawingChange(state: DrawingState) {
+    if (drawing.status === 'idle' && state.status === 'drawing') onreportstart?.();
+    drawing = state;
   }
 
   function handleMapClick() {
@@ -93,8 +96,8 @@
     onaccuracychange={(value) => { accuracy = value; }}
     onholdchange={(origin) => { holdOrigin = origin; holdPointer = null; }}
     onholdmove={(x, y) => { holdPointer = { x, y }; }}
-    ondrawingchange={(state) => { drawing = state; }}
-    onobstacleregistered={handleObstacleRegistered}
+    ondrawingchange={handleDrawingChange}
+    onobstacleregistered={oncomplete}
   />
   <MapToolbar
     {menuOpen}
@@ -104,10 +107,11 @@
     onundo={() => mapCanvas?.undoDrawing()}
     ondelete={deleteSelection}
     oncomplete={() => mapCanvas?.completeDrawing()}
+    {onresumedetails}
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
 
-  <MenuDrawer bind:open={menuOpen} {onfaq} {onsettings}
+  <MenuDrawer bind:open={menuOpen} {onfaq} {onsettings} {debugContent}
     ondismiss={() => mapWrapper.querySelector<HTMLButtonElement>('[aria-label="Menu"]')?.focus({ preventScroll: true })} />
 
   {#if holdOrigin}
@@ -131,11 +135,6 @@
     {/if}
   </div>
 
-  {#if activeObstacle}
-    <div class="report-flow">
-      <ObstacleReportFlow obstacle={activeObstacle} oncancel={resetReportFlow} onclose={resetReportFlow} />
-    </div>
-  {/if}
 </main>
 
 <style>
@@ -181,9 +180,4 @@
     pointer-events: none;
   }
 
-  .report-flow {
-    position: absolute;
-    inset: 0;
-    z-index: var(--layer-dialog);
-  }
 </style>

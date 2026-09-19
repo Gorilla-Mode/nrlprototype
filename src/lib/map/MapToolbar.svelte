@@ -5,7 +5,7 @@
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { LocationSuggestion } from './locationSearch';
 
-  let { drawing, onundo, ondelete, oncomplete, onsearchselect, onmenu, onreports, menuOpen }: {
+  let { drawing, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, menuOpen }: {
     onmenu: () => void;
     onreports: () => void;
     menuOpen: boolean;
@@ -13,6 +13,7 @@
     onundo: () => void;
     ondelete: () => void;
     oncomplete: () => void;
+    onresumedetails?: () => void;
     onsearchselect: (suggestion: LocationSuggestion) => void;
   } = $props();
 
@@ -35,7 +36,7 @@
   </MapButton>
 </div>
 
-<DrawingToolbar state={drawing} {onundo} {ondelete} {oncomplete} />
+<DrawingToolbar state={drawing} {onundo} {ondelete} {oncomplete} {onresumedetails} />
 
 <style>
   .map-toolbar {

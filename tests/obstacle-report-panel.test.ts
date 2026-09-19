@@ -4,12 +4,12 @@ import type { Component } from 'svelte';
 import { render } from 'svelte/server';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
 import { ObstacleType, type Obstacle, type ObstacleGeometry } from '../src/lib/reporting/obstacle.js';
-import {
-  emptyObstacleReportDraft,
-  setObstacleType,
-  toggleNotPresent,
-  type ObstacleReportDraft,
-} from '../src/lib/reporting/obstacleReportDraft.js';
+import type { DetailsDraft } from '../src/lib/reporting/createDetailsController.js';
+import type { ReportingVariantProps } from '../src/lib/reporting/reportingVariantProps.js';
+import { draft as makeDraft, viewProps } from './helpers/reporting.js';
+const emptyDetailsDraft = makeDraft();
+const setObstacleType = (draft: DetailsDraft, type: ObstacleType): DetailsDraft => ({ ...draft, type });
+const toggleNotPresent = (draft: DetailsDraft): DetailsDraft => ({ ...draft, notPresent: !draft.notPresent });
 
 const obstacleModuleUrl = new URL('../src/lib/reporting/obstacle.js', import.meta.url).href;
 const draftModuleUrl = new URL('../src/lib/reporting/obstacleReportDraft.js', import.meta.url).href;
@@ -22,20 +22,14 @@ const panelUrl = await compileSvelteComponent('src/lib/reporting/ObstacleReportP
   './obstacle': obstacleModuleUrl,
   './obstacleReportDraft': draftModuleUrl,
   './ObstacleTypeIcon.svelte': iconUrl,
+  './createDetailsController': new URL('../src/lib/reporting/createDetailsController.js', import.meta.url).href,
+  './reporting': new URL('../src/lib/reporting/reporting.js', import.meta.url).href,
+  './createHeightPickerController': new URL('../src/lib/reporting/createHeightPickerController.js', import.meta.url).href,
 });
 
-type PanelProps = {
-  obstacle: Obstacle;
-  draft: ObstacleReportDraft;
-  onchange: (draft: ObstacleReportDraft) => void;
-  oncancel: () => void;
-  onsavedraft: () => void;
-  onfinish: () => void;
-};
+type PanelProps = ReportingVariantProps;
 
 const { default: ObstacleReportPanel } = await import(panelUrl) as { default: Component<PanelProps> };
-
-const noop = () => {};
 
 function obstacleWith(geometry: ObstacleGeometry): Obstacle {
   return {
@@ -51,9 +45,9 @@ const polygonObstacle = obstacleWith({
   coordinates: [[[5.34, 60.4], [5.35, 60.4], [5.35, 60.41], [5.34, 60.4]]],
 });
 
-function body(obstacle: Obstacle, draft: ObstacleReportDraft): string {
+function body(obstacle: Obstacle, draft: DetailsDraft): string {
   return render(ObstacleReportPanel, {
-    props: { obstacle, draft, onchange: noop, oncancel: noop, onsavedraft: noop, onfinish: noop },
+    props: viewProps({ ...draft, report: obstacle }),
   }).body;
 }
 
@@ -65,15 +59,15 @@ function finishReportDisabled(html: string): boolean {
 }
 
 test('header names the report, subtitle counts vertices per geometry, and a cancel button is present', () => {
-  assert.match(body(pointObstacle, emptyObstacleReportDraft), />New obstacle report</);
-  assert.match(body(pointObstacle, emptyObstacleReportDraft), /Point Geometry · 1 point placed/);
-  assert.match(body(lineObstacle, emptyObstacleReportDraft), /Line Geometry · 2 points placed/);
-  assert.match(body(polygonObstacle, emptyObstacleReportDraft), /Polygon Geometry · 3 points placed/);
-  assert.match(body(pointObstacle, emptyObstacleReportDraft), /aria-label="Cancel report"/);
+  assert.match(body(pointObstacle, emptyDetailsDraft), />New obstacle report</);
+  assert.match(body(pointObstacle, emptyDetailsDraft), /Point Geometry · 1 point placed/);
+  assert.match(body(lineObstacle, emptyDetailsDraft), /Line Geometry · 2 points placed/);
+  assert.match(body(polygonObstacle, emptyDetailsDraft), /Polygon Geometry · 3 points placed/);
+  assert.match(body(pointObstacle, emptyDetailsDraft), /aria-label="Close report"/);
 });
 
 test('all six obstacle-type buttons render and the chosen one is marked pressed', () => {
-  const html = body(pointObstacle, setObstacleType(emptyObstacleReportDraft, ObstacleType.Bridge));
+  const html = body(pointObstacle, setObstacleType(emptyDetailsDraft, ObstacleType.Bridge));
   for (const label of ['Aerial Span', 'Pole/Tower', 'Building', 'Construction', 'Bridge', 'Other']) {
     assert.match(html, new RegExp(label));
   }
@@ -81,44 +75,62 @@ test('all six obstacle-type buttons render and the chosen one is marked pressed'
 });
 
 test('choosing Other reveals the free-text field; any other type keeps it hidden', () => {
-  assert.match(body(pointObstacle, setObstacleType(emptyObstacleReportDraft, ObstacleType.Other)), /placeholder="Specify type"/);
-  assert.doesNotMatch(body(pointObstacle, setObstacleType(emptyObstacleReportDraft, ObstacleType.Bridge)), /placeholder="Specify type"/);
+  assert.match(body(pointObstacle, setObstacleType(emptyDetailsDraft, ObstacleType.Other)), /placeholder="Specify type"/);
+  assert.doesNotMatch(body(pointObstacle, setObstacleType(emptyDetailsDraft, ObstacleType.Bridge)), /placeholder="Specify type"/);
 });
 
 test('Finish report starts disabled with no type, and enables once one is chosen', () => {
-  assert.match(body(pointObstacle, emptyObstacleReportDraft), /Finish report<\/button>/);
-  assert.equal(finishReportDisabled(body(pointObstacle, emptyObstacleReportDraft)), true);
-  const withType = setObstacleType(emptyObstacleReportDraft, ObstacleType.Building);
+  assert.match(body(pointObstacle, emptyDetailsDraft), /Finish report<\/button>/);
+  assert.equal(finishReportDisabled(body(pointObstacle, emptyDetailsDraft)), true);
+  const withType = setObstacleType(emptyDetailsDraft, ObstacleType.Building);
   assert.equal(finishReportDisabled(body(pointObstacle, withType)), false);
 });
 
 test('Save draft is never disabled, even on an empty draft', () => {
-  assert.doesNotMatch(body(pointObstacle, emptyObstacleReportDraft), /disabled[^>]*>Save draft/);
+  assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /disabled[^>]*>Save draft/);
 });
 
-test('Not present relabels height as optional, greys out the picker, and shows the warning note', () => {
-  const draft = toggleNotPresent(emptyObstacleReportDraft);
+test('Not present relabels required height as disabled, greys out the picker, and shows the warning note', () => {
+  const draft = toggleNotPresent(emptyDetailsDraft);
   const html = body(pointObstacle, draft);
-  assert.match(html, /Obstacle Height \(optional\)/);
+  assert.match(html, /Obstacle Height - Disabled/);
   assert.match(html, /aria-disabled="true"/);
   assert.match(html, /This obstacle no longer exists in reality\./);
-  assert.doesNotMatch(body(pointObstacle, emptyObstacleReportDraft), /This obstacle no longer exists in reality\./);
+  assert.match(body(pointObstacle, emptyDetailsDraft), /Obstacle Height - Required/);
+  assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /This obstacle no longer exists in reality\./);
 });
 
 test('lighting label and state follow the three-stage cycle', () => {
-  assert.match(body(pointObstacle, emptyObstacleReportDraft), /data-state="unknown"[\s\S]*?Lighting unknown/);
-  assert.match(body(pointObstacle, { ...emptyObstacleReportDraft, lighting: 'lit' }), /data-state="lit"[\s\S]*?>Lighting</);
-  assert.match(body(pointObstacle, { ...emptyObstacleReportDraft, lighting: 'none' }), /data-state="none"[\s\S]*?No lighting/);
+  assert.match(body(pointObstacle, emptyDetailsDraft), /data-state="unknown"[\s\S]*?Lighting unknown/);
+  assert.match(body(pointObstacle, { ...emptyDetailsDraft, illumination: 'illuminated' }), /data-state="illuminated"[\s\S]*?>Lighting</);
+  assert.match(body(pointObstacle, { ...emptyDetailsDraft, illumination: 'not-illuminated' }), /data-state="not-illuminated"[\s\S]*?No lighting/);
 });
 
 test('the numeric height keypad is not rendered until requested', () => {
-  assert.doesNotMatch(body(pointObstacle, emptyObstacleReportDraft), /height-keypad/);
+  assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /height-keypad/);
 });
 
 test('description textarea only renders once its toggle is enabled, carrying the current text', () => {
-  assert.doesNotMatch(body(pointObstacle, emptyObstacleReportDraft), /<textarea/);
-  const draft = { ...emptyObstacleReportDraft, descriptionEnabled: true, description: 'Crane boom over the taxiway' };
+  assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /<textarea/);
+  const draft = { ...emptyDetailsDraft, description: 'Crane boom over the taxiway' };
   const html = body(pointObstacle, draft);
   assert.match(html, /<textarea/);
   assert.match(html, /Crane boom over the taxiway/);
+});
+
+test('photo attachment and camera controls are connected, files can be removed, and errors are announced', () => {
+  const props = viewProps(makeDraft({ photos: [new File(['image'], 'crane.jpg')] }), { error: 'Choose up to 2 more photos.' });
+  const html = render(ObstacleReportPanel, { props }).body;
+  assert.ok(html.includes('type="file" accept="image/*" multiple'));
+  assert.match(html, /capture="environment"/);
+  assert.match(html, /Remove photo 1: crane.jpg/);
+  assert.match(html, /role="alert"[^>]*>Choose up to 2 more photos/);
+});
+
+test('busy state blocks Finish and Save; not-present blocks height and illumination', () => {
+  const html = render(ObstacleReportPanel, { props: viewProps(makeDraft({ type: ObstacleType.Pole }), { busy: true }) }).body;
+  assert.equal(finishReportDisabled(html), true);
+  assert.match(html, /disabled[^>]*>Save draft/);
+  const absent = body(pointObstacle, makeDraft({ notPresent: true }));
+  assert.match(absent, /data-state="unknown" disabled/);
 });
