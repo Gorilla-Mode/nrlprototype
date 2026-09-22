@@ -755,6 +755,9 @@ button {
   --faq-link-icon: 1.0625rem;
   --faq-reveal-duration: 170ms;
   --faq-focus-offset: 0.125rem;
+  /* Matches --faq-title-size/--settings-title-size: the same sticky
+     title + back/close icon-button pattern used on all three pages. */
+  --reports-title-size: 1.625rem;
 }
 
 .menu-drawer {
@@ -953,7 +956,7 @@ button {
 }
 .reports-header-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); flex-wrap: wrap; min-height: var(--faq-header-height); padding-top: var(--space-2); }
 .reports-header-title { display: flex; align-items: center; gap: var(--space-2); }
-.reports-title { font-size: var(--font-size-display); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); }
+.reports-title { font-size: var(--reports-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); }
 .reports-segmented { display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-control); background: var(--color-background-subtle); }
 .reports-segment { min-height: var(--control-height-default); padding-inline: var(--space-6); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); cursor: pointer; }
 .reports-segment[aria-pressed='true'] { background: var(--color-background-raised); color: var(--color-text-primary); font-weight: var(--font-weight-semibold); box-shadow: var(--shadow-surface); }
@@ -1008,8 +1011,13 @@ button {
 .reports-card-bottom { margin-top: auto; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-4); }
 .reports-card-dates { display: flex; flex-direction: column; gap: var(--space-1); white-space: nowrap; font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
 .reports-card-declined { color: var(--color-status-error); }
-.reports-card-cta { flex: none; display: flex; align-items: center; gap: var(--space-2); color: var(--color-action-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
-.reports-card-cta svg { flex: none; width: var(--faq-link-icon); height: var(--faq-link-icon); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+/* Shared "button with arrow" pattern: a text action paired with a trailing
+   chevron (report/draft card CTAs). The icon is sized in em so it always
+   tracks the current font size exactly. */
+.card-cta-link { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-action-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+.card-cta-link svg { flex: none; width: 1em; height: 1em; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+
+.reports-card-cta { flex: none; margin-left: auto; }
 
 .reports-status-badge { flex: none; display: inline-flex; align-items: center; min-height: var(--space-6); padding-inline: var(--space-3); border-radius: var(--radius-small); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); }
 .reports-status-badge[data-status='ready'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
