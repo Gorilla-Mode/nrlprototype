@@ -22,7 +22,8 @@ The right-side menu opens FAQ as a full-screen page at `#/FAQ`. Back restores th
 map and reopens the menu at its previous scroll position. FAQ content describes
 the intended reporting workflow and is explicitly labelled as prototype guidance;
 reporting, saved drafts and registrar review are not implemented. Guide and support
-destinations remain visibly unavailable. Settings provides profile/security/notification/offline
+destinations remain visibly unavailable. Notifications at `#/Notifications` lists sample
+report-status updates; Mark all read is session-only. Settings provides profile/security/notification/offline
 placeholders and real shared map-layer/location controls. Language offers a session-only
 Norsk/English preference; the interface remains English. My Profile and Settings share
 the profile view at `#/Settings/profile`.
@@ -32,6 +33,7 @@ the profile view at `#/Settings/profile`.
 - src/lib/map: map lifecycle, controls, search, geolocation and drawing display.
 - src/lib/settings: Settings shell, focused views and section definitions.
 - src/lib/faq: static FAQ content, local search and the full-screen accordion page.
+- src/lib/notifications: sample report-status notifications and their full-screen page.
 - src/lib/reporting: geometry validation and transient report registration.
 - src/lib/radial-menu: gesture selector presentation and sector geometry.
 - src/styles/stylesheet.css: central visual tokens and shared styles, imported by src/main.ts.

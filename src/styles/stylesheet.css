@@ -784,13 +784,13 @@ button {
 .menu-header h2, .menu-section h3 {
   margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: var(--font-weight-semibold);
 }
-.menu-close, .faq-icon-button, .reports-icon-button {
+.menu-close, .faq-icon-button, .reports-icon-button, .notifications-icon-button {
   display: grid; place-items: center; flex: none;
   width: var(--target-size-min); min-height: var(--target-size-min); padding: 0;
   border: 0; border-radius: var(--radius-round); background: var(--color-background-subtle); color: var(--color-text-primary); cursor: pointer;
 }
-.menu-drawer svg, .faq-page svg, .reports-page svg, .settings-page svg { flex: none; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
-.menu-close svg, .faq-icon-button svg, .reports-icon-button svg { width: var(--icon-size-large); height: var(--icon-size-large); }
+.menu-drawer svg, .faq-page svg, .reports-page svg, .notifications-page svg, .settings-page svg { flex: none; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+.menu-close svg, .faq-icon-button svg, .reports-icon-button svg, .notifications-icon-button svg { width: var(--icon-size-large); height: var(--icon-size-large); }
 .menu-scroll {
   display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   padding: 0 max(var(--menu-padding), var(--safe-area-right)) max(var(--menu-padding), var(--safe-area-bottom)) var(--menu-padding);
@@ -812,11 +812,11 @@ button {
 .menu-row:disabled { opacity: var(--opacity-opaque); color: var(--color-text-disabled); cursor: not-allowed; }
 .menu-drawer :focus-visible { outline-offset: calc(-1 * var(--border-width-emphasis)); }
 
-.faq-page, .reports-page { position: fixed; inset: 0; z-index: var(--layer-dialog); overflow-y: auto; overscroll-behavior: contain; background: var(--color-background-page); color: var(--color-text-primary); }
+.faq-page, .reports-page, .notifications-page { position: fixed; inset: 0; z-index: var(--layer-dialog); overflow-y: auto; overscroll-behavior: contain; background: var(--color-background-page); color: var(--color-text-primary); }
 .faq-page h1, .faq-page h2, .faq-page h3, .faq-page p, .reports-page h1, .reports-page p { margin: 0; }
 .faq-header, .reports-header { position: sticky; top: 0; z-index: var(--layer-map-overlay); background: var(--color-background-raised); border-bottom: var(--border-default); padding-top: var(--safe-area-top); }
 .faq-header-content { display: flex; align-items: center; gap: var(--space-2); min-height: var(--faq-header-height); max-width: calc(var(--faq-content-max) + 2 * var(--faq-gutter)); margin-inline: auto; padding-inline: max(var(--faq-gutter), var(--safe-area-left)) max(var(--faq-gutter), var(--safe-area-right)); font-size: var(--faq-header-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-header-tracking); }
-.faq-icon-button, .reports-icon-button { background: transparent; }
+.faq-icon-button, .reports-icon-button, .notifications-icon-button { background: transparent; }
 .faq-content { width: 100%; max-width: calc(var(--faq-content-max) + 2 * var(--faq-gutter)); margin-inline: auto; padding: var(--faq-content-top) max(var(--faq-gutter), var(--safe-area-right)) max(var(--faq-content-bottom), var(--safe-area-bottom)) max(var(--faq-gutter), var(--safe-area-left)); overflow-wrap: anywhere; }
 .faq-content h1 { font-size: var(--faq-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); margin-bottom: var(--space-2); }
 .faq-introduction { font-size: var(--font-size-body); line-height: var(--faq-intro-leading); color: var(--color-text-secondary); }
@@ -856,7 +856,7 @@ button {
 .faq-primary { min-height: var(--faq-control-height); max-width: 100%; padding: var(--space-3) var(--space-6); border: var(--border-default); border-radius: var(--radius-pill); background: var(--color-background-subtle); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
 .faq-help .faq-availability { margin-top: var(--space-2); }
 .faq-empty { margin-top: var(--faq-section-gap); padding: var(--faq-panel-padding); text-align: center; }
-.faq-page :focus-visible, .reports-page :focus-visible { outline-offset: var(--faq-focus-offset); }
+.faq-page :focus-visible, .reports-page :focus-visible, .notifications-page :focus-visible { outline-offset: var(--faq-focus-offset); }
 .faq-question:focus-visible { outline-offset: calc(-1 * var(--border-width-emphasis)); }
 @keyframes faq-reveal { from { opacity: 0; transform: translateY(var(--space-1)); } to { opacity: 1; transform: translateY(0); } }
 @media (min-width: 48rem) { :root { --faq-gutter: var(--space-6); } }
@@ -864,8 +864,8 @@ button {
 @media (min-width: 52rem) { :root { --faq-gutter: var(--space-8); } }
 @media (prefers-reduced-motion: reduce) { .faq-answer { animation: none; } }
 
-.menu-row:not(:disabled):hover, .menu-close:hover, .faq-icon-button:hover, .reports-icon-button:hover { background: var(--color-map-control-hover); }
-.menu-row:not(:disabled):active, .menu-close:active, .faq-icon-button:active, .reports-icon-button:active { background: var(--color-background-subtle); }
+.menu-row:not(:disabled):hover, .menu-close:hover, .faq-icon-button:hover, .reports-icon-button:hover, .notifications-icon-button:hover { background: var(--color-map-control-hover); }
+.menu-row:not(:disabled):active, .menu-close:active, .faq-icon-button:active, .reports-icon-button:active, .notifications-icon-button:active { background: var(--color-background-subtle); }
 
 /* 24. Settings: shared neutral surfaces, compact navigation, bounded reading width. */
 :root {
@@ -1024,6 +1024,46 @@ button {
 .reports-status-badge[data-status='pending'] { background: var(--color-status-warning-surface); color: var(--color-status-warning); }
 .reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
 .reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
+
+/* Notifications: report-status updates in a single reading column sized from the
+   portrait-iPad mockup. Status dots repeat the status text colour and never stand
+   alone; unread cards add a subtle surface, a dot and visually hidden text. */
+:root {
+  --notifications-content-max: 46rem;
+  --notifications-card-radius: var(--radius-dialog);
+  --notifications-dot-size: 0.75rem;
+  /* Aligns status values into one column across cards, capped on narrow screens. */
+  --notifications-change-label-width: 10rem;
+  --notifications-first-line-height: calc(var(--font-size-body) * var(--line-height-body));
+}
+.notifications-header { position: sticky; top: 0; z-index: var(--layer-map-overlay); padding-top: var(--safe-area-top); background: var(--color-background-page); }
+.notifications-header-content, .notifications-content { width: 100%; max-width: calc(var(--notifications-content-max) + 2 * var(--faq-gutter)); margin-inline: auto; padding-inline: max(var(--faq-gutter), var(--safe-area-left)) max(var(--faq-gutter), var(--safe-area-right)); }
+.notifications-header-content { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--faq-header-height); }
+.notifications-mark-read { display: inline-flex; align-items: center; gap: var(--space-3); min-height: var(--control-height-default); padding-inline: var(--space-8); border: 0; border-radius: var(--radius-pill); background: var(--color-background-subtle); color: var(--color-text-primary); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); cursor: pointer; }
+.notifications-mark-read svg { width: var(--icon-size-large); height: var(--icon-size-large); }
+.notifications-mark-read:not(:disabled):hover { background: var(--color-map-control-hover); }
+.notifications-mark-read:not(:disabled):active { background: var(--color-action-selected); }
+.notifications-mark-read:disabled { opacity: var(--opacity-opaque); color: var(--color-text-disabled); }
+.notifications-content { padding-block: var(--space-2) max(var(--faq-content-bottom), var(--safe-area-bottom)); overflow-wrap: anywhere; }
+.notifications-content h1 { margin: 0 0 var(--space-2); font-size: var(--reports-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); line-height: var(--line-height-tight); }
+.notifications-summary, .notifications-empty { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
+.notifications-empty { margin-top: var(--space-8); padding: var(--space-8) 0; font-size: var(--font-size-body); text-align: center; }
+.notifications-list { display: grid; gap: var(--space-4); margin: var(--space-8) 0 0; padding: 0; list-style: none; }
+.notifications-card { display: grid; grid-template-columns: var(--notifications-dot-size) minmax(0, 1fr) var(--notifications-dot-size); align-items: start; column-gap: var(--space-4); padding: var(--card-padding-block) var(--card-padding-inline); border: var(--border-default); border-radius: var(--notifications-card-radius); background: var(--color-background-raised); }
+.notifications-card-unread { background: var(--color-background-subtle); }
+.notifications-card[data-status='under-review'] { --notifications-status-color: var(--color-status-warning); }
+.notifications-card[data-status='approved'] { --notifications-status-color: var(--color-status-success); }
+.notifications-card[data-status='completed'] { --notifications-status-color: var(--color-status-info); }
+.notifications-status-dot, .notifications-unread-dot { width: var(--notifications-dot-size); height: var(--notifications-dot-size); margin-top: calc((var(--notifications-first-line-height) - var(--notifications-dot-size)) / 2); border-radius: var(--radius-round); }
+.notifications-status-dot { background: var(--notifications-status-color); }
+.notifications-unread-dot { grid-column: 3; background: var(--color-status-info); }
+.notifications-text { display: grid; gap: var(--space-2); min-width: 0; font-size: var(--font-size-body); line-height: var(--line-height-body); }
+.notifications-text p { margin: 0; }
+.notifications-change { display: flex; flex-wrap: wrap; column-gap: var(--space-4); }
+.notifications-change > span { min-width: min(var(--notifications-change-label-width), 40%); }
+.notifications-change strong { color: var(--notifications-status-color); font-weight: var(--font-weight-semibold); }
+.notifications-text time { margin-top: var(--space-1); color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
+@media (min-width: 48rem) { .notifications-card { column-gap: var(--space-6); } }
 
 /* Reporting details: opaque dialog and native scroll wheel. */
 :root {

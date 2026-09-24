@@ -9,7 +9,7 @@ permissions:
   pull-requests: read
 safe-outputs:
   create-pull-request:
-    draft: false
+    draft: falsenpm run dev
 model: claude-haiku-4-5-20251001
 engine:
   id: claude
