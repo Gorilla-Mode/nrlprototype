@@ -51,7 +51,7 @@
       <span class:reports-card-declined={report.status === 'declined'}>{reportSecondaryLine(report)}</span>
     </span>
     {#if !selectMode}
-      <span class="reports-card-cta">
+      <span class="reports-card-cta card-cta-link">
         {reportActionLabel(report)}
         <svg viewBox="0 0 9 16" fill="none" aria-hidden="true"><path d="M1.5 1.5 7.5 8l-6 6.5" /></svg>
       </span>

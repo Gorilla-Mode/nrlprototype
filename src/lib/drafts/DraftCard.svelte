@@ -18,7 +18,10 @@
   <div class="edited muted">Edited {draft.editedDate}</div>
 
   <div class="card-footer">
-    <button class="edit" on:click|stopPropagation={open}>Edit draft <span class="chev">›</span></button>
+    <button class="edit card-cta-link" on:click|stopPropagation={open}>
+      Edit draft
+      <svg viewBox="0 0 9 16" fill="none" aria-hidden="true"><path d="M1.5 1.5 7.5 8l-6 6.5" /></svg>
+    </button>
   </div>
 </article>
 
@@ -45,7 +48,6 @@
   .status { font-size:13px }
   .edited { font-size:13px }
   .card-footer { display:flex; justify-content:flex-end; margin-top:auto }
-  .edit { background:transparent; border:0; color:var(--color-action-secondary); font-weight:600; font-size:14px; cursor:pointer }
+  .edit { background:transparent; border:0; cursor:pointer }
   .edit:focus { outline: none; }
-  .chev { margin-left:6px }
 </style>
