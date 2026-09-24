@@ -9,6 +9,8 @@ interface PendingReport {
   readonly id: string;
   readonly timestamp: Date;
   reporterPosition: Obstacle['gps_position'] | undefined;
+  readonly positionReady: Promise<Obstacle['gps_position']>;
+  readonly resolvePosition: (position: Obstacle['gps_position']) => void;
   obstaclePosition: ObstacleGeometry | undefined;
 }
 
@@ -34,7 +36,7 @@ export function createReportController({
   createId = () => crypto.randomUUID(),
   now = () => new Date(),
 }: {
-  onRegister: (obstacle: Obstacle) => void;
+  onRegister: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
   requestPosition?: RequestPosition;
   createId?: () => string;
   now?: () => Date;
@@ -45,33 +47,44 @@ export function createReportController({
   function registerIfReady() {
     if (!pending) return;
     const { reporterPosition, obstaclePosition } = pending;
-    if (reporterPosition === undefined || !obstaclePosition) return;
+    if (!obstaclePosition) return;
     const report = pending;
-    pending = undefined;
+    if (reporterPosition !== undefined) pending = undefined;
     onRegister({
       id: report.id,
       type: ObstacleType.Other,
       description: '',
       height: 0,
-      gps_position: reporterPosition,
+      gps_position: reporterPosition ?? null,
       timestamp: report.timestamp,
       obstacle_position: obstaclePosition,
-    });
+    }, reporterPosition === undefined ? report.positionReady : undefined);
   }
 
   function settleReporterPosition(report: PendingReport, position: Obstacle['gps_position']) {
-    if (destroyed || pending !== report) return;
+    if (destroyed || pending !== report || report.reporterPosition !== undefined) return;
     report.reporterPosition = position;
-    registerIfReady();
+    report.resolvePosition(position);
+    if (report.obstaclePosition) pending = undefined;
+  }
+
+  function cancel() {
+    const report = pending;
+    pending = undefined;
+    report?.resolvePosition(null);
   }
 
   return {
     start() {
       if (destroyed || pending) return;
+      let resolvePosition!: PendingReport['resolvePosition'];
+      const positionReady = new Promise<Obstacle['gps_position']>((resolve) => { resolvePosition = resolve; });
       const report: PendingReport = {
         id: createId(),
         timestamp: now(),
         reporterPosition: undefined,
+        positionReady,
+        resolvePosition,
         obstaclePosition: undefined,
       };
       pending = report;
@@ -89,13 +102,11 @@ export function createReportController({
       pending.obstaclePosition = geometry;
       registerIfReady();
     },
-    cancel() {
-      pending = undefined;
-    },
+    cancel,
     destroy() {
       if (destroyed) return;
       destroyed = true;
-      pending = undefined;
+      cancel();
     },
   };
 }

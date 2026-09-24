@@ -18,7 +18,7 @@
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
   }: {
-    oncomplete?: (obstacle: Obstacle) => void;
+    oncomplete?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
     onreportstart?: () => void;
     debugContent?: Snippet;
     onresumedetails?: () => void;

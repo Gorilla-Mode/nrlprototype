@@ -86,11 +86,10 @@
     window.location.replace(reportingVariantUrl(window.location.href, variant));
   }
 
-  function openDetails(report?: Obstacle) {
+  function openDetails(report?: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) {
     returnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     if (report) {
-      detailsController.begin(report, details.variant ?? reporting.variant);
-      // GPS may settle after the user has opened another page.
+      detailsController.begin(report, details.variant ?? reporting.variant, positionReady);
       if (pageOpen) { void detailsController.dismiss(); return; }
     }
     if (!details.draft || !details.variant) return;
@@ -165,6 +164,8 @@
     window.addEventListener('popstate', syncRoute);
     window.addEventListener('hashchange', syncRoute);
     return () => {
+      // Invalidate a Finish waiting on GPS before the map releases its request.
+      detailsController.clear();
       window.removeEventListener('popstate', syncRoute);
       window.removeEventListener('hashchange', syncRoute);
     };

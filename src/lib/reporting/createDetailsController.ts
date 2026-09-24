@@ -69,6 +69,7 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
   let state = initialDetailsState;
   let generation = 0;
   let navigation = 0;
+  let pendingPosition: Promise<void> | undefined;
   function publish(next: Partial<DetailsState>) {
     state = { ...state, ...next };
     onChange(state);
@@ -103,11 +104,19 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
     start(variant: ReportingVariant) {
       generation++;
       navigation++;
+      pendingPosition = undefined;
       publish({ ...initialDetailsState, variant });
     },
-    begin(report: Obstacle, variant: ReportingVariant) {
+    begin(report: Obstacle, variant: ReportingVariant, positionReady?: Promise<Obstacle['gps_position']>) {
       generation++;
       navigation++;
+      const current = generation;
+      const applyPosition = (position: Obstacle['gps_position']) => {
+        if (current !== generation || state.draft?.report.id !== report.id) return;
+        pendingPosition = undefined;
+        publish({ draft: { ...state.draft, report: { ...state.draft.report, gps_position: position } } });
+      };
+      pendingPosition = positionReady?.then(applyPosition, () => applyPosition(null));
       publish({ ...initialDetailsState, variant, draft: { report, type: null, height: defaultObstacleHeightMeters, illumination: 'unknown', notPresent: false, dirty: false, customType: '', description: report.description, photos: [] }, open: true });
     },
     resume(step: number = state.step) {
@@ -123,7 +132,7 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
       publish({ open: false });
       return save('dismissal');
     },
-    clear() { generation++; navigation++; publish(initialDetailsState); },
+    clear() { generation++; navigation++; pendingPosition = undefined; publish(initialDetailsState); },
     closeSummary() { publish({ result: null, summaryOpen: false }); },
     setType(type: ObstacleType) { if (obstacleTypeChoices.some((choice) => choice.type === type)) edit({ type }); },
     setHeight(height: number) {
@@ -172,12 +181,21 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
     async finish() {
       const hook = getHooks().onFinish;
       if (!state.draft?.type || !state.variant || state.busy || !hook || !state.open || state.step !== state.variant.stepRoutes.length) return false;
-      const payload = { ...detailsPayload(state.draft), type: state.draft.type };
+      let payload: CompleteReport | undefined;
       const variantId = state.variant.id;
       const currentNavigation = navigation;
-      if (!await run(() => hook(payload, { variantId }), false)) return false;
+      const current = generation;
+      const positionReady = pendingPosition;
+      if (!await run(async () => {
+        // Details can be edited before GPS settles; only Finish waits for it.
+        if (positionReady) await positionReady;
+        if (current !== generation || currentNavigation !== navigation || !state.open || !state.draft?.type) return;
+        payload = { ...detailsPayload(state.draft), type: state.draft.type };
+        await hook(payload, { variantId });
+      }, false) || !payload) return false;
       const showSummary = currentNavigation === navigation && state.open;
       generation++;
+      pendingPosition = undefined;
       publish({ ...initialDetailsState, result: showSummary ? { report: payload, variantId } : null, summaryOpen: showSummary });
       return true;
     },

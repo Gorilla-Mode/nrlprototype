@@ -16,7 +16,7 @@
     onholdchange: (origin: HoldOrigin | null) => void;
     onholdmove: (x: number, y: number) => void;
     ondrawingchange: (state: DrawingState) => void;
-    onobstacleregistered?: (obstacle: Obstacle) => void;
+    onobstacleregistered?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
   }
 
   let { visible = true, opacity, grayscale, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered }: Props = $props();
@@ -44,7 +44,7 @@
       onHoldChange: (origin) => onholdchange(origin),
       onHoldMove: (x, y) => onholdmove(x, y),
       onDrawingChange: (state) => ondrawingchange(state),
-      onObstacleRegistered: (obstacle) => onobstacleregistered?.(obstacle),
+      onObstacleRegistered: (obstacle, positionReady) => onobstacleregistered?.(obstacle, positionReady),
     });
     controller = instance;
 
