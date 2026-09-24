@@ -6,6 +6,7 @@ import { position } from './helpers/geolocation.js';
 
 function setup() {
   const registered: Obstacle[] = [];
+  const positions: (Promise<Obstacle['gps_position']> | undefined)[] = [];
   const requests: {
     success: (position: GeolocationPosition) => void;
     error: () => void;
@@ -13,12 +14,12 @@ function setup() {
   const startedAt = new Date('2026-09-11T08:15:00.000Z');
   let ids = 0;
   const reporting = createReportController({
-    onRegister: (obstacle) => registered.push(obstacle),
+    onRegister: (obstacle, positionReady) => { registered.push(obstacle); positions.push(positionReady); },
     requestPosition: (success, error) => requests.push({ success, error }),
     createId: () => `00000000-0000-4000-8000-${String(++ids).padStart(12, '0')}`,
     now: () => startedAt,
   });
-  return { reporting, registered, requests, startedAt };
+  return { reporting, registered, positions, requests, startedAt };
 }
 
 const geometries = [
@@ -45,17 +46,44 @@ for (const geometry of geometries) {
   });
 }
 
-test('waits for reporter GPS when drawing completes first and registers exactly once', () => {
+for (const geometry of geometries) {
+  test(`registers ${geometry.type} immediately while GPS is pending, exactly once`, async () => {
+    const h = setup();
+    h.reporting.start();
+    h.reporting.complete(geometry);
+    h.reporting.complete(geometries[1]);
+    assert.equal(h.registered.length, 1);
+    assert.equal(h.registered[0].obstacle_position, geometry);
+    assert.equal(h.registered[0].gps_position, null);
+    assert.ok(h.positions[0]);
+    h.requests[0].success(position(5.31, 60.39));
+    h.requests[0].success(position(6, 61));
+    h.requests[0].error();
+    h.reporting.complete(geometry);
+    assert.deepEqual(await h.positions[0], { lat: 60.39, lng: 5.31 });
+    assert.equal(h.registered.length, 1);
+    assert.equal(h.registered[0].gps_position, null, 'the delivered snapshot is not mutated');
+  });
+}
+
+test('GPS failure after geometry resolves the pending position with null', async () => {
   const h = setup();
   h.reporting.start();
   h.reporting.complete(geometries[0]);
-  h.reporting.complete(geometries[1]);
-  assert.equal(h.registered.length, 0);
-  h.requests[0].success(position());
-  h.requests[0].success(position(6, 61));
   h.requests[0].error();
+  h.requests[0].success(position());
+  assert.equal(await h.positions[0], null);
   assert.equal(h.registered.length, 1);
-  assert.equal(h.registered[0].obstacle_position, geometries[0]);
+});
+
+test('first GPS settlement wins even before geometry completes', () => {
+  const h = setup();
+  h.reporting.start();
+  h.requests[0].error();
+  h.requests[0].success(position());
+  h.reporting.complete(geometries[0]);
+  assert.equal(h.registered[0].gps_position, null);
+  assert.equal(h.positions[0], undefined);
 });
 
 for (const failure of ['callback', 'exception'] as const) {
@@ -79,13 +107,12 @@ for (const failure of ['callback', 'exception'] as const) {
 test('cancel and destroy invalidate pending reports and their late GPS callbacks', () => {
   const h = setup();
   h.reporting.start();
-  h.reporting.complete(geometries[0]);
   h.reporting.cancel();
+  h.reporting.complete(geometries[0]);
   h.requests[0].success(position());
   assert.equal(h.registered.length, 0);
 
   h.reporting.start();
-  h.reporting.complete(geometries[1]);
   h.reporting.destroy();
   h.reporting.destroy();
   h.requests[1].error();
@@ -93,6 +120,33 @@ test('cancel and destroy invalidate pending reports and their late GPS callbacks
   h.reporting.complete(geometries[2]);
   assert.equal(h.registered.length, 0);
   assert.equal(h.requests.length, 2);
+});
+
+for (const action of ['cancel', 'destroy'] as const) {
+  test(`${action} settles the completed report's GPS promise and ignores late callbacks`, async () => {
+    const h = setup();
+    h.reporting.start();
+    h.reporting.complete(geometries[0]);
+    assert.ok(h.positions[0]);
+    h.reporting[action]();
+    h.requests[0].success(position());
+    assert.equal(await h.positions[0], null);
+    assert.equal(h.registered.length, 1);
+  });
+}
+
+test('a cancelled report cannot supply GPS to its replacement', async () => {
+  const h = setup();
+  h.reporting.start();
+  h.reporting.complete(geometries[0]);
+  h.reporting.cancel();
+  h.reporting.start();
+  h.reporting.complete(geometries[1]);
+  h.requests[0].success(position(6, 61));
+  h.requests[1].success(position(5.31, 60.39));
+  assert.equal(await h.positions[0], null);
+  assert.deepEqual(await h.positions[1], { lat: 60.39, lng: 5.31 });
+  assert.notEqual(h.registered[0].id, h.registered[1].id);
 });
 
 test('default locator requests one high-accuracy position without map tracking', (t: TestContext) => {
