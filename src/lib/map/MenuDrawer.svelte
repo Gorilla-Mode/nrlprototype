@@ -2,19 +2,20 @@
   import { tick, type Snippet } from 'svelte';
   import type { SettingsSection } from '../settings/settings';
 
-  let { open = $bindable(false), onfaq, onsettings, ondismiss, debugContent }: {
+  let { open = $bindable(false), onfaq, onnotifications, onsettings, ondismiss, debugContent }: {
     open?: boolean;
     onfaq: () => void;
+    onnotifications: () => void;
     onsettings: (section: SettingsSection) => void;
     ondismiss: () => void;
     debugContent?: Snippet;
   } = $props();
 
-  type MenuAction = 'faq' | 'profile' | 'language' | 'settings';
+  type MenuAction = 'faq' | 'notifications' | 'profile' | 'language' | 'settings';
   interface MenuRow { label: string; icon: string; action?: MenuAction }
   const sections: { title: string; rows: MenuRow[] }[] = [
     { title: 'PROFILE', rows: [{ label: 'My Profile', icon: 'profile', action: 'profile' }] },
-    { title: 'WORK', rows: [{ label: 'My Reports', icon: 'reports' }, { label: 'Notifications', icon: 'bell' }] },
+    { title: 'WORK', rows: [{ label: 'My Reports', icon: 'reports' }, { label: 'Notifications', icon: 'bell', action: 'notifications' }] },
     { title: 'HELP', rows: [
       { label: 'How to Report an Obstacle', icon: 'report-guide' },
       { label: 'FAQ', icon: 'faq', action: 'faq' },
@@ -67,6 +68,7 @@
     // Close the native dialog before moving focus or hiding its map ancestor.
     await tick();
     if (action === 'faq') onfaq();
+    else if (action === 'notifications') onnotifications();
     else onsettings(action === 'language' ? 'language' : 'profile');
   }
 

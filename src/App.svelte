@@ -3,9 +3,11 @@
   import HomeMap from './lib/map/HomeMap.svelte';
   import FaqPage from './lib/faq/FaqPage.svelte';
   import ReportsPage from './lib/reports/ReportsPage.svelte';
+  import NotificationsPage from './lib/notifications/NotificationsPage.svelte';
   import SettingsPage from './lib/settings/SettingsPage.svelte';
   import { settingsSectionFromHash, type SettingsSection, type LanguagePreference } from './lib/settings/settings';
   import { isReportsHash, reportsRoute } from './lib/reports/reports';
+  import { isNotificationsHash, markAllRead, notificationsRoute, sampleNotifications, type ReportStatusNotification } from './lib/notifications/notifications';
   import type { GeolocationState } from './lib/map/createGeolocationController';
   import { createDetailsController, initialDetailsState, type DetailsHooks, type DetailsState } from './lib/reporting/createDetailsController';
   import { reportingSettings, reportingVariantUrl, resolveReportingRoute, summaryRoute } from './lib/reporting/reporting';
@@ -32,14 +34,16 @@
   let ActiveReportingView = $derived(reportingVariants.find(({ id }) => id === details.variant?.id)?.component);
   let faqOpen = $derived(hash === '#/FAQ');
   let reportsOpen = $derived(isReportsHash(hash));
+  let notificationsOpen = $derived(isNotificationsHash(hash));
   let settingsSection = $derived(settingsSectionFromHash(hash));
-  let pageOpen = $derived(faqOpen || reportsOpen || settingsSection !== null);
+  let pageOpen = $derived(faqOpen || reportsOpen || notificationsOpen || settingsSection !== null);
   let reportOpen = $derived(details.open || details.summaryOpen);
   let menuOpen = $state(false);
   let menuWasOpen = false;
   let opacity = $state(0);
   let grayscale = $state(false);
   let language = $state<LanguagePreference>('en');
+  let notifications = $state.raw<readonly ReportStatusNotification[]>(sampleNotifications);
   let locationState = $state<GeolocationState>('unavailable');
   let locationMessage = $state('');
   let accuracy = $state<number | null>(null);
@@ -179,7 +183,7 @@
 <div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || reportOpen} aria-hidden={pageOpen || reportOpen}>
   <HomeMap bind:this={homeMap} bind:menuOpen bind:opacity bind:isGrayscale={grayscale}
     bind:geolocationState={locationState} bind:locationMessage bind:accuracy
-    onfaq={() => openPage('#/FAQ')} onreports={() => openPage(reportsRoute)}
+    onfaq={() => openPage('#/FAQ')} onnotifications={() => openPage(notificationsRoute)} onreports={() => openPage(reportsRoute)}
     onsettings={(section) => openPage('#/Settings/' + section)} visible={!pageOpen && !reportOpen}
     debugContent={reporting.debug ? reportingDebug : undefined}
     onreportstart={() => detailsController.start(reporting.variant)}
@@ -205,6 +209,9 @@
 {/if}
 {#if faqOpen}<FaqPage onback={backToMap} />{/if}
 {#if reportsOpen}<ReportsPage onback={backToMap} />{/if}
+{#if notificationsOpen}
+  <NotificationsPage {notifications} onback={backToMap} onmarkallread={() => { notifications = markAllRead(notifications); }} />
+{/if}
 {#if settingsSection}
   <SettingsPage section={settingsSection} onsection={selectSettings} onclose={backToMap}
     bind:opacity bind:grayscale bind:language {locationState} {locationMessage} {accuracy}
