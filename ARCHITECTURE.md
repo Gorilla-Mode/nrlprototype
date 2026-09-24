@@ -41,6 +41,14 @@ and hash; report routes without an in-memory draft or result fall back to the ma
 The active variant is captured when drawing starts. Reloading starts a fresh session
 using the selected variant, including if geometry or reporter GPS was pending.
 
+Completing geometry opens details immediately, independently of reporter GPS. The
+original high-accuracy location request continues in the background and updates only
+its matching session draft without changing edits or navigation. Save Draft, dismissal
+and Continue use the GPS available when invoked; previously delivered payloads stay
+unchanged. Only Finish waits for pending GPS before assembling its payload. Failure or
+timeout permits finishing with null reporter GPS. Deletion and replacement invalidate
+late callbacks, and leaving details during the GPS wait cancels that Finish attempt.
+
 App supplies session-only Save Draft and Finish handlers, awaiting optional external
 `onSaveDraft(payload, reason)` and `onFinish(report, { variantId })` hooks. Existing
 one-argument Finish callbacks remain compatible. `onContinue` is an intermediate hook.

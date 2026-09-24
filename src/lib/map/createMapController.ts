@@ -32,7 +32,7 @@ interface MapControllerOptions {
   onHoldChange: (origin: HoldOrigin | null) => void;
   onHoldMove: (x: number, y: number) => void;
   onDrawingChange: (state: DrawingState) => void;
-  onObstacleRegistered?: (obstacle: Obstacle) => void;
+  onObstacleRegistered?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
 }
 
 export interface CameraTarget {
@@ -84,7 +84,7 @@ export function createMapController(
     onClear: () => { locationDisplay.clear(); options.onGeolocationAccuracyChange(null); },
   });
   const reporting = createReportController({
-    onRegister: (obstacle) => options.onObstacleRegistered?.(obstacle),
+    onRegister: (obstacle, positionReady) => options.onObstacleRegistered?.(obstacle, positionReady),
   });
   const drawingDisplay = createDrawingDisplay(map);
   let drawingStatus: DrawingState['status'] = 'idle';
