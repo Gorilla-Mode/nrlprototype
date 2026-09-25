@@ -14,7 +14,7 @@
   import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
 
-  let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, onfaq, onnotifications, onreports, onsettings,
+  let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, showHelp = false, onfaq, onnotifications, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
@@ -26,6 +26,7 @@
     onselectiondelete?: () => void;
     menuOpen?: boolean;
     visible?: boolean;
+    showHelp?: boolean;
     onfaq: () => void;
     onnotifications: () => void;
     onreports: () => void;
@@ -41,13 +42,13 @@
   let isLayerFadeOpen = $state(false);
   let helpOpen = $state(false);
   $effect(() => {
-    if (!visible) helpOpen = false;
+    if (!visible || !showHelp) helpOpen = false;
   });
 
   async function dismissHelp() {
     helpOpen = false;
     await tick();
-    if (visible) mapWrapper.querySelector<HTMLButtonElement>('.map-help')?.focus({ preventScroll: true });
+    if (visible && showHelp) mapWrapper.querySelector<HTMLButtonElement>('.map-help')?.focus({ preventScroll: true });
   }
   let mapCanvas: MapCanvas;
   let holdOrigin = $state<HoldOrigin | null>(null);
@@ -113,6 +114,7 @@
   />
   <MapToolbar
     {menuOpen}
+    {showHelp}
     {helpOpen}
     onhelp={() => { isLayerFadeOpen = false; helpOpen = true; }}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
@@ -125,7 +127,7 @@
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
 
-  {#if helpOpen && visible}
+  {#if helpOpen && visible && showHelp}
     <TutorialDialog ondismiss={dismissHelp} />
   {/if}
 

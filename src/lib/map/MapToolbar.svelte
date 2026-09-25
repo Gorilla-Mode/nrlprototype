@@ -5,11 +5,12 @@
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { LocationSuggestion } from './locationSearch';
 
-  let { drawing, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, onhelp, helpOpen, menuOpen }: {
+  let { drawing, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, onhelp, helpOpen, showHelp = false, menuOpen }: {
     onmenu: () => void;
     onreports: () => void;
     onhelp: () => void;
     helpOpen: boolean;
+    showHelp?: boolean;
     menuOpen: boolean;
     drawing: DrawingState;
     onundo: () => void;
@@ -38,14 +39,16 @@
   </MapButton>
 </div>
 
-<button class="map-help" type="button" aria-haspopup="dialog" aria-expanded={helpOpen} aria-controls="map-tutorial" onclick={onhelp}>
-  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M8 8a4 4 0 0 1 8 0c0 3-4 3-4 6M12 18v1" />
-  </svg>
-  <span>Help</span>
-</button>
+{#if showHelp}
+  <button class="map-help" type="button" aria-haspopup="dialog" aria-expanded={helpOpen} aria-controls="map-tutorial" onclick={onhelp}>
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 8a4 4 0 0 1 8 0c0 3-4 3-4 6M12 18v1" />
+    </svg>
+    <span>Help</span>
+  </button>
+{/if}
 
-<DrawingToolbar state={drawing} {onundo} {ondelete} {oncomplete} {onresumedetails} />
+<DrawingToolbar state={drawing} {onundo} {ondelete} {oncomplete} {onresumedetails} helpVisible={showHelp} />
 
 <style>
   .map-toolbar {

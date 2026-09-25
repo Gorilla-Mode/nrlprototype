@@ -5,6 +5,10 @@ export interface TutorialEntry {
   answer: string;
 }
 
+export function isTutorialEnabled(search: string, debug: boolean): boolean {
+  return debug && new URLSearchParams(search).get('help') === '1';
+}
+
 export const tutorialBlocks: readonly TutorialEntry[] = [
   {
     id: 'placeholder-1',

@@ -2,12 +2,13 @@
   import { formatMeasurement, type DrawingState } from '../reporting/createDrawingController.js';
   import { obstacleGeometryChoices } from '../reporting/obstacle.js';
 
-  let { state: drawingState, onundo, ondelete, oncomplete, onresumedetails }: {
+  let { state: drawingState, onundo, ondelete, oncomplete, onresumedetails, helpVisible = false }: {
     state: DrawingState;
     onundo: () => void;
     ondelete: () => void;
     oncomplete: () => void;
     onresumedetails?: () => void;
+    helpVisible?: boolean;
   } = $props();
 
   let choice = $derived(obstacleGeometryChoices.find(({ type }) => type === drawingState.draft?.type));
@@ -20,7 +21,7 @@
 </script>
 
 {#if drawingState.draft && choice}
-  <section class="drawing-toolbar" aria-label="Obstacle selection" style:--geometry-color={`var(${choice.colorToken})`}>
+  <section class="drawing-toolbar" class:help-visible={helpVisible} aria-label="Obstacle selection" style:--geometry-color={`var(${choice.colorToken})`}>
     <div class="details">
       <div class="summary" role="status" aria-atomic="true">
         <strong class="object-type">{choice.label}</strong>
@@ -68,6 +69,7 @@
     box-shadow: var(--shadow-control);
     font-size: var(--font-size-body-small);
   }
+  .drawing-toolbar.help-visible { bottom: var(--map-bottom-toolbar-help-inset); }
   .details, .summary, .actions { display: flex; }
   .details { flex: 1 1 auto; flex-direction: column; gap: var(--space-2); min-width: 0; }
   .summary, .actions { flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
