@@ -18,6 +18,7 @@
 /* 1. Base colours */
 :root {
   --palette-neutral-0: #ffffff;
+  --palette-black: #000000;
   --palette-neutral-50: #f6f8f7;
   --palette-neutral-100: #edf1ef;
   --palette-neutral-200: #dbe2de;
@@ -502,8 +503,11 @@
   --map-drawing-dash-length: 2;
   --radial-border-width: 1;
   --radial-border-width-selected: 2;
-  --radial-surface: var(--color-background-raised);
-  --radial-tint-strength: 12%;
+  --radial-fill-opacity: 0.5;
+  --radial-halo-color: var(--color-background-raised);
+  --radial-halo-width: 3px;
+  --radial-luma-mix: 0%;
+  --radial-luma-target: var(--palette-neutral-0);
 }
 
 .button--danger { color: var(--color-status-error); }

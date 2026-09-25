@@ -15,11 +15,18 @@
   let segments = $derived(createRadialSegments(items.length, innerRadius, outerRadius));
   let expandedSegments = $derived(createRadialSegments(items.length, innerRadius, outerRadius + hoverExpansion));
   let hoveredIndex = $derived(getHoveredRadialSegment(pointer, items.length, innerRadius));
+  // Set from 0 (black), through 0.5 (original item color), to 1 (white).
+  const RADIAL_LUMA = 0.35;
+  const boundedLuma = Math.min(1, Math.max(0, RADIAL_LUMA));
+  const radialLumaMix = `${Math.abs(boundedLuma - 0.5) * 200}%`;
+  const radialLumaTarget = boundedLuma < 0.5 ? 'var(--palette-black)' : 'var(--palette-neutral-0)';
 </script>
 
 {#if items.length}
   <svg
     class="radial-menu"
+    style:--radial-luma-mix={radialLumaMix}
+    style:--radial-luma-target={radialLumaTarget}
     width={viewportRadius * 2}
     height={viewportRadius * 2}
     viewBox={`${-viewportRadius} ${-viewportRadius} ${viewportRadius * 2} ${viewportRadius * 2}`}
@@ -45,13 +52,13 @@
 <style>
   .radial-menu { display: block; overflow: visible; pointer-events: none; user-select: none; }
   .segment {
-    fill: var(--radial-surface);
+    fill: color-mix(in srgb, var(--radial-color) calc(100% - var(--radial-luma-mix)), var(--radial-luma-target) var(--radial-luma-mix));
+    fill-opacity: var(--radial-fill-opacity);
     stroke: var(--color-border-strong);
     stroke-width: var(--radial-border-width);
-    transition: d var(--duration-default) var(--ease-standard), fill var(--duration-default) var(--ease-standard);
+    transition: d var(--duration-default) var(--ease-standard), fill-opacity var(--duration-default) var(--ease-standard);
   }
   .is-hovered .segment {
-    fill: color-mix(in srgb, var(--radial-color) var(--radial-tint-strength), var(--radial-surface));
     stroke: var(--radial-color);
     stroke-width: var(--radial-border-width-selected);
   }
@@ -60,7 +67,23 @@
     transform: translate(var(--radial-item-x), var(--radial-item-y));
     transition: transform var(--duration-default) var(--ease-standard);
   }
-  .icon { color: var(--radial-color); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
-  text { fill: currentColor; font-family: inherit; font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); }
+  .icon {
+    color: var(--radial-color);
+    stroke: currentColor;
+    stroke-width: var(--icon-stroke-width);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 1px var(--radial-halo-color));
+  }
+  text {
+    fill: currentColor;
+    stroke: var(--radial-halo-color);
+    stroke-width: var(--radial-halo-width);
+    stroke-linejoin: round;
+    paint-order: stroke fill;
+    font-family: inherit;
+    font-size: var(--font-size-body-small);
+    font-weight: var(--font-weight-semibold);
+  }
   .origin { fill: var(--color-action-secondary); stroke: var(--color-background-raised); stroke-width: var(--radial-border-width-selected); }
 </style>
