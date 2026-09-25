@@ -18,8 +18,10 @@ const iconUrl = await compileSvelteComponent('src/lib/reporting/ObstacleTypeIcon
   './obstacle': obstacleModuleUrl,
 });
 
+const keypad = await compileSvelteComponent('src/lib/reporting/HeightKeypad.svelte');
 const panelUrl = await compileSvelteComponent('src/lib/reporting/ObstacleReportPanel.svelte', {
   './obstacle': obstacleModuleUrl,
+  './HeightKeypad.svelte': keypad,
   './obstacleReportDraft': draftModuleUrl,
   './ObstacleTypeIcon.svelte': iconUrl,
   './createDetailsController': new URL('../src/lib/reporting/createDetailsController.js', import.meta.url).href,
