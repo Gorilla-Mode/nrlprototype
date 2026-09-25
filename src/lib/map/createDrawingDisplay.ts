@@ -12,7 +12,7 @@ type DrawingFeatures = FeatureCollection<Point | LineString | Polygon, { vertexC
 interface DrawingVisuals {
   point: string;
   outline: string;
-  vertex: string;
+  casing: string;
   fillOpacity: number;
   lineWidth: number;
   casingThickness: number;
@@ -47,7 +47,7 @@ export function createDrawingDisplay(map: Map) {
       return {
         point: resolveColor('--color-drawing-point'),
         outline: resolveColor('--color-drawing-outline'),
-        vertex: resolveColor('--color-drawing-vertex'),
+        casing: resolveColor('--color-drawing-casing'),
         fillOpacity: number('--map-drawing-fill-opacity'),
         lineWidth: number('--map-drawing-line-width'),
         casingThickness: number('--map-drawing-casing-thickness'),
@@ -64,7 +64,7 @@ export function createDrawingDisplay(map: Map) {
     const collection: DrawingFeatures = { type: 'FeatureCollection', features: [] };
     if (!draft) return collection;
     const { vertices, type } = draft;
-    const properties = { vertexColor: type === 'Point' ? visuals.point : visuals.vertex };
+    const properties = { vertexColor: visuals.point };
     for (const vertex of vertices) {
       collection.features.push({ type: 'Feature', properties, geometry: { type: 'Point', coordinates: [...vertex] } });
     }
@@ -89,7 +89,7 @@ export function createDrawingDisplay(map: Map) {
     if (!map.getLayer(fillLayerId)) map.addLayer({
       id: fillLayerId, type: 'fill', source: drawingSourceId,
       filter: ['==', '$type', 'Polygon'],
-      paint: { 'fill-color': visuals.outline, 'fill-opacity': visuals.fillOpacity },
+      paint: { 'fill-color': visuals.point, 'fill-opacity': visuals.fillOpacity },
     });
     if (!map.getLayer(lineCasingLayerId)) {
       const casingWidth = visuals.lineWidth + 2 * visuals.casingThickness;
@@ -98,7 +98,7 @@ export function createDrawingDisplay(map: Map) {
         id: lineCasingLayerId, type: 'line', source: drawingSourceId,
         filter: ['==', '$type', 'LineString'],
         paint: {
-          'line-color': visuals.vertex,
+          'line-color': visuals.casing,
           'line-width': casingWidth,
           'line-opacity': visuals.casingOpacity,
           'line-dasharray': [casingDashLength, casingDashLength],
@@ -121,8 +121,8 @@ export function createDrawingDisplay(map: Map) {
     if (destroyed) return;
     visuals = readVisuals();
     render();
-    if (map.getLayer(fillLayerId)) map.setPaintProperty(fillLayerId, 'fill-color', visuals.outline);
-    if (map.getLayer(lineCasingLayerId)) map.setPaintProperty(lineCasingLayerId, 'line-color', visuals.vertex);
+    if (map.getLayer(fillLayerId)) map.setPaintProperty(fillLayerId, 'fill-color', visuals.point);
+    if (map.getLayer(lineCasingLayerId)) map.setPaintProperty(lineCasingLayerId, 'line-color', visuals.casing);
     if (map.getLayer(lineLayerId)) map.setPaintProperty(lineLayerId, 'line-color', visuals.outline);
     if (map.getLayer(vertexLayerId)) map.setPaintProperty(vertexLayerId, 'circle-stroke-color', visuals.outline);
   }
