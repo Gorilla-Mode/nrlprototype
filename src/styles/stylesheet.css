@@ -129,7 +129,7 @@
   /* Geographic paint keeps contrast independent of the surrounding UI theme. */
   --color-drawing-point: var(--palette-red-700);
   --color-drawing-outline: var(--palette-charcoal-900);
-  --color-drawing-vertex: var(--palette-neutral-0);
+  --color-drawing-casing: var(--palette-neutral-0);
   --color-map-control-surface: var(--color-background-raised);
   --color-map-control-hover: color-mix(
     in srgb,
@@ -493,7 +493,7 @@
   --map-slider-position: 0%;
   --map-search-results-max: 30rem;
   --map-bottom-toolbar-inset: calc(var(--map-control-inset-bottom) + var(--space-16) + var(--space-4));
-  --map-drawing-fill-opacity: 0.15;
+  --map-drawing-fill-opacity: 0.35;
   --map-drawing-line-width: 3px;
   --map-drawing-casing-thickness: 1px;
   --map-drawing-casing-opacity: 0.7;

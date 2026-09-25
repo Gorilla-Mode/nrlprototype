@@ -13,12 +13,12 @@ function setup(t: TestContext) {
   const tokenColors: Record<string, string> = {
     'var(--color-drawing-point)': 'rgb(215, 40, 0)',
     'var(--color-drawing-outline)': 'rgb(23, 23, 23)',
-    'var(--color-drawing-vertex)': 'rgb(255, 255, 255)',
+    'var(--color-drawing-casing)': 'rgb(255, 255, 255)',
   };
   let themeChanged = () => {};
   const media = new EventTarget();
   const dimensions: Record<string, string> = {
-    '--map-drawing-fill-opacity': '0.15', '--map-drawing-line-width': '3px',
+    '--map-drawing-fill-opacity': '0.35', '--map-drawing-line-width': '3px',
     '--map-drawing-casing-thickness': '1px', '--map-drawing-casing-opacity': '0.7',
     '--map-drawing-vertex-radius': '6px', '--map-drawing-stroke-width': '2px', '--map-drawing-dash-length': '2',
   };
@@ -77,7 +77,7 @@ test('buffers the latest geometry before loading, resolves CSS tokens, and adds 
   assert.equal(h.layers.size, 4);
   assert.equal(h.probes, 0, 'temporary token resolver was removed');
   assert.deepEqual(h.data.features.map((feature) => feature.geometry.type), ['Point', 'Point', 'LineString']);
-  assert.equal(h.data.features[0].properties?.vertexColor, 'rgb(255, 255, 255)');
+  assert.equal(h.data.features[0].properties?.vertexColor, 'rgb(215, 40, 0)');
   const orderedLayers = [...h.layers.values()];
   assert.deepEqual(orderedLayers.map(({ id }) => id), [
     'obstacle-drawing-fill',
@@ -102,8 +102,8 @@ test('buffers the latest geometry before loading, resolves CSS tokens, and adds 
   assert.equal(line.paint?.['line-width'], 3);
   assert.deepEqual(line.paint?.['line-dasharray'], [2, 2]);
   const fill = [...h.layers.values()].find((layer) => layer.type === 'fill');
-  assert.equal(fill?.paint?.['fill-color'], 'rgb(23, 23, 23)');
-  assert.equal(fill?.paint?.['fill-opacity'], 0.15);
+  assert.equal(fill?.paint?.['fill-color'], 'rgb(215, 40, 0)');
+  assert.equal(fill?.paint?.['fill-opacity'], 0.35);
   const vertex = [...h.layers.values()].find((layer) => layer.type === 'circle');
   assert.deepEqual(vertex?.paint?.['circle-color'], ['get', 'vertexColor']);
   assert.equal(vertex?.paint?.['circle-stroke-color'], 'rgb(23, 23, 23)');
@@ -119,12 +119,13 @@ test('shows only placed vertices; polygon closing edge and fill appear starting 
   assert.equal(h.data.features[0].properties?.vertexColor, 'rgb(215, 40, 0)');
   h.display.show({ type: 'Polygon', vertices: [[5, 60], [6, 60]] });
   assert.deepEqual(h.data.features.map((feature) => feature.geometry.type), ['Point', 'Point', 'LineString']);
+  assert.ok(h.data.features.slice(0, 2).every((feature) => feature.properties?.vertexColor === 'rgb(215, 40, 0)'));
   assert.deepEqual(h.data.features[2].geometry, { type: 'LineString', coordinates: [[5, 60], [6, 60]] });
   h.display.show({ type: 'Polygon', vertices: [[5, 60], [6, 60], [6, 61]] });
   assert.equal(h.data.features.filter((feature) => feature.geometry.type === 'Point').length, 3);
   assert.deepEqual(h.data.features[3].geometry, { type: 'Polygon', coordinates: [[[5, 60], [6, 60], [6, 61], [5, 60]]] });
   assert.deepEqual(h.data.features[4].geometry, { type: 'LineString', coordinates: [[5, 60], [6, 60], [6, 61], [5, 60]] });
-  assert.equal(h.data.features[0].properties?.vertexColor, 'rgb(255, 255, 255)');
+  assert.ok(h.data.features.slice(0, 3).every((feature) => feature.properties?.vertexColor === 'rgb(215, 40, 0)'));
   h.display.show({ type: 'Polygon', vertices: [[5, 60], [6, 60]] });
   assert.equal(h.data.features.length, 3, 'Undo removes the fill and closing edge');
 });
@@ -134,13 +135,17 @@ test('style replacement restores retained geographic geometry; Delete clears dat
   h.display.show({ type: 'Point', vertices: [[5, 60]] });
   h.display.show(null);
   h.map.load();
-  assert.deepEqual(h.data.features, []);
-  h.display.show({ type: 'LineString', vertices: [[5, 60], [6, 61]] });
+  assert.equal(h.data.features.length, 0);
+  h.display.show({ type: 'Polygon', vertices: [[5, 60], [6, 60], [6, 61]] });
   const expected = h.data;
   h.sources.clear();
   h.layers.clear();
   h.map.load();
   assert.deepEqual(h.data, expected);
+  assert.ok(h.data.features.slice(0, 3).every((feature) => feature.properties?.vertexColor === 'rgb(215, 40, 0)'));
+  const restoredFill = [...h.layers.values()].find((layer) => layer.type === 'fill');
+  assert.ok(restoredFill?.type === 'fill');
+  assert.equal(restoredFill.paint?.['fill-color'], 'rgb(215, 40, 0)');
   h.display.show(null);
   assert.deepEqual(h.data.features, []);
 });
@@ -167,17 +172,21 @@ test('teardown removes layers before the source, unregisters listeners, and igno
   assert.equal(h.sources.size, 0);
 });
 
-test('theme changes keep map paint stable and preserve retained coordinates', (t) => {
+test('theme changes refresh drawing colors and preserve retained coordinates', (t) => {
   const h = setup(t);
   h.map.load();
-  h.display.show({ type: 'LineString', vertices: [[5, 60], [6, 61]] });
+  h.display.show({ type: 'Polygon', vertices: [[5, 60], [6, 60], [6, 61]] });
+  h.tokenColors['var(--color-drawing-point)'] = 'rgb(230, 50, 20)';
   h.themeChanged();
-  assert.equal(h.data.features[0].properties?.vertexColor, 'rgb(255, 255, 255)');
+  assert.ok(h.data.features.slice(0, 3).every((feature) => feature.properties?.vertexColor === 'rgb(230, 50, 20)'));
+  const fill = [...h.layers.values()].find((layer) => layer.type === 'fill');
+  assert.ok(fill?.type === 'fill');
+  assert.equal(fill.paint?.['fill-color'], 'rgb(230, 50, 20)');
   const vertex = [...h.layers.values()].find(layer => layer.type === 'circle');
   assert.equal(vertex?.paint?.['circle-stroke-color'], 'rgb(23, 23, 23)');
   h.media.dispatchEvent(new Event('change'));
-  assert.equal(h.data.features[0].properties?.vertexColor, 'rgb(255, 255, 255)');
-  assert.deepEqual(h.data.features[2].geometry, { type: 'LineString', coordinates: [[5, 60], [6, 61]] });
+  assert.equal(h.data.features[0].properties?.vertexColor, 'rgb(230, 50, 20)');
+  assert.deepEqual(h.data.features[3].geometry, { type: 'Polygon', coordinates: [[[5, 60], [6, 60], [6, 61], [5, 60]]] });
   h.display.destroy();
   h.media.dispatchEvent(new Event('change'));
   h.themeChanged();
