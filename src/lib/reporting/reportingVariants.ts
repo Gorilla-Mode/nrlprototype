@@ -1,4 +1,5 @@
 import type { Component } from 'svelte';
+import ObstacleDetailsKeypad from './ObstacleDetailsKeypad.svelte';
 import ObstacleDetails from './ObstacleDetails.svelte';
 import ObstacleReportPanel from './ObstacleReportPanel.svelte';
 import { detailsRoute, additionalInformationRoute, type ReportingVariant } from './reporting.js';
@@ -8,4 +9,5 @@ import type { ReportingVariantProps } from './reportingVariantProps.js';
 export const reportingVariants = [
   { id: 'one-step', label: 'One step', component: ObstacleReportPanel, stepRoutes: [detailsRoute] },
   { id: 'two-step', label: 'Two steps', component: ObstacleDetails, stepRoutes: [detailsRoute, additionalInformationRoute] },
+  { id: 'two-step-keypad', label: 'Two steps — keypad', component: ObstacleDetailsKeypad, stepRoutes: [detailsRoute, additionalInformationRoute] },
 ] as const satisfies readonly (ReportingVariant & { component: Component<ReportingVariantProps> })[];

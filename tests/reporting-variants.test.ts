@@ -3,14 +3,15 @@ import { test } from 'node:test';
 import { createDetailsController, type DetailsHooks, type CompleteReport, type ReportingContext } from '../src/lib/reporting/createDetailsController.js';
 import { ObstacleType } from '../src/lib/reporting/obstacle.js';
 import { reportingSettings, reportingVariantUrl, resolveReportingRoute, detailsRoute, additionalInformationRoute, summaryRoute, type ReportingVariant } from '../src/lib/reporting/reporting.js';
-import { oneStep, twoStep, report } from './helpers/reporting.js';
+import { oneStep, twoStep, twoStepKeypad, report } from './helpers/reporting.js';
 
-const variants = [oneStep, twoStep];
+const variants = [oneStep, twoStep, twoStepKeypad];
 
 test('one-step is the default; explicit variants work independently of the debug UI', () => {
   for (const search of ['', '?reporting=', '?reporting=unregistered', '?debug=true']) {
     assert.deepEqual(reportingSettings(search, variants), { variant: oneStep, debug: false });
   }
+  assert.deepEqual(reportingSettings('?debug=1&reporting=two-step-keypad', variants), { variant: twoStepKeypad, debug: true });
   assert.deepEqual(reportingSettings('?reporting=two-step', variants), { variant: twoStep, debug: false });
   assert.deepEqual(reportingSettings('?debug=1&reporting=two-step&unrelated=kept', variants), { variant: twoStep, debug: true });
 });
@@ -24,6 +25,9 @@ test('routes respect the active variant and required type; absent session data c
   assert.deepEqual(resolveReportingRoute(additionalInformationRoute, oneStep, true, false), { kind: 'details', step: 1, hash: detailsRoute });
   assert.deepEqual(resolveReportingRoute(additionalInformationRoute, twoStep, false, false), { kind: 'details', step: 1, hash: detailsRoute });
   assert.deepEqual(resolveReportingRoute(additionalInformationRoute, twoStep, true, false), { kind: 'details', step: 2, hash: additionalInformationRoute });
+  assert.deepEqual(twoStepKeypad.stepRoutes, twoStep.stepRoutes);
+  assert.deepEqual(resolveReportingRoute(additionalInformationRoute, twoStepKeypad, false, false), { kind: 'details', step: 1, hash: detailsRoute });
+  assert.deepEqual(resolveReportingRoute(additionalInformationRoute, twoStepKeypad, true, false), { kind: 'details', step: 2, hash: additionalInformationRoute });
   for (const hash of [detailsRoute, additionalInformationRoute, summaryRoute]) {
     assert.deepEqual(resolveReportingRoute(hash, null, false, false), { kind: 'map' });
   }
