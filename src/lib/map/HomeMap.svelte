@@ -5,6 +5,7 @@
   import GeometryIcon from './GeometryIcon.svelte';
   import MapCanvas from './MapCanvas.svelte';
   import MapToolbar from './MapToolbar.svelte';
+  import TutorialDialog from './TutorialDialog.svelte';
   import RightMapControls from './RightMapControls.svelte';
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
@@ -13,7 +14,7 @@
   import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
 
-  let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, onfaq, onnotifications, onreports, onsettings,
+  let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, showHelp = false, onfaq, onnotifications, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
@@ -25,6 +26,7 @@
     onselectiondelete?: () => void;
     menuOpen?: boolean;
     visible?: boolean;
+    showHelp?: boolean;
     onfaq: () => void;
     onnotifications: () => void;
     onreports: () => void;
@@ -38,6 +40,16 @@
   let mapWrapper: HTMLElement;
 
   let isLayerFadeOpen = $state(false);
+  let helpOpen = $state(false);
+  $effect(() => {
+    if (!visible || !showHelp) helpOpen = false;
+  });
+
+  async function dismissHelp() {
+    helpOpen = false;
+    await tick();
+    if (visible && showHelp) mapWrapper.querySelector<HTMLButtonElement>('.map-help')?.focus({ preventScroll: true });
+  }
   let mapCanvas: MapCanvas;
   let holdOrigin = $state<HoldOrigin | null>(null);
   let holdPointer = $state<{ x: number; y: number } | null>(null);
@@ -102,6 +114,9 @@
   />
   <MapToolbar
     {menuOpen}
+    {showHelp}
+    {helpOpen}
+    onhelp={() => { isLayerFadeOpen = false; helpOpen = true; }}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
     {drawing}
     onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}
@@ -111,6 +126,10 @@
     {onresumedetails}
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
+
+  {#if helpOpen && visible && showHelp}
+    <TutorialDialog ondismiss={dismissHelp} />
+  {/if}
 
   <MenuDrawer bind:open={menuOpen} {onfaq} {onnotifications} {onsettings} {debugContent}
     ondismiss={() => mapWrapper.querySelector<HTMLButtonElement>('[aria-label="Menu"]')?.focus({ preventScroll: true })} />

@@ -493,7 +493,10 @@
   /* Runtime state updates this percentage through the range input's inline style. */
   --map-slider-position: 0%;
   --map-search-results-max: 30rem;
+  --map-help-size: calc(2 * var(--map-control-size));
+  --map-help-inset-bottom: calc(var(--map-control-inset-bottom) + var(--space-12));
   --map-bottom-toolbar-inset: calc(var(--map-control-inset-bottom) + var(--space-16) + var(--space-4));
+  --map-bottom-toolbar-help-inset: calc(var(--map-help-inset-bottom) + var(--map-help-size) + var(--space-4));
   --map-drawing-fill-opacity: 0.35;
   --map-drawing-line-width: 3px;
   --map-drawing-casing-thickness: 1px;

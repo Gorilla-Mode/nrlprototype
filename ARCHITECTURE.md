@@ -43,6 +43,8 @@ reporting parameter is missing or invalid. Explicit `reporting` overrides requir
 `debug=1`, which also exposes the menu selector. It offers `one-step-keypad`,
 `one-step` (“One step — scrolling”), `two-step` and `two-step-keypad`.
 Combine query parameters with `&` before any route hash.
+The map Help button appears only with both `debug=1` and `help=1`; enabling it does not
+open the tutorial automatically. Other `help` values leave the button hidden.
 Changing the debug selector replaces the current URL and reloads the application,
 clearing the drawing, draft, map view and other session state. Selecting the current
 variant does nothing. The URL keeps its deployment path, unrelated query parameters
