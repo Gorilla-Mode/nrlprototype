@@ -3,7 +3,8 @@ import type { DetailsDraft } from '../../src/lib/reporting/createDetailsControll
 import { detailsRoute, additionalInformationRoute, type ReportingVariant } from '../../src/lib/reporting/reporting.js';
 import type { ReportingVariantProps } from '../../src/lib/reporting/reportingVariantProps.js';
 
-export const oneStep: ReportingVariant = { id: 'one-step', label: 'One step', stepRoutes: [detailsRoute] };
+export const oneStep: ReportingVariant = { id: 'one-step', label: 'One step — scrolling', stepRoutes: [detailsRoute] };
+export const oneStepKeypad: ReportingVariant = { id: 'one-step-keypad', label: 'One step — keypad', stepRoutes: [detailsRoute] };
 export const twoStep: ReportingVariant = { id: 'two-step', label: 'Two steps', stepRoutes: [detailsRoute, additionalInformationRoute] };
 export const twoStepKeypad: ReportingVariant = { id: 'two-step-keypad', label: 'Two steps — keypad', stepRoutes: [detailsRoute, additionalInformationRoute] };
 export const report: Obstacle = {
