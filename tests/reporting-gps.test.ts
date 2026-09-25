@@ -5,7 +5,7 @@ import { createDetailsController, type DetailsHooks, type DetailsPayload, type C
 import { createGeolocationController } from '../src/lib/map/createGeolocationController.js';
 import { reportingSettings, resolveReportingRoute } from '../src/lib/reporting/reporting.js';
 import { ObstacleType, type Obstacle } from '../src/lib/reporting/obstacle.js';
-import { oneStep, twoStep, report } from './helpers/reporting.js';
+import { oneStep, oneStepKeypad, twoStep, twoStepKeypad, report } from './helpers/reporting.js';
 import { position } from './helpers/geolocation.js';
 
 function setup(hooks: DetailsHooks = {}, variant = twoStep) {
@@ -16,7 +16,7 @@ function setup(hooks: DetailsHooks = {}, variant = twoStep) {
   return { controller, settle };
 }
 
-for (const variant of [oneStep, twoStep]) {
+for (const variant of [oneStep, oneStepKeypad, twoStep, twoStepKeypad]) {
   for (const debug of [false, true]) {
     for (const tracking of [false, true]) {
       test(`${variant.id}, debug=${debug}, tracking=${tracking}: details open before reporter GPS, only Finish waits`, async (t) => {
@@ -42,7 +42,7 @@ for (const variant of [oneStep, twoStep]) {
         });
         t.after(() => geolocation.destroy());
         if (tracking) { geolocation.toggle(); watchSuccess(position(6, 61)); }
-        const settings = reportingSettings(`?reporting=${variant.id}${debug ? '&debug=1' : ''}`, [oneStep, twoStep]);
+        const settings = reportingSettings(`?reporting=${variant.id}${debug ? '&debug=1' : ''}`, [oneStep, oneStepKeypad, twoStep, twoStepKeypad]);
         const details = createDetailsController({
           onChange() {}, getHooks: () => ({ onFinish: (payload) => { finished.push(payload); } }),
         });
@@ -59,7 +59,8 @@ for (const variant of [oneStep, twoStep]) {
         assert.equal(details.getState().draft?.report.gps_position, null, 'map tracking is not reporter GPS');
         assert.equal(resolveReportingRoute(variant.stepRoutes[0], details.getState().variant, false, false)?.kind, 'details');
         details.setType(ObstacleType.Bridge);
-        if (variant === twoStep) assert.equal(await details.continue(), true);
+        assert.equal(settings.variant, debug ? variant : oneStepKeypad);
+        if (settings.variant.stepRoutes.length > 1) assert.equal(await details.continue(), true);
         const finish = details.finish();
         assert.equal(details.getState().busy, true);
         assert.equal(await details.finish(), false);

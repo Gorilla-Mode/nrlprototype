@@ -54,14 +54,19 @@ button-height token, while keeping the same dialog dimensions and flex layout.
 This requested exception to the usual minimum target size also scales text and controls
 down in narrow Split View and phone viewports. Type selection never changes typography.
 
-The one-step reporting dialog keeps its fluid width, scrolling body and horizontal
-height picker with optional feet display and numeric keypad. All variants collect the
+The default “One step — keypad” reporting dialog keeps the one-step fluid width and
+scrolling body. Its full-width height button starts at 30 m, shares the footer button
+height token and is disabled while busy or Not present. Both one-step variants retain
+the metres/feet toggle, initially metres. “One step — scrolling” keeps its horizontal
+height picker and optional numeric keypad. All variants collect the
 same metadata and use the same session-only completion summary. Their layouts and picker
-styles remain distinct for user testing. The one-step and two-step keypad views share
+styles remain distinct for user testing. The one-step views and two-step keypad view share
 a numeric modal with a temporary entry; only confirmation updates the draft. Cancel,
 Escape and backdrop dismissal discard edits. The modal traps focus, makes the form
-inert, restores trigger focus on close and scrolls if the available viewport shrinks. The reporting selector appears in the menu only
-with `debug=1`; it does not add a floating map control.
+inert, restores trigger focus on close and scrolls if the available viewport shrinks. Closing
+the form discards any pending edit. The reporting selector and explicit URL overrides
+require `debug=1`; otherwise the keypad default is used. Missing or invalid reporting
+parameters also select that default. All four variants remain available in the debug menu.
 
 ## Visual validation
 

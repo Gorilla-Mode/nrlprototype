@@ -1111,6 +1111,7 @@ button {
   --report-backdrop-blur: 0.75rem;
   --report-panel-max: 32rem;
   --height-keypad-width: 20rem;
+  --report-button-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large));
   --report-height-item-size: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default));
   /* Fluid width: tracks viewport width continuously (no breakpoint jump) between a
      24rem floor around a 375px phone and a 64rem ceiling around a 1440px desktop. */
