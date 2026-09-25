@@ -1,7 +1,7 @@
 export const detailsRoute = '#/Report/details';
 export const additionalInformationRoute = '#/Report/additional-information';
 export const summaryRoute = '#/Report/summary';
-export const defaultReportingVariantId = 'one-step';
+export const defaultReportingVariantId = 'one-step-keypad';
 export const minObstacleHeightMeters = 0;
 export const maxObstacleHeightMeters = 500;
 export const defaultObstacleHeightMeters = 30;
@@ -14,10 +14,11 @@ export interface ReportingVariant {
 
 export function reportingSettings(search: string, variants: readonly ReportingVariant[]) {
   const query = new URLSearchParams(search);
-  const variant = variants.find(({ id }) => id === query.get('reporting'))
+  const debug = query.get('debug') === '1';
+  const variant = variants.find(({ id }) => debug && id === query.get('reporting'))
     ?? variants.find(({ id }) => id === defaultReportingVariantId);
   if (!variant) throw new Error('The default reporting variant must be registered.');
-  return { variant, debug: query.get('debug') === '1' };
+  return { variant, debug };
 }
 
 export function reportingVariantUrl(href: string, variant: ReportingVariant): string {

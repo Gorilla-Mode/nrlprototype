@@ -9,7 +9,7 @@
   import ObstacleTypeIcon from './ObstacleTypeIcon.svelte';
   import { createHeightPickerController } from './createHeightPickerController';
 
-  let { draft, open, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, ondismiss, onsave, onfinish }: ReportingVariantProps = $props();
+  let { heightControl = 'scrolling', draft, open, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, ondismiss, onsave, onfinish }: ReportingVariantProps & { heightControl?: 'scrolling' | 'keypad' } = $props();
   let obstacle = $derived(draft.report);
   let heightUnit = $state<HeightUnit>('m');
   let descriptionEnabled = $state(false);
@@ -124,7 +124,9 @@
   }
 
   function confirmHeightInput(value: number) {
-    heightPicker?.select(Math.round(displayUnitToMeters(value, heightUnit)));
+    const meters = Math.max(minObstacleHeightMeters, Math.min(maxObstacleHeightMeters, Math.round(displayUnitToMeters(value, heightUnit))));
+    if (heightControl === 'keypad') onheight(meters);
+    else heightPicker?.select(meters);
     closeHeightInput();
   }
 
@@ -246,6 +248,11 @@
           {heightUnit}
         </button>
       </div>
+      {#if heightControl === 'keypad'}
+        <button type="button" class="button height-button"
+          aria-label={`Obstacle height: ${formatHeightLabel(draft.height, heightUnit)}. Edit height`} aria-haspopup="dialog"
+          disabled={draft.notPresent || busy} onclick={(event) => openHeightInput(event.currentTarget)}>{formatHeightLabel(draft.height, heightUnit)}</button>
+      {:else}
       <div class="height-picker" aria-disabled={draft.notPresent || busy}>
         <span bind:this={heightSizer} class="height-item selected height-sizer" aria-hidden="true">{formatHeightLabel(maxObstacleHeightMeters, heightUnit)}</span>
         <div class="height-selection" aria-hidden="true"></div>
@@ -278,6 +285,7 @@
           {/each}
         </div>
       </div>
+      {/if}
     </section>
 
     <div class="optional-row" role="group" aria-label="Additional details">
@@ -407,6 +415,8 @@
   }
   .unit-toggle:hover { background: var(--color-map-control-hover); }
 
+  .height-button { width: 100%; font-variant-numeric: tabular-nums; }
+
   .height-picker {
     /* Replaced by the measured widest label, including its unit and padding. */
     --height-item-width: var(--report-height-item-size);
@@ -484,7 +494,7 @@
   .optional-button { min-height: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); font-size: clamp(var(--font-size-caption), 0.706rem + 0.188vw, var(--font-size-body-small)); }
   .height-item { font-size: var(--font-size-body); }
   .height-item.selected { font-size: clamp(var(--font-size-body), 0.912rem + 0.376vw, var(--font-size-heading-small)); }
-  .report-footer .button { min-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large)); }
+  .report-footer .button, .height-button { min-height: var(--report-button-height); }
 
   @media (max-width: 26rem) {
     .type-grid { grid-template-columns: 1fr 1fr; }
