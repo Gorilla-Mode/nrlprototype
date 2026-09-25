@@ -48,14 +48,19 @@ workflow prototype, not an operational navigation product.
 
 The two-step reporting-details dialog follows a 684 × 1064 portrait reference and scales
 uniformly to fit the viewport in either orientation. Only its height wheel and the
-step-2 description textarea scroll; the dialog itself does not.
+step-2 description textarea scroll; the dialog itself does not. The “Two steps — keypad”
+variant replaces the step-1 wheel with a full-width metres button using the footer
+button-height token, while keeping the same dialog dimensions and flex layout.
 This requested exception to the usual minimum target size also scales text and controls
 down in narrow Split View and phone viewports. Type selection never changes typography.
 
 The one-step reporting dialog keeps its fluid width, scrolling body and horizontal
-height picker with optional feet display and numeric keypad. Both variants collect the
+height picker with optional feet display and numeric keypad. All variants collect the
 same metadata and use the same session-only completion summary. Their layouts and picker
-styles remain distinct for user testing. The reporting selector appears in the menu only
+styles remain distinct for user testing. The one-step and two-step keypad views share
+a numeric modal with a temporary entry; only confirmation updates the draft. Cancel,
+Escape and backdrop dismissal discard edits. The modal traps focus, makes the form
+inert, restores trigger focus on close and scrolls if the available viewport shrinks. The reporting selector appears in the menu only
 with `debug=1`; it does not add a floating map control.
 
 ## Visual validation
