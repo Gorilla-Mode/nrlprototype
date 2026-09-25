@@ -16,7 +16,7 @@
   let expandedSegments = $derived(createRadialSegments(items.length, innerRadius, outerRadius + hoverExpansion));
   let hoveredIndex = $derived(getHoveredRadialSegment(pointer, items.length, innerRadius));
   // Set from 0 (black), through 0.5 (original item color), to 1 (white).
-  const RADIAL_LUMA = 0.35;
+  const RADIAL_LUMA = 0.3;
   const boundedLuma = Math.min(1, Math.max(0, RADIAL_LUMA));
   const radialLumaMix = `${Math.abs(boundedLuma - 0.5) * 200}%`;
   const radialLumaTarget = boundedLuma < 0.5 ? 'var(--palette-black)' : 'var(--palette-neutral-0)';

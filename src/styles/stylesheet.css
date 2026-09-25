@@ -506,7 +506,7 @@
   --map-drawing-dash-length: 2;
   --radial-border-width: 1;
   --radial-border-width-selected: 2;
-  --radial-fill-opacity: 0.5;
+  --radial-fill-opacity: 0.7;
   --radial-halo-color: var(--color-background-raised);
   --radial-halo-width: 3px;
   --radial-luma-mix: 0%;
