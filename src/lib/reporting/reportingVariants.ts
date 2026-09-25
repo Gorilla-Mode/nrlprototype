@@ -10,6 +10,6 @@ import type { ReportingVariantProps } from './reportingVariantProps.js';
 export const reportingVariants = [
   { id: 'one-step', label: 'One step — scrolling', component: ObstacleReportPanel, stepRoutes: [detailsRoute] },
   { id: 'one-step-keypad', label: 'One step — keypad', component: ObstacleReportPanelKeypad, stepRoutes: [detailsRoute] },
-  { id: 'two-step', label: 'Two steps', component: ObstacleDetails, stepRoutes: [detailsRoute, additionalInformationRoute] },
+  { id: 'two-step', label: 'Two steps — scrolling', component: ObstacleDetails, stepRoutes: [detailsRoute, additionalInformationRoute] },
   { id: 'two-step-keypad', label: 'Two steps — keypad', component: ObstacleDetailsKeypad, stepRoutes: [detailsRoute, additionalInformationRoute] },
 ] as const satisfies readonly (ReportingVariant & { component: Component<ReportingVariantProps> })[];
