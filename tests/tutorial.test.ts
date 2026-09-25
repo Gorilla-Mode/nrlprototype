@@ -5,7 +5,19 @@ import { test } from 'node:test';
 import type { Component } from 'svelte';
 import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
-import { tutorialBlocks, type TutorialEntry } from '../src/lib/map/tutorial.js';
+import { isTutorialEnabled, tutorialBlocks, type TutorialEntry } from '../src/lib/map/tutorial.js';
+
+test('Help requires both exact debug and help query values, in either order', () => {
+  for (const [search, debug, enabled] of [
+    ['', false, false], ['?help=1', false, false], ['?debug=1', true, false],
+    ['?debug=0&help=1', false, false], ['?debug=true&help=1', false, false],
+    ['?debug=1&help=0', true, false], ['?debug=1&help=true', true, false],
+    ['?debug=1&help=', true, false], ['?debug=1&help=1', true, true],
+    ['?other=x&help=1&debug=1', true, true],
+  ] as const) {
+    assert.equal(isTutorialEnabled(search, debug), enabled, search);
+  }
+});
 
 async function compileComponent(name: string, imports: Record<string, string> = {}) {
   const filename = resolve(`src/lib/map/${name}.svelte`);
