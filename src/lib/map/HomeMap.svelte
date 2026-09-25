@@ -5,6 +5,7 @@
   import GeometryIcon from './GeometryIcon.svelte';
   import MapCanvas from './MapCanvas.svelte';
   import MapToolbar from './MapToolbar.svelte';
+  import TutorialDialog from './TutorialDialog.svelte';
   import RightMapControls from './RightMapControls.svelte';
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
@@ -38,6 +39,16 @@
   let mapWrapper: HTMLElement;
 
   let isLayerFadeOpen = $state(false);
+  let helpOpen = $state(false);
+  $effect(() => {
+    if (!visible) helpOpen = false;
+  });
+
+  async function dismissHelp() {
+    helpOpen = false;
+    await tick();
+    if (visible) mapWrapper.querySelector<HTMLButtonElement>('.map-help')?.focus({ preventScroll: true });
+  }
   let mapCanvas: MapCanvas;
   let holdOrigin = $state<HoldOrigin | null>(null);
   let holdPointer = $state<{ x: number; y: number } | null>(null);
@@ -102,6 +113,8 @@
   />
   <MapToolbar
     {menuOpen}
+    {helpOpen}
+    onhelp={() => { isLayerFadeOpen = false; helpOpen = true; }}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
     {drawing}
     onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}
@@ -111,6 +124,10 @@
     {onresumedetails}
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
+
+  {#if helpOpen && visible}
+    <TutorialDialog ondismiss={dismissHelp} />
+  {/if}
 
   <MenuDrawer bind:open={menuOpen} {onfaq} {onnotifications} {onsettings} {debugContent}
     ondismiss={() => mapWrapper.querySelector<HTMLButtonElement>('[aria-label="Menu"]')?.focus({ preventScroll: true })} />
