@@ -18,6 +18,7 @@
 /* 1. Base colours */
 :root {
   --palette-neutral-0: #ffffff;
+  --palette-black: #000000;
   --palette-neutral-50: #f6f8f7;
   --palette-neutral-100: #edf1ef;
   --palette-neutral-200: #dbe2de;
@@ -492,7 +493,10 @@
   /* Runtime state updates this percentage through the range input's inline style. */
   --map-slider-position: 0%;
   --map-search-results-max: 30rem;
+  --map-help-size: calc(2 * var(--map-control-size));
+  --map-help-inset-bottom: calc(var(--map-control-inset-bottom) + var(--space-12));
   --map-bottom-toolbar-inset: calc(var(--map-control-inset-bottom) + var(--space-16) + var(--space-4));
+  --map-bottom-toolbar-help-inset: calc(var(--map-help-inset-bottom) + var(--map-help-size) + var(--space-4));
   --map-drawing-fill-opacity: 0.35;
   --map-drawing-line-width: 3px;
   --map-drawing-casing-thickness: 1px;
@@ -502,8 +506,11 @@
   --map-drawing-dash-length: 2;
   --radial-border-width: 1;
   --radial-border-width-selected: 2;
-  --radial-surface: var(--color-background-raised);
-  --radial-tint-strength: 12%;
+  --radial-fill-opacity: 0.7;
+  --radial-halo-color: var(--color-background-raised);
+  --radial-halo-width: 3px;
+  --radial-luma-mix: 0%;
+  --radial-luma-target: var(--palette-neutral-0);
 }
 
 .button--danger { color: var(--color-status-error); }
@@ -1110,6 +1117,8 @@ button {
   --report-backdrop: var(--color-background-scrim);
   --report-backdrop-blur: 0.75rem;
   --report-panel-max: 32rem;
+  --height-keypad-width: 20rem;
+  --report-button-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large));
   --report-height-item-size: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default));
   /* Fluid width: tracks viewport width continuously (no breakpoint jump) between a
      24rem floor around a 375px phone and a 64rem ceiling around a 1440px desktop. */

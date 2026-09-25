@@ -18,8 +18,10 @@ const iconUrl = await compileSvelteComponent('src/lib/reporting/ObstacleTypeIcon
   './obstacle': obstacleModuleUrl,
 });
 
+const keypad = await compileSvelteComponent('src/lib/reporting/HeightKeypad.svelte');
 const panelUrl = await compileSvelteComponent('src/lib/reporting/ObstacleReportPanel.svelte', {
   './obstacle': obstacleModuleUrl,
+  './HeightKeypad.svelte': keypad,
   './obstacleReportDraft': draftModuleUrl,
   './ObstacleTypeIcon.svelte': iconUrl,
   './createDetailsController': new URL('../src/lib/reporting/createDetailsController.js', import.meta.url).href,
@@ -30,6 +32,35 @@ const panelUrl = await compileSvelteComponent('src/lib/reporting/ObstacleReportP
 type PanelProps = ReportingVariantProps;
 
 const { default: ObstacleReportPanel } = await import(panelUrl) as { default: Component<PanelProps> };
+
+const keypadPanelUrl = await compileSvelteComponent('src/lib/reporting/ObstacleReportPanelKeypad.svelte', {
+  './ObstacleReportPanel.svelte': panelUrl,
+});
+const { default: KeypadPanel } = await import(keypadPanelUrl) as { default: Component<PanelProps> };
+
+test('one-step keypad shows canonical height and units without a scrolling selector', () => {
+  for (const height of [0, 30, 500]) {
+    const html = render(KeypadPanel, { props: viewProps(makeDraft({ height })) }).body;
+    assert.match(html, new RegExp(`>${height} m</button>`));
+    assert.match(html, /aria-haspopup="dialog"/);
+    assert.match(html, /aria-label="Toggle height unit"/);
+    assert.doesNotMatch(html, /role="listbox"|role="option"|class="height-keypad/);
+  }
+});
+
+test('one-step keypad disables height while busy or Not present', () => {
+  for (const props of [viewProps(makeDraft(), { busy: true }), viewProps(makeDraft({ notPresent: true }))]) {
+    const html = render(KeypadPanel, { props }).body;
+    assert.match(html, /class="button height-button[^>]*disabled/);
+  }
+});
+
+test('original one-step presentation still defaults to the scrolling selector', () => {
+  const html = render(ObstacleReportPanel, { props: viewProps(makeDraft()) }).body;
+  assert.match(html, /role="listbox"/);
+  assert.match(html, /aria-selected="true"/);
+  assert.doesNotMatch(html, /height-button/);
+});
 
 function obstacleWith(geometry: ObstacleGeometry): Obstacle {
   return {

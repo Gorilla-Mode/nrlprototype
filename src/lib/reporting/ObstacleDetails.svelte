@@ -1,14 +1,22 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import HeightKeypad from './HeightKeypad.svelte';
+  import { maxObstacleHeightMeters } from './reporting';
   import HeightWheel from './HeightWheel.svelte';
   import { illuminationLabels, maxPhotos } from './createDetailsController';
   import { obstacleGeometryChoices, obstacleTypeChoices } from './obstacle';
   import ObstacleTypeIcon from './ObstacleTypeIcon.svelte';
   import type { ReportingVariantProps } from './reportingVariantProps';
 
-  let { draft, open, step, totalSteps, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, onsave, oncontinue, onfinish, ondismiss }: ReportingVariantProps = $props();
+  let { heightControl = 'wheel', draft, open, step, totalSteps, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, onsave, oncontinue, onfinish, ondismiss }: ReportingVariantProps & { heightControl?: 'wheel' | 'keypad' } = $props();
   let dialog: HTMLDialogElement;
   let heading: HTMLHeadingElement;
+  let heightTrigger = $state<HTMLButtonElement>();
+  let heightInputOpen = $state(false);
+  function closeHeightInput() {
+    heightInputOpen = false;
+    void tick().then(() => { if (open && step === 1) heightTrigger?.focus({ preventScroll: true }); });
+  }
   let attachmentInput = $state<HTMLInputElement>();
   let cameraInput = $state<HTMLInputElement>();
   function selectPhotos(event: Event & { currentTarget: HTMLInputElement }) {
@@ -19,6 +27,7 @@
   let visibleStep = $derived(open ? step : null);
   $effect(() => {
     let cancelled = false;
+    heightInputOpen = false;
     if (visibleStep !== null) {
       if (!dialog.open) dialog.showModal();
       void tick().then(() => { if (!cancelled) heading?.focus({ preventScroll: true }); });
@@ -40,7 +49,7 @@
   oncancel={(event) => { event.preventDefault(); ondismiss(); }}
   onpointerdown={(event) => { pointerOnBackdrop = outside(event); }}
   onclick={(event) => { if (pointerOnBackdrop && outside(event)) ondismiss(); pointerOnBackdrop = false; }}>
-  <div class="details-layout">
+  <div class="details-layout" inert={heightInputOpen}>
   <header>
     <div class="heading-row">
       <h1 bind:this={heading} id="details-title" tabindex="-1">{step === 1 ? 'Obstacle Details' : 'Additional Information'}</h1>
@@ -74,7 +83,13 @@
     </fieldset>
     <section aria-labelledby="height-title">
       <h2 id="height-title">Approx Height - Required</h2>
-      <HeightWheel value={draft.height} disabled={draft.notPresent || busy} onchange={onheight} />
+      {#if heightControl === 'keypad'}
+        <button bind:this={heightTrigger} type="button" class="button height-button"
+          aria-label={`Obstacle height: ${draft.height} metres. Edit height`} aria-haspopup="dialog"
+          disabled={draft.notPresent || busy} onclick={() => { heightInputOpen = true; }}>{draft.height} m</button>
+      {:else}
+        <HeightWheel value={draft.height} disabled={draft.notPresent || busy} onchange={onheight} />
+      {/if}
     </section>
     <section aria-labelledby="options-title">
       <h2 id="options-title">Options - Optional</h2>
@@ -146,6 +161,10 @@
     </div>
   </footer>
   </div>
+  {#if heightInputOpen && open && step === 1 && !busy && !draft.notPresent}
+    <HeightKeypad value={draft.height} max={maxObstacleHeightMeters}
+      onconfirm={(value) => { onheight(value); closeHeightInput(); }} oncancel={closeHeightInput} />
+  {/if}
 </dialog>
 
 <style>
@@ -160,6 +179,7 @@
   p { margin: 0; color: var(--color-text-secondary); font-size: var(--details-caption-size); line-height: var(--line-height-body); }
   #details-step { white-space: nowrap; }
   .button { min-height: var(--details-button-height); padding-inline: var(--details-small-gap); gap: var(--details-icon-gap); border: var(--details-border); border-radius: var(--details-control-radius); font-size: inherit; }
+  .height-button { width: 100%; font-variant-numeric: tabular-nums; }
   .button:focus-visible { outline-offset: var(--details-focus-offset); }
   .button.close { width: var(--details-close-size); min-height: var(--details-close-size); padding: 0; flex: none; border: 0; }
   svg { width: var(--details-icon-size); height: var(--details-icon-size); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; flex: none; }

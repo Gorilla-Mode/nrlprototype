@@ -3,16 +3,19 @@ import { test } from 'node:test';
 import { createDetailsController, type DetailsHooks, type CompleteReport, type ReportingContext } from '../src/lib/reporting/createDetailsController.js';
 import { ObstacleType } from '../src/lib/reporting/obstacle.js';
 import { reportingSettings, reportingVariantUrl, resolveReportingRoute, detailsRoute, additionalInformationRoute, summaryRoute, type ReportingVariant } from '../src/lib/reporting/reporting.js';
-import { oneStep, twoStep, report } from './helpers/reporting.js';
+import { oneStep, oneStepKeypad, twoStep, twoStepKeypad, report } from './helpers/reporting.js';
 
-const variants = [oneStep, twoStep];
+const variants = [oneStep, oneStepKeypad, twoStep, twoStepKeypad];
 
-test('one-step is the default; explicit variants work independently of the debug UI', () => {
-  for (const search of ['', '?reporting=', '?reporting=unregistered', '?debug=true']) {
-    assert.deepEqual(reportingSettings(search, variants), { variant: oneStep, debug: false });
+test('one-step keypad is the default; only debug=1 permits explicit variants', () => {
+  for (const debug of ['', '?debug=0', '?debug=true', '?debug=1']) {
+    for (const parameter of ['', '&reporting=', '&reporting=unregistered', ...variants.map(({ id }) => `&reporting=${id}`)]) {
+      const search = `${debug || '?'}${parameter}`;
+      const enabled = debug === '?debug=1';
+      const selected = enabled ? variants.find(({ id }) => parameter === `&reporting=${id}`) : undefined;
+      assert.deepEqual(reportingSettings(search, variants), { variant: selected ?? oneStepKeypad, debug: enabled }, search);
+    }
   }
-  assert.deepEqual(reportingSettings('?reporting=two-step', variants), { variant: twoStep, debug: false });
-  assert.deepEqual(reportingSettings('?debug=1&reporting=two-step&unrelated=kept', variants), { variant: twoStep, debug: true });
 });
 
 test('switching updates only the variant parameter and preserves deployment paths, other parameters and the route', () => {
@@ -24,6 +27,11 @@ test('routes respect the active variant and required type; absent session data c
   assert.deepEqual(resolveReportingRoute(additionalInformationRoute, oneStep, true, false), { kind: 'details', step: 1, hash: detailsRoute });
   assert.deepEqual(resolveReportingRoute(additionalInformationRoute, twoStep, false, false), { kind: 'details', step: 1, hash: detailsRoute });
   assert.deepEqual(resolveReportingRoute(additionalInformationRoute, twoStep, true, false), { kind: 'details', step: 2, hash: additionalInformationRoute });
+  assert.deepEqual(oneStepKeypad.stepRoutes, oneStep.stepRoutes);
+  assert.deepEqual(resolveReportingRoute(additionalInformationRoute, oneStepKeypad, true, false), { kind: 'details', step: 1, hash: detailsRoute });
+  assert.deepEqual(twoStepKeypad.stepRoutes, twoStep.stepRoutes);
+  assert.deepEqual(resolveReportingRoute(additionalInformationRoute, twoStepKeypad, false, false), { kind: 'details', step: 1, hash: detailsRoute });
+  assert.deepEqual(resolveReportingRoute(additionalInformationRoute, twoStepKeypad, true, false), { kind: 'details', step: 2, hash: additionalInformationRoute });
   for (const hash of [detailsRoute, additionalInformationRoute, summaryRoute]) {
     assert.deepEqual(resolveReportingRoute(hash, null, false, false), { kind: 'map' });
   }
@@ -101,7 +109,7 @@ for (const variant of variants) {
 
 test('a registered third flow can navigate and finish at its own final step', async () => {
   const third: ReportingVariant = { id: 'three-step', label: 'Three steps', stepRoutes: [detailsRoute, additionalInformationRoute, '#/Report/review'] };
-  assert.equal(reportingSettings('?reporting=three-step', [...variants, third]).variant, third);
+  assert.equal(reportingSettings('?debug=1&reporting=three-step', [...variants, third]).variant, third);
   const controller = createDetailsController({ onChange: () => {}, getHooks: () => ({ onFinish: () => {} }) });
   controller.begin(report, third);
   controller.setType(ObstacleType.Bridge);

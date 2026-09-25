@@ -5,10 +5,11 @@
   import { maxPhotos, type Illumination } from './createDetailsController';
   import { minObstacleHeightMeters, maxObstacleHeightMeters } from './reporting';
   import type { ReportingVariantProps } from './reportingVariantProps';
+  import HeightKeypad from './HeightKeypad.svelte';
   import ObstacleTypeIcon from './ObstacleTypeIcon.svelte';
   import { createHeightPickerController } from './createHeightPickerController';
 
-  let { draft, open, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, ondismiss, onsave, onfinish }: ReportingVariantProps = $props();
+  let { heightControl = 'scrolling', draft, open, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, ondismiss, onsave, onfinish }: ReportingVariantProps & { heightControl?: 'scrolling' | 'keypad' } = $props();
   let obstacle = $derived(draft.report);
   let heightUnit = $state<HeightUnit>('m');
   let descriptionEnabled = $state(false);
@@ -35,8 +36,6 @@
     takePhoto: 'M4 8h3l2-2h6l2 2h3v11H4ZM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
     notPresent: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM5 5l14 14',
     pin: 'M12 21s-7-4.35-7-10a7 7 0 0 1 14 0c0 5.65-7 10-7 10Z',
-    backspace: 'M8 6h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8l-5-6 5-6ZM12 10l4 4M16 10l-4 4',
-    confirm: 'M5 13l4 4L19 7',
   };
 
   const heightValues = Array.from(
@@ -69,8 +68,6 @@
   let heightSizer: HTMLSpanElement;
   let heightPicker = $state<ReturnType<typeof createHeightPickerController>>();
   let heightInputOpen = $state(false);
-  let heightInputValue = $state('');
-  let heightInputField = $state<HTMLInputElement>();
 
   onMount(() => {
     return () => {
@@ -108,20 +105,16 @@
   $effect(() => {
     const picker = heightPicker;
     const value = draft.height;
-    if (!open || busy || draft.notPresent) {
+    if (!open || busy || draft.notPresent || heightInputOpen) {
       untrack(() => picker?.stop());
       return;
     }
     untrack(() => picker?.sync(value));
   });
 
-  $effect(() => {
-    if (heightInputOpen) heightInputField?.focus();
-  });
-
   function openHeightInput(trigger: HTMLButtonElement) {
+    heightPicker?.stop();
     heightTrigger = trigger;
-    heightInputValue = String(metersToDisplayUnit(draft.height, heightUnit));
     heightInputOpen = true;
   }
 
@@ -130,18 +123,10 @@
     void tick().then(() => { if (open) (heightItems.get(draft.height) ?? heightTrigger)?.focus({ preventScroll: true }); });
   }
 
-  function appendHeightDigit(digit: string) {
-    if (heightInputValue.length >= String(metersToDisplayUnit(maxObstacleHeightMeters, heightUnit)).length) return;
-    heightInputValue += digit;
-  }
-
-  function backspaceHeightDigit() {
-    heightInputValue = heightInputValue.slice(0, -1);
-  }
-
-  function confirmHeightInput() {
-    const parsed = Number.parseInt(heightInputValue, 10);
-    if (Number.isFinite(parsed)) heightPicker?.select(Math.round(displayUnitToMeters(parsed, heightUnit)));
+  function confirmHeightInput(value: number) {
+    const meters = Math.max(minObstacleHeightMeters, Math.min(maxObstacleHeightMeters, Math.round(displayUnitToMeters(value, heightUnit))));
+    if (heightControl === 'keypad') onheight(meters);
+    else heightPicker?.select(meters);
     closeHeightInput();
   }
 
@@ -263,6 +248,11 @@
           {heightUnit}
         </button>
       </div>
+      {#if heightControl === 'keypad'}
+        <button type="button" class="button height-button"
+          aria-label={`Obstacle height: ${formatHeightLabel(draft.height, heightUnit)}. Edit height`} aria-haspopup="dialog"
+          disabled={draft.notPresent || busy} onclick={(event) => openHeightInput(event.currentTarget)}>{formatHeightLabel(draft.height, heightUnit)}</button>
+      {:else}
       <div class="height-picker" aria-disabled={draft.notPresent || busy}>
         <span bind:this={heightSizer} class="height-item selected height-sizer" aria-hidden="true">{formatHeightLabel(maxObstacleHeightMeters, heightUnit)}</span>
         <div class="height-selection" aria-hidden="true"></div>
@@ -295,6 +285,7 @@
           {/each}
         </div>
       </div>
+      {/if}
     </section>
 
     <div class="optional-row" role="group" aria-label="Additional details">
@@ -375,51 +366,10 @@
   </footer>
   </div>
 
-  {#if heightInputOpen}
-    <!-- Click-to-dismiss is a pointer convenience only; Escape (handled on the input) and the
-         visible Cancel button already give keyboard users the same outcome. -->
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="height-keypad-overlay"
-      onclick={(event) => { if (event.target === event.currentTarget) closeHeightInput(); }}
-    >
-      <div class="height-keypad" role="dialog" aria-modal="true" aria-label="Enter obstacle height">
-        <div class="height-keypad-display-row">
-          <input
-            class="height-keypad-display"
-            type="text"
-            inputmode="numeric"
-            pattern="[0-9]*"
-            aria-label="Obstacle height value"
-            value={heightInputValue}
-            bind:this={heightInputField}
-            oninput={(event) => { heightInputValue = event.currentTarget.value.replace(/\D/g, '').slice(0, String(metersToDisplayUnit(maxObstacleHeightMeters, heightUnit)).length); }}
-onkeydown={(event) => {
-  if (event.key === 'Enter') confirmHeightInput();
-  if (event.key === 'Escape') { event.preventDefault(); closeHeightInput(); }
-}}
-          />
-          <span class="height-keypad-unit">{heightUnit}</span>
-        </div>
-        <div class="height-keypad-grid">
-          {#each ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as digit}
-            <button type="button" class="keypad-key" onclick={() => appendHeightDigit(digit)}>{digit}</button>
-          {/each}
-          <button type="button" class="keypad-key keypad-key--action" aria-label="Backspace" onclick={backspaceHeightDigit}>
-            <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.backspace} /></svg>
-          </button>
-          <button type="button" class="keypad-key" onclick={() => appendHeightDigit('0')}>0</button>
-          <button type="button" class="keypad-key keypad-key--confirm" aria-label="Confirm height" onclick={confirmHeightInput}>
-            <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.confirm} /></svg>
-          </button>
-        </div>
-        <div class="height-keypad-actions">
-          <button type="button" class="button" onclick={closeHeightInput}>Cancel</button>
-          <button type="button" class="button button--primary" disabled={heightInputValue === ''} onclick={confirmHeightInput}>Set height</button>
-        </div>
-      </div>
-    </div>
+  {#if heightInputOpen && open && !busy && !draft.notPresent}
+    <HeightKeypad value={metersToDisplayUnit(draft.height, heightUnit)} unit={heightUnit}
+      max={metersToDisplayUnit(maxObstacleHeightMeters, heightUnit)}
+      onconfirm={confirmHeightInput} oncancel={closeHeightInput} />
   {/if}
 </dialog>
 
@@ -464,6 +414,8 @@ onkeydown={(event) => {
     font-size: var(--font-size-caption); font-weight: var(--font-weight-semibold); text-transform: uppercase; cursor: pointer;
   }
   .unit-toggle:hover { background: var(--color-map-control-hover); }
+
+  .height-button { width: 100%; font-variant-numeric: tabular-nums; }
 
   .height-picker {
     /* Replaced by the measured widest label, including its unit and padding. */
@@ -531,42 +483,6 @@ onkeydown={(event) => {
   .report-footer { display: flex; gap: var(--space-3); }
   .report-footer .button { flex: 1; }
 
-  .height-keypad-overlay {
-    position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; padding: var(--space-4);
-    background: var(--report-backdrop); backdrop-filter: blur(var(--report-backdrop-blur));
-    -webkit-backdrop-filter: blur(var(--report-backdrop-blur)); border-radius: inherit;
-  }
-  .height-keypad {
-    display: flex; flex-direction: column; gap: var(--space-4); width: min(100%, 20rem);
-    padding: var(--space-4); border: var(--border-default); border-radius: var(--radius-dialog);
-    background: var(--color-background-raised); box-shadow: var(--shadow-surface);
-  }
-  .height-keypad-display-row {
-    display: flex; align-items: baseline; justify-content: center; gap: var(--space-2);
-    padding: var(--space-3); border: var(--border-default); border-radius: var(--radius-control);
-    background: var(--color-background-subtle);
-  }
-  .height-keypad-display {
-    width: 6ch; border: 0; background: transparent; color: var(--color-text-primary);
-    font-size: var(--font-size-display); font-weight: var(--font-weight-semibold); text-align: center;
-  }
-  .height-keypad-display:focus-visible { outline: none; }
-  .height-keypad-unit {
-    color: var(--color-text-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold);
-    text-transform: uppercase;
-  }
-  .height-keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
-  .keypad-key {
-    min-height: var(--control-height-large); border: var(--border-default); border-radius: var(--radius-control);
-    background: var(--color-background-subtle); color: var(--color-text-primary); cursor: pointer;
-    font-size: var(--font-size-heading-small); font-weight: var(--font-weight-medium);
-    display: grid; place-items: center;
-  }
-  .keypad-key:hover { background: var(--color-map-control-hover); }
-  .keypad-key--confirm { border-color: var(--color-action-primary); color: var(--color-action-primary); }
-  .height-keypad-actions { display: flex; gap: var(--space-3); }
-  .height-keypad-actions .button { flex: 1; }
-
   /* Fluid scaling: every value below ramps continuously between its 375px-viewport
      token and its 1440px-viewport token, so nothing snaps at a breakpoint — it tracks
      the viewport the same way --report-panel-width/--report-panel-height do above. */
@@ -578,7 +494,7 @@ onkeydown={(event) => {
   .optional-button { min-height: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default)); font-size: clamp(var(--font-size-caption), 0.706rem + 0.188vw, var(--font-size-body-small)); }
   .height-item { font-size: var(--font-size-body); }
   .height-item.selected { font-size: clamp(var(--font-size-body), 0.912rem + 0.376vw, var(--font-size-heading-small)); }
-  .report-footer .button { min-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large)); }
+  .report-footer .button, .height-button { min-height: var(--report-button-height); }
 
   @media (max-width: 26rem) {
     .type-grid { grid-template-columns: 1fr 1fr; }

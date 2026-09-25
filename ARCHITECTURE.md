@@ -31,9 +31,20 @@ Unsupported routes must fall back safely without inventing pages or persisted st
 label, component and ordered step routes. Views implement `ReportingVariantProps` and
 share `createDetailsController` for metadata, validation, draft actions and completion.
 To add another flow, add its view and registry entry; keep map drawing and GPS separate.
+The keypad wrappers reuse ObstacleReportPanel or ObstacleDetails and their routes,
+selecting internal height-control options whose defaults remain scrolling and wheel.
+HeightKeypad owns temporary input and modal focus. One-step keypad converts confirmed
+input to whole metres, bounds it to 0–500 and applies it directly through onheight,
+independently of the scrolling controller. Both one-step variants support feet display
+and entry; two-step keypad uses metres only.
 
-One-step is the default. `?reporting=one-step` and `?reporting=two-step` select a flow;
-`?debug=1` exposes the menu selector. Combine them with `&` before any route hash.
+“One step — keypad” (`one-step-keypad`) is the default when debug is off or the
+reporting parameter is missing or invalid. Explicit `reporting` overrides require
+`debug=1`, which also exposes the menu selector. It offers `one-step-keypad`,
+`one-step` (“One step — scrolling”), `two-step` and `two-step-keypad`.
+Combine query parameters with `&` before any route hash.
+The map Help button appears only with both `debug=1` and `help=1`; enabling it does not
+open the tutorial automatically. Other `help` values leave the button hidden.
 Changing the debug selector replaces the current URL and reloads the application,
 clearing the drawing, draft, map view and other session state. Selecting the current
 variant does nothing. The URL keeps its deployment path, unrelated query parameters
@@ -52,7 +63,7 @@ late callbacks, and leaving details during the GPS wait cancels that Finish atte
 App supplies session-only Save Draft and Finish handlers, awaiting optional external
 `onSaveDraft(payload, reason)` and `onFinish(report, { variantId })` hooks. Existing
 one-argument Finish callbacks remain compatible. `onContinue` is an intermediate hook.
-Both views use canonical metres, the same six obstacle types, and original photo files.
+All views use canonical metres, the same six obstacle types, and original photo files.
 Absent-obstacle results omit height and illumination; Other alone includes custom type.
 
 Close and successful Save Draft return to the map with Resume details. Delete discards

@@ -12,6 +12,11 @@ Verify changes with npm run check, npm test and npm run build. No lint script is
 
 Deployed prototype: https://gorilla-mode.github.io/nrlprototype/
 
+| Mode | Link |
+| --- | --- |
+| Debug mode | [Open debug mode](https://gorilla-mode.github.io/nrlprototype/?debug=1) |
+| Debug mode with Help | [Open debug mode with Help](https://gorilla-mode.github.io/nrlprototype/?debug=1&help=1) |
+
 ## Current workflow
 
 Search for a place/address, adjust map layers, or locate yourself. Hold and drag on the
