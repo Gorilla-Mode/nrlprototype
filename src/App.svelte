@@ -9,6 +9,7 @@
   import { isReportsHash, reportsRoute } from './lib/reports/reports';
   import { isNotificationsHash, markAllRead, notificationsRoute, sampleNotifications, type ReportStatusNotification } from './lib/notifications/notifications';
   import type { GeolocationState } from './lib/map/createGeolocationController';
+  import { isTutorialEnabled } from './lib/map/tutorial';
   import { createDetailsController, initialDetailsState, type DetailsHooks, type DetailsState } from './lib/reporting/createDetailsController';
   import { reportingSettings, reportingVariantUrl, resolveReportingRoute, summaryRoute } from './lib/reporting/reporting';
   import { reportingVariants } from './lib/reporting/reportingVariants';
@@ -31,8 +32,7 @@
   let hash = $state(typeof window !== 'undefined' ? window.location.hash : '');
   let search = $state(typeof window !== 'undefined' ? window.location.search : '');
   let reporting = $derived(reportingSettings(search, reportingVariants));
-  // The help button must always be reachable so pilots can find guidance during user testing.
-  let showHelp = true;
+  let showHelp = $derived(isTutorialEnabled(search, reporting.debug));
   let ActiveReportingView = $derived(reportingVariants.find(({ id }) => id === details.variant?.id)?.component);
   let faqOpen = $derived(hash === '#/FAQ');
   let reportsOpen = $derived(isReportsHash(hash));
