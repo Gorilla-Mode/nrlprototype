@@ -77,9 +77,12 @@ test('many long blocks render in list order without truncation or a count limit'
   }
 });
 
-test('the default tutorial provides two clearly labeled placeholders with unique IDs', () => {
-  assert.equal(tutorialBlocks.length, 2);
-  assert.equal(new Set(tutorialBlocks.map(({ id }) => id)).size, 2);
-  for (const block of tutorialBlocks) assert.match(block.header, /Placeholder/);
-  assert.equal((body().match(/<section/g) ?? []).length, 2);
+test('the default tutorial provides real guidance blocks with unique IDs and no placeholder text', () => {
+  assert.ok(tutorialBlocks.length > 0);
+  assert.equal(new Set(tutorialBlocks.map(({ id }) => id)).size, tutorialBlocks.length);
+  for (const block of tutorialBlocks) {
+    assert.doesNotMatch(block.header, /Placeholder/i);
+    assert.doesNotMatch(block.answer, /Placeholder/i);
+  }
+  assert.equal((body().match(/<section/g) ?? []).length, tutorialBlocks.length);
 });
