@@ -9,13 +9,15 @@
   import RightMapControls from './RightMapControls.svelte';
   import ErrorReportCircle from './ErrorReportCircle.svelte';
   import ErrorReportToolbar from './ErrorReportToolbar.svelte';
+  import PositionCorrectionToolbar from './PositionCorrectionToolbar.svelte';
   import ErrorReportPanel from '../obstacles/ErrorReportPanel.svelte';
-  import type { ErrorReport } from '../obstacles/errorReport';
+  import type { ErrorReport, PositionChoice } from '../obstacles/errorReport';
+  import { distanceM, minimumMoveM, moveParts, type GeoPosition } from '../obstacles/position';
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
-  import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
+  import { obstacleGeometryChoices, type GeographicVertex, type Obstacle } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius, obstacleMenuOuterRadius } from './createMapDrawingInteraction';
   import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
 
@@ -52,6 +54,15 @@
   let registeredObstacles = $state.raw<RegisteredObstacle[]>([]);
   let errorCircle = $state<ScreenPoint | null>(null);
   let errorMatch = $state.raw<RegisteredObstacle | null>(null);
+  let errorCirclePosition = $state.raw<GeographicVertex | null>(null);
+  // Set while the report form is hidden and the circle picks the obstacle's correct position.
+  let positionPick = $state<{ editing: boolean } | null>(null);
+  let positionDragging = $state(false);
+  let positionPanelHeight = $state(0);
+  let errorPanel = $state<ErrorReportPanel>();
+  let pickedPosition = $derived<GeoPosition | null>(
+    positionPick && errorCirclePosition ? { lng: errorCirclePosition[0], lat: errorCirclePosition[1] } : null);
+  let pickedDistanceM = $derived(selectedObstacle && pickedPosition ? distanceM(selectedObstacle, pickedPosition) : 0);
   let reportSent = $state(false);
   let reportSentTimer: ReturnType<typeof setTimeout> | undefined;
   onMount(() => {
@@ -70,6 +81,28 @@
     if (!errorMatch) return;
     selectedObstacle = errorMatch;
     console.log('Selected obstacle for error report:', errorMatch);
+  }
+
+  // The toggle stays reachable while picking; turning the mode off abandons the whole report.
+  $effect(() => {
+    if (errorReportMode) return;
+    positionPick = null;
+    selectedObstacle = null;
+  });
+
+  async function pickPosition({ selected, position }: { selected: boolean; position: GeoPosition | null }) {
+    if (!selectedObstacle) return;
+    const origin: GeographicVertex = [selectedObstacle.lng, selectedObstacle.lat];
+    positionPick = { editing: selected };
+    mapCanvas?.startPositionCorrection(origin, position ? [position.lng, position.lat] : origin);
+    await tick();
+    mapWrapper.querySelector<HTMLElement>('.error-report-circle')?.focus({ preventScroll: true });
+  }
+
+  function finishPositionPick(choice: PositionChoice) {
+    mapCanvas?.endPositionCorrection();
+    positionPick = null;
+    errorPanel?.applyPosition(choice);
   }
 
   function finishErrorReport(report: ErrorReport) {
@@ -145,6 +178,7 @@
       innerRadius={obstacleMenuInnerRadius}
       outerRadius={obstacleMenuOuterRadius}
       icon={errorReportIcon}
+      handle={positionPick ? { dragging: positionDragging } : null}
       onmove={(x, y) => mapCanvas?.moveErrorCircle(x, y)}
     />
   {/if}
@@ -154,6 +188,9 @@
     bind:grayscale={isGrayscale}
     bind:errorReportMode
     errorReportDisabled={drawing.status !== 'idle'}
+    zoomControls={!!positionPick}
+    onzoomin={() => mapCanvas?.zoomIn()}
+    onzoomout={() => mapCanvas?.zoomOut()}
     {geolocationState}
     ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
   />
@@ -164,7 +201,9 @@
     grayscale={isGrayscale}
     holdMode={errorReportMode ? 'error-report' : 'obstacle'}
     {registeredObstacles}
-    onerrorcirclechange={(center, match) => { errorCircle = center; errorMatch = match; }}
+    bottomInset={positionPick ? positionPanelHeight : 0}
+    onerrorcirclechange={(center, match, position) => { errorCircle = center; errorMatch = match; errorCirclePosition = position; }}
+    onpositiondragchange={(dragging) => { positionDragging = dragging; }}
     onmapclick={handleMapClick}
     ongeolocationstatechange={handleGeolocationStateChange}
     onaccuracychange={(value) => { accuracy = value; }}
@@ -188,13 +227,27 @@
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
 
-  {#if errorReportMode}
+  {#if errorReportMode && positionPick && selectedObstacle}
+    <PositionCorrectionToolbar
+      bind:height={positionPanelHeight}
+      newPosition={pickedPosition}
+      registered={selectedObstacle}
+      move={pickedPosition ? moveParts(selectedObstacle, pickedPosition) : null}
+      canConfirm={pickedDistanceM >= minimumMoveM}
+      editing={positionPick.editing}
+      oncancel={() => finishPositionPick({ kind: 'cancel' })}
+      onconfirm={() => { if (pickedPosition) finishPositionPick({ kind: 'set', position: pickedPosition }); }}
+      onunknown={() => finishPositionPick({ kind: 'unknown' })}
+      onremove={() => finishPositionPick({ kind: 'remove' })}
+    />
+  {:else if errorReportMode}
     <ErrorReportToolbar placed={!!errorCircle} match={errorMatch} oncancel={endErrorReport} onselect={selectErrorObstacle} />
   {/if}
 
   {#if selectedObstacle}
     {#key selectedObstacle.id}
-      <ErrorReportPanel obstacle={selectedObstacle} ondismiss={() => { selectedObstacle = null; }} onfinish={finishErrorReport} />
+      <ErrorReportPanel bind:this={errorPanel} obstacle={selectedObstacle} hidden={!!positionPick}
+        ondismiss={() => { selectedObstacle = null; }} onfinish={finishErrorReport} onpickposition={pickPosition} />
     {/key}
   {/if}
 

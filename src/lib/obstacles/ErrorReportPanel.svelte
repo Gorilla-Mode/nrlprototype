@@ -10,15 +10,20 @@
   import SendIcon from '../icons/SendIcon.svelte';
   import ErrorHeightKeypad from './ErrorHeightKeypad.svelte';
   import type { RegisteredObstacle } from './registeredObstacles';
+  import { describeMove, type GeoPosition } from './position';
   import {
-    buildErrorReport, describeHeightDifference, describeLightingCorrection, describeMissingRequirement, errorKindChoices, formatCoordinates, isErrorReportValid,
-    isValidHeight, toggleErrorKind, type ErrorKind, type ErrorReport,
+    applyPositionChoice, buildErrorReport, describeHeightDifference, describeLightingCorrection, describeMissingRequirement, errorKindChoices, formatCoordinates, isErrorReportValid,
+    isValidHeight, toggleErrorKind, type ErrorKind, type ErrorReport, type PositionChoice,
   } from './errorReport';
 
-  let { obstacle, ondismiss, onfinish }: {
+  let { obstacle, hidden = false, ondismiss, onfinish, onpickposition }: {
     obstacle: RegisteredObstacle;
+    /** Closes the dialog while the map is used, keeping every answer. */
+    hidden?: boolean;
     ondismiss: () => void;
     onfinish: (report: ErrorReport) => void;
+    /** "Wrong position" opens the map; the result returns through `applyPosition`. */
+    onpickposition: (current: { selected: boolean; position: GeoPosition | null }) => void;
   } = $props();
 
   const kindIcons: Record<ErrorKind, Component> = {
@@ -33,12 +38,14 @@
   let errorKinds = $state<ErrorKind[]>([]);
   let heightValue = $state<number | null>(null);
   let description = $state('');
+  let correctedPosition = $state.raw<GeoPosition | null>(null);
 
   let heightWrong = $derived(errorKinds.includes('wrong-height'));
   let descriptionRequired = $derived(errorKinds.includes('other'));
   let actualHeightM = $derived(heightValue);
   let lightingWrong = $derived(errorKinds.includes('wrong-lighting'));
-  let input = $derived({ errorKinds, actualHeightM, description });
+  let positionWrong = $derived(errorKinds.includes('wrong-position'));
+  let input = $derived({ errorKinds, actualHeightM, correctedPosition, description });
   let valid = $derived(isErrorReportValid(input));
   let missingRequirement = $derived(valid ? null : describeMissingRequirement(input));
 
@@ -55,10 +62,33 @@
     void tick().then(() => heightButton?.focus({ preventScroll: true }));
   }
 
-  onMount(() => {
-    dialog.showModal();
-    heading.focus({ preventScroll: true });
-    return () => { if (dialog.open) dialog.close(); };
+  export function applyPosition(choice: PositionChoice) {
+    ({ errorKinds, correctedPosition } = applyPositionChoice(errorKinds, correctedPosition, choice));
+  }
+
+  function chooseKind(kind: ErrorKind) {
+    if (kind === 'wrong-position') {
+      onpickposition({ selected: positionWrong, position: correctedPosition });
+      return;
+    }
+    errorKinds = toggleErrorKind(errorKinds, kind);
+    if (!errorKinds.includes('wrong-position')) correctedPosition = null;
+  }
+
+  onMount(() => () => { if (dialog.open) dialog.close(); });
+
+  // Opening focuses the heading; returning from the map focuses "Wrong position".
+  let returning = false;
+  $effect(() => {
+    if (hidden) {
+      if (dialog.open) dialog.close();
+      returning = true;
+      return;
+    }
+    if (!dialog.open) dialog.showModal();
+    const target = returning ? dialog.querySelector<HTMLElement>('[data-kind="wrong-position"]') : heading;
+    returning = false;
+    target?.focus({ preventScroll: true });
   });
 
   function outside(event: MouseEvent) {
@@ -120,12 +150,20 @@
             class:choice--wide={choice.kind === 'other'}
             class:selected={errorKinds.includes(choice.kind)}
             aria-pressed={errorKinds.includes(choice.kind)}
-            onclick={() => { errorKinds = toggleErrorKind(errorKinds, choice.kind); }}
+            data-kind={choice.kind}
+            onclick={() => chooseKind(choice.kind)}
           >
             <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><Icon /></svg>
             <span>{choice.label}</span>
             {#if choice.kind === 'wrong-lighting' && lightingWrong}
               <span class="choice-detail">{describeLightingCorrection(obstacle.lit)}</span>
+            {:else if choice.kind === 'wrong-position' && positionWrong}
+              {#if correctedPosition}
+                <span class="choice-detail">{describeMove(obstacle, correctedPosition)}</span>
+                <span class="choice-detail choice-detail--small">{formatCoordinates(correctedPosition)}</span>
+              {:else}
+                <span class="choice-detail">Position not specified</span>
+              {/if}
             {/if}
           </button>
         {/each}
@@ -245,17 +283,19 @@
     font-size: var(--font-size-body-small); font-weight: var(--font-weight-medium);
     transition: background-color var(--duration-default) var(--ease-standard), border-color var(--duration-default) var(--ease-standard), color var(--duration-default) var(--ease-standard);
   }
-  /* Fixed height fits icon, label and the lighting detail line, so selecting never resizes a choice. */
+  /* Fixed height fits icon, label and the tallest detail (move + coordinates), so selecting never resizes a choice. */
   .choice--stacked {
     flex-direction: column; gap: var(--space-1);
     height: calc(2 * var(--space-3) + 2 * var(--border-width-default) + var(--icon-size-large) + 2 * var(--space-1)
-      + var(--line-height-body) * (var(--choice-font-size) + var(--font-size-body-small)));
+      + var(--line-height-body) * (var(--choice-font-size) + var(--font-size-body-small) + var(--error-report-position-detail-size)));
   }
   .choice--stacked span { line-height: var(--line-height-body); }
   .choice--wide .geometry-icon { width: var(--icon-size-default); height: var(--icon-size-default); }
   .choice--wide { grid-column: 1 / -1; min-height: var(--control-height-default); padding-block: var(--space-2); }
   /* Follows the button colour, so it adapts to the selected state. */
   .choice-detail { color: inherit; font-size: var(--font-size-body-small); font-weight: var(--font-weight-regular); }
+  /* Sits directly under the move line, without the flex gap. */
+  .choice-detail--small { margin-top: calc(-1 * var(--space-1)); font-size: var(--error-report-position-detail-size); font-variant-numeric: tabular-nums; }
   .choice:hover { background: var(--color-map-control-hover); }
   /* Same selected state as the Obstacle Type choices in ObstacleReportPanel. */
   .choice.selected {

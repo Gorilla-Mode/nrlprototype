@@ -169,6 +169,23 @@ test('error-report hold opens the menu at the press but never starts geometry; o
   assert.equal(h.state().draft?.type, 'LineString');
 });
 
+test('a suspended hold opens nothing and places nothing; resuming restores it', (t) => {
+  const h = setup(t);
+  h.interaction.setHoldMode('error-report');
+  h.fire('pointerdown');
+  h.tick();
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }]);
+  h.interaction.setHoldSuspended(true);
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null], 'suspending closes an open hold');
+  h.fire('pointerup');
+  h.select();
+  assert.equal(h.origins.length, 2);
+  assert.deepEqual(h.placed, []);
+  h.interaction.setHoldSuspended(false);
+  h.select();
+  assert.deepEqual(h.placed, [[1, 1.5]]);
+});
+
 test('changing hold mode closes an open menu without selection', (t) => {
   const h = setup(t);
   h.fire('pointerdown');

@@ -66,8 +66,9 @@ export function createObstacleDisplay(map: Map) {
     const source = map.getSource<GeoJSONSource>(registeredObstacleSourceId);
     if (source) source.setData(features());
     else {
-      if (!map.isStyleLoaded()) return;
-      map.addSource(registeredObstacleSourceId, { type: 'geojson', data: features() });
+      // isStyleLoaded() stays false while any tile loads; only the style itself must be ready.
+      // Before that addSource throws, and the style.load listener renders again.
+      try { map.addSource(registeredObstacleSourceId, { type: 'geojson', data: features() }); } catch { return; }
     }
     if (!map.getLayer(markerLayerId)) map.addLayer({
       id: markerLayerId, type: 'circle', source: registeredObstacleSourceId,

@@ -26,6 +26,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   let restoreDoubleClickZoom: boolean | undefined;
   let destroyed = false;
   let holdMode: HoldMode = 'obstacle';
+  let holdSuspended = false;
 
   function coordinate(x: number, y: number): GeographicVertex {
     const { lng, lat } = map.unproject([x, y]);
@@ -34,7 +35,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
 
   // Register hold suppression first: its release click must never reach the drawing listener.
   const hold = createMapHoldController(canvas, {
-    isEnabled: () => drawing.getState().status === 'idle',
+    isEnabled: () => !holdSuspended && drawing.getState().status === 'idle',
     onPressStart: ({ x, y }) => { initialVertex = coordinate(x, y); },
     onActivate: () => map.stop(),
     onOpen: options.onHoldChange,
@@ -131,6 +132,12 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   map.on('movestart', handleMoveStart);
   sync(drawing.getState());
 
+  /** Pauses the hold gesture entirely, e.g. while another gesture owns the map. */
+  function setHoldSuspended(suspended: boolean) {
+    holdSuspended = suspended;
+    if (suspended) cancel();
+  }
+
   function setHoldMode(mode: HoldMode) {
     if (mode === holdMode) return;
     holdMode = mode;
@@ -142,6 +149,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
     cancel,
     sync,
     setHoldMode,
+    setHoldSuspended,
     destroy() {
       if (destroyed) return;
       destroyed = true;

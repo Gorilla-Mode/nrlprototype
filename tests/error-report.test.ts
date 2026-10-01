@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  buildErrorReport, describeHeightDifference, describeLightingCorrection, describeMissingRequirement, formatCoordinates, isErrorReportValid, toggleErrorKind,
+  applyPositionChoice, buildErrorReport, describeHeightDifference, describeLightingCorrection, describeMissingRequirement, formatCoordinates, isErrorReportValid, toggleErrorKind,
   type ErrorReportInput,
 } from '../src/lib/obstacles/errorReport.js';
 import type { RegisteredObstacle } from '../src/lib/obstacles/registeredObstacles.js';
@@ -71,6 +71,30 @@ test('the report omits height unless wrong and flags lighting only when chosen',
   assert.equal(buildErrorReport(obstacle, input({ errorKinds: ['does-not-exist'] }), timestamp).lightingWrong, false);
   assert.equal(buildErrorReport(obstacle, input({ errorKinds: ['wrong-lighting'] }), timestamp).lightingWrong, true);
   assert.equal(buildErrorReport(obstacle, input({ errorKinds: ['wrong-height'], actualHeightM: 60 }), timestamp).actualHeightM, 60);
+});
+
+test('position choices select, keep or clear "Wrong position" and its coordinates', () => {
+  const position = { lat: 60.41, lng: 5.34 };
+  assert.deepEqual(applyPositionChoice(['does-not-exist'], null, { kind: 'set', position }),
+    { errorKinds: ['wrong-position'], correctedPosition: position });
+  assert.deepEqual(applyPositionChoice(['wrong-height'], null, { kind: 'unknown' }),
+    { errorKinds: ['wrong-height', 'wrong-position'], correctedPosition: null });
+  assert.deepEqual(applyPositionChoice(['wrong-position', 'other'], position, { kind: 'remove' }),
+    { errorKinds: ['other'], correctedPosition: null });
+  assert.deepEqual(applyPositionChoice(['wrong-position'], position, { kind: 'cancel' }),
+    { errorKinds: ['wrong-position'], correctedPosition: position }, 'cancel keeps an existing answer');
+  assert.deepEqual(applyPositionChoice([], null, { kind: 'cancel' }), { errorKinds: [], correctedPosition: null });
+});
+
+test('corrected coordinates are reported only with "Wrong position"', () => {
+  const correctedPosition = { lat: 60.41, lng: 5.34 };
+  const with_ = buildErrorReport(obstacle, input({ errorKinds: ['wrong-position'], correctedPosition }));
+  assert.equal(with_.correctedLat, 60.41);
+  assert.equal(with_.correctedLng, 5.34);
+  const unknown = buildErrorReport(obstacle, input({ errorKinds: ['wrong-position'] }));
+  assert.equal('correctedLat' in unknown, false);
+  const deselected = buildErrorReport(obstacle, input({ errorKinds: ['other'], correctedPosition, description: 'x' }));
+  assert.equal('correctedLat' in deselected, false);
 });
 
 test('coordinates show hemisphere and four decimals', () => {

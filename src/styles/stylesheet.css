@@ -149,6 +149,7 @@
   --color-map-error-report: var(--color-border-strong);
   /* Not redefined for dark themes yet; the error report keeps its design colours. */
   --color-error-report-coordinates: var(--palette-orange-600);
+  --color-error-report-move: var(--palette-orange-600);
   --color-error-report-highlight-surface: var(--palette-violet-50);
   --color-error-report-on-highlight: var(--palette-gray-900);
   --color-error-report-finish: var(--palette-forest-800);
@@ -357,6 +358,7 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
   --scale-control-active: 0.96;
+  --scale-handle-active: 1.1;
 }
 
 /* 15. Form controls */
@@ -594,6 +596,38 @@
 .maplibregl-user-location-dot,
 .maplibregl-user-location-accuracy-circle {
   pointer-events: none;
+}
+
+/* Registered position while correcting an obstacle's position: pale and dashed. */
+.registered-position-marker {
+  width: calc(2 * var(--map-registered-obstacle-selected-radius));
+  height: calc(2 * var(--map-registered-obstacle-selected-radius));
+  border: var(--map-registered-obstacle-stroke-width) dashed var(--color-registered-obstacle);
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--color-registered-obstacle) 20%, transparent);
+  pointer-events: none;
+}
+
+/* Small readable label on top of the map, e.g. "New position" and "Registered". */
+.map-label-pill {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-background-raised);
+  box-shadow: var(--shadow-control);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.registered-position-marker .map-label-pill {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .map-container .maplibregl-ctrl-bottom-left {
@@ -1141,6 +1175,8 @@ button {
   --error-report-description-height: 7.5rem;
   --error-report-title-size-min: 1.375rem;
   --error-report-obstacle-type-size: 1.0625rem;
+  --error-report-position-size: 0.9375rem;
+  --error-report-position-detail-size: 0.8125rem;
   --error-report-keypad-key-size: 3.5rem;
   --report-button-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large));
   --report-height-item-size: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default));

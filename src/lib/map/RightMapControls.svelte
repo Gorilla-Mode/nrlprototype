@@ -11,6 +11,10 @@
     grayscale?: boolean;
     errorReportMode?: boolean;
     errorReportDisabled?: boolean;
+    /** +/− zoom, shown while the map is used to correct a position. */
+    zoomControls?: boolean;
+    onzoomin?: () => void;
+    onzoomout?: () => void;
     geolocationState: GeolocationState;
     ongeolocationclick: () => void;
   }
@@ -21,6 +25,9 @@
     grayscale = $bindable(false),
     errorReportMode = $bindable(false),
     errorReportDisabled = false,
+    zoomControls = false,
+    onzoomin,
+    onzoomout,
     geolocationState,
     ongeolocationclick,
   }: Props = $props();
@@ -41,6 +48,14 @@
       <path d="M12 6.5v4M12 13.5h.01" />
     </svg>
   </MapButton>
+  {#if zoomControls}
+    <MapButton aria-label="Zoom in" title="Zoom in" onclick={onzoomin}>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+    </MapButton>
+    <MapButton aria-label="Zoom out" title="Zoom out" onclick={onzoomout}>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14" /></svg>
+    </MapButton>
+  {/if}
   <GeolocationControl state={geolocationState} onclick={ongeolocationclick} />
   <LayerFadeControl bind:opacity bind:open />
   <div class:covered={open} inert={open}>

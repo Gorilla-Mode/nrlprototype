@@ -5,7 +5,7 @@
   import type { HoldOrigin } from './createMapHoldController';
   import type { HoldMode } from './createMapDrawingInteraction';
   import type { DrawingState } from '../reporting/createDrawingController';
-  import type { Obstacle } from '../reporting/obstacle';
+  import type { GeographicVertex, Obstacle } from '../reporting/obstacle';
   import type { RegisteredObstacle, ScreenPoint } from '../obstacles/registeredObstacles';
 
   interface Props {
@@ -14,6 +14,8 @@
     grayscale: boolean;
     holdMode?: HoldMode;
     registeredObstacles?: readonly RegisteredObstacle[];
+    /** Pixels at the bottom covered by a panel. */
+    bottomInset?: number;
     onmapclick: () => void;
     onaccuracychange: (accuracy: number | null) => void;
     ongeolocationstatechange: (state: GeolocationState, message: string) => void;
@@ -21,10 +23,11 @@
     onholdmove: (x: number, y: number) => void;
     ondrawingchange: (state: DrawingState) => void;
     onobstacleregistered?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
-    onerrorcirclechange?: (center: ScreenPoint | null, match: RegisteredObstacle | null) => void;
+    onerrorcirclechange?: (center: ScreenPoint | null, match: RegisteredObstacle | null, position: GeographicVertex | null) => void;
+    onpositiondragchange?: (dragging: boolean) => void;
   }
 
-  let { visible = true, opacity, grayscale, holdMode = 'obstacle', registeredObstacles = [], onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered, onerrorcirclechange }: Props = $props();
+  let { visible = true, opacity, grayscale, holdMode = 'obstacle', registeredObstacles = [], bottomInset = 0, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered, onerrorcirclechange, onpositiondragchange }: Props = $props();
   let mapContainer: HTMLDivElement;
   let controller = $state.raw<MapController | null>(null);
 
@@ -38,6 +41,10 @@
   export function deleteDrawing() { controller?.deleteDrawing(); }
   export function completeDrawing() { controller?.completeDrawing(); }
   export function moveErrorCircle(x: number, y: number) { controller?.moveErrorCircle(x, y); }
+  export function startPositionCorrection(origin: GeographicVertex, start: GeographicVertex) { controller?.startPositionCorrection(origin, start); }
+  export function endPositionCorrection() { controller?.endPositionCorrection(); }
+  export function zoomIn() { controller?.zoomIn(); }
+  export function zoomOut() { controller?.zoomOut(); }
   export function focus() { controller?.focus(); }
 
   onMount(() => {
@@ -51,7 +58,8 @@
       onHoldMove: (x, y) => onholdmove(x, y),
       onDrawingChange: (state) => ondrawingchange(state),
       onObstacleRegistered: (obstacle, positionReady) => onobstacleregistered?.(obstacle, positionReady),
-      onErrorCircleChange: (center, match) => onerrorcirclechange?.(center, match),
+      onErrorCircleChange: (center, match, position) => onerrorcirclechange?.(center, match, position),
+      onPositionDragChange: (dragging) => onpositiondragchange?.(dragging),
     });
     controller = instance;
 
@@ -76,6 +84,10 @@
 
   $effect(() => {
     controller?.setRegisteredObstacles(registeredObstacles);
+  });
+
+  $effect(() => {
+    controller?.setBottomInset(bottomInset);
   });
 
   $effect(() => {
