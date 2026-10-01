@@ -139,6 +139,7 @@
   );
   --color-map-control-active: var(--color-action-selected);
   --color-map-track: var(--palette-neutral-300);
+  --color-map-error-report: var(--color-border-strong);
 }
 
 /* 3. Light and dark themes */
@@ -180,6 +181,7 @@
     var(--color-action-secondary)
   );
   --color-map-track: var(--color-border-strong);
+  --color-map-error-report: var(--color-border-strong);
   --shadow-surface: var(--shadow-level-1-dark);
   --shadow-control: var(--shadow-level-2-dark);
   --shadow-slider: var(--shadow-level-1-dark);
@@ -224,6 +226,7 @@
       var(--color-action-secondary)
     );
     --color-map-track: var(--color-border-strong);
+    --color-map-error-report: var(--color-border-strong);
     --shadow-surface: var(--shadow-level-1-dark);
     --shadow-control: var(--shadow-level-2-dark);
     --shadow-slider: var(--shadow-level-1-dark);

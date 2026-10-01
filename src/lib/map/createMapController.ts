@@ -14,7 +14,7 @@ import {
 import { createGeolocationController, type GeolocationState } from './createGeolocationController';
 import { createGeolocationDisplay } from './createGeolocationDisplay';
 import type { HoldOrigin } from './createMapHoldController';
-import { createMapDrawingInteraction } from './createMapDrawingInteraction';
+import { createMapDrawingInteraction, type HoldMode } from './createMapDrawingInteraction';
 import { createDrawingController, type DrawingState } from '../reporting/createDrawingController';
 import type { Obstacle } from '../reporting/obstacle';
 import { createReportController } from '../reporting/createReportController';
@@ -44,6 +44,7 @@ export interface CameraTarget {
 export interface MapController {
   setSatelliteOpacity: (opacity: number) => void;
   setGrayscale: (grayscale: boolean) => void;
+  setHoldMode: (mode: HoldMode) => void;
   stopCamera: () => void;
   toggleGeolocation: () => void;
   flyToLocation: (target: CameraTarget) => void;
@@ -168,6 +169,7 @@ export function createMapController(
     stopCamera: () => { if (!destroyed) map.stop(); },
     setSatelliteOpacity,
     setGrayscale,
+    setHoldMode: (mode) => { if (!destroyed) drawingInteraction.setHoldMode(mode); },
     toggleGeolocation: geolocation.toggle,
     flyToLocation,
     undoDrawing: () => { if (!destroyed) drawing.undo(); },

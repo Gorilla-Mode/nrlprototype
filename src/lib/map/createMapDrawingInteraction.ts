@@ -6,6 +6,9 @@ import { obstacleGeometryChoices, type GeographicVertex } from '../reporting/obs
 
 export const obstacleMenuInnerRadius = 46;
 
+/** What a released hold on the map does: start new geometry, or report an error on an existing obstacle. */
+export type HoldMode = 'obstacle' | 'error-report';
+
 export function createMapDrawingInteraction(map: Map, drawing: DrawingController, options: {
   onHoldChange: (origin: HoldOrigin | null) => void;
   onHoldMove: (x: number, y: number) => void;
@@ -19,6 +22,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   let lastTouch: { x: number; y: number; time: number } | undefined;
   let restoreDoubleClickZoom: boolean | undefined;
   let destroyed = false;
+  let holdMode: HoldMode = 'obstacle';
 
   function coordinate(x: number, y: number): GeographicVertex {
     const { lng, lat } = map.unproject([x, y]);
@@ -34,6 +38,10 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
     onClose: () => options.onHoldChange(null),
     onMove: options.onHoldMove,
     onRelease: (x, y) => {
+      if (holdMode === 'error-report') {
+        initialVertex = undefined;
+        return;
+      }
       const index = getHoveredRadialSegment({ x, y }, obstacleGeometryChoices.length, obstacleMenuInnerRadius);
       if (index !== null && initialVertex) drawing.start(obstacleGeometryChoices[index].type, initialVertex);
       initialVertex = undefined;
@@ -119,9 +127,17 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   map.on('movestart', handleMoveStart);
   sync(drawing.getState());
 
+  function setHoldMode(mode: HoldMode) {
+    if (mode === holdMode) return;
+    holdMode = mode;
+    // An open menu belongs to the previous mode; never let it release into the new one.
+    cancel();
+  }
+
   return {
     cancel,
     sync,
+    setHoldMode,
     destroy() {
       if (destroyed) return;
       destroyed = true;

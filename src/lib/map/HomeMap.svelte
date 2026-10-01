@@ -40,6 +40,7 @@
   let mapWrapper: HTMLElement;
 
   let isLayerFadeOpen = $state(false);
+  let errorReportMode = $state(false);
   let helpOpen = $state(false);
   $effect(() => {
     if (!visible || !showHelp) helpOpen = false;
@@ -91,11 +92,18 @@
 
 {#snippet polygonIcon()}<GeometryIcon type="Polygon" />{/snippet}
 
+{#snippet errorReportIcon()}
+  <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+  <path d="M12 6.5v4M12 13.5h.01" />
+{/snippet}
+
 <main bind:this={mapWrapper} class="map-wrapper" aria-label="Home map">
   <RightMapControls
     bind:opacity
     bind:open={isLayerFadeOpen}
     bind:grayscale={isGrayscale}
+    bind:errorReportMode
+    errorReportDisabled={drawing.status !== 'idle'}
     {geolocationState}
     ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
   />
@@ -104,6 +112,7 @@
     bind:this={mapCanvas}
     {opacity}
     grayscale={isGrayscale}
+    holdMode={errorReportMode ? 'error-report' : 'obstacle'}
     onmapclick={handleMapClick}
     ongeolocationstatechange={handleGeolocationStateChange}
     onaccuracychange={(value) => { accuracy = value; }}
@@ -137,15 +146,24 @@
   {#if holdOrigin}
     {@const geometryIcons = { point: pointIcon, line: lineIcon, polygon: polygonIcon }}
     <div class="hold-menu" style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}>
-      <RadialMenu
-        pointer={holdPointer}
-        innerRadius={obstacleMenuInnerRadius}
-        label="Choose obstacle geometry"
-        items={obstacleGeometryChoices.map((choice) => ({
-          id: choice.id, label: choice.label, color: `var(${choice.colorToken})`,
-          icon: geometryIcons[choice.id],
-        }))}
-      />
+      {#if errorReportMode}
+        <RadialMenu
+          pointer={holdPointer}
+          innerRadius={obstacleMenuInnerRadius}
+          label="Choose obstacle to report"
+          items={[{ id: 'error-report', label: 'Report an error', color: 'var(--color-map-error-report)', icon: errorReportIcon }]}
+        />
+      {:else}
+        <RadialMenu
+          pointer={holdPointer}
+          innerRadius={obstacleMenuInnerRadius}
+          label="Choose obstacle geometry"
+          items={obstacleGeometryChoices.map((choice) => ({
+            id: choice.id, label: choice.label, color: `var(${choice.colorToken})`,
+            icon: geometryIcons[choice.id],
+          }))}
+        />
+      {/if}
     </div>
   {/if}
 

@@ -154,6 +154,28 @@ test('no menu during drawing or completion; Delete permits a fresh held object',
   assert.deepEqual(h.state().draft?.vertices, [[1, 1.5]]);
 });
 
+test('error-report hold opens the menu at the press but never starts geometry; obstacle mode restores selection', (t) => {
+  const h = setup(t);
+  h.interaction.setHoldMode('error-report');
+  assert.equal(h.select().defaultPrevented, true, 'the release click is still consumed');
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null]);
+  assert.equal(h.state().status, 'idle');
+  h.interaction.setHoldMode('obstacle');
+  h.select();
+  assert.equal(h.state().draft?.type, 'LineString');
+});
+
+test('changing hold mode closes an open menu without selection', (t) => {
+  const h = setup(t);
+  h.fire('pointerdown');
+  h.tick();
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }]);
+  h.interaction.setHoldMode('error-report');
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null]);
+  h.fire('pointerup', { clientX: 220, clientY: 220 });
+  assert.equal(h.state().status, 'idle');
+});
+
 for (const gesture of ['drag', 'drag returning to start', 'pinch', 'wheel', 'navigation', 'pointercancel', 'blur', 'control', 'modified click', 'no physical press']) {
   test(`${gesture} never adds a drawing vertex`, (t) => {
     const h = setup(t);

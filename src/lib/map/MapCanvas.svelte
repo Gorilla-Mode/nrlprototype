@@ -3,6 +3,7 @@
   import { createMapController, type CameraTarget, type MapController } from './createMapController';
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
+  import type { HoldMode } from './createMapDrawingInteraction';
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { Obstacle } from '../reporting/obstacle';
 
@@ -10,6 +11,7 @@
     visible?: boolean;
     opacity: number;
     grayscale: boolean;
+    holdMode?: HoldMode;
     onmapclick: () => void;
     onaccuracychange: (accuracy: number | null) => void;
     ongeolocationstatechange: (state: GeolocationState, message: string) => void;
@@ -19,7 +21,7 @@
     onobstacleregistered?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
   }
 
-  let { visible = true, opacity, grayscale, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered }: Props = $props();
+  let { visible = true, opacity, grayscale, holdMode = 'obstacle', onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered }: Props = $props();
   let mapContainer: HTMLDivElement;
   let controller = $state.raw<MapController | null>(null);
 
@@ -61,6 +63,10 @@
 
   $effect(() => {
     controller?.setGrayscale(grayscale);
+  });
+
+  $effect(() => {
+    controller?.setHoldMode(holdMode);
   });
 
   $effect(() => {
