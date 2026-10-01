@@ -50,16 +50,16 @@ test('empty items render nothing and radii are configurable', () => {
   assert.match(body, /A 60 60/);
 });
 
-test('code luma variable keeps the original color at midpoint and mixes toward black or white', () => {
+test('code luma variable darkens the item color with the configured 40% black mix', () => {
   const item = {
     id: 'one', label: 'One', color: 'var(--color-radial-polygon)',
     icon: createRawSnippet(() => ({ render: () => '<path d="M0 0L24 24" />' })),
   };
   const { body } = render(RadialMenu, { props: { items: [item] } });
-  assert.match(body, /--radial-luma-mix:\s*0%/);
-  assert.match(body, /--radial-luma-target:\s*var\(--palette-neutral-0\)/);
+  assert.match(body, /--radial-luma-mix:\s*40%/);
+  assert.match(body, /--radial-luma-target:\s*var\(--palette-black\)/);
   assert.match(body, /fill="var\(--color-radial-polygon\)"/);
-  assert.match(source, /const RADIAL_LUMA = 0\.5/);
+  assert.match(source, /const RADIAL_LUMA = 0\.3/);
   assert.match(source, /Math\.abs\(boundedLuma - 0\.5\) \* 200/);
   assert.match(source, /boundedLuma < 0\.5 \? 'var\(--palette-black\)'/);
   assert.match(source, /fill: color-mix\(in srgb, var\(--radial-color\)/);
