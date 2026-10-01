@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick, type Snippet } from 'svelte';
+  import { onMount, tick, type Snippet } from 'svelte';
   import type { SettingsSection } from '../settings/settings';
   import MenuDrawer from './MenuDrawer.svelte';
   import GeometryIcon from './GeometryIcon.svelte';
@@ -7,17 +7,23 @@
   import MapToolbar from './MapToolbar.svelte';
   import TutorialDialog from './TutorialDialog.svelte';
   import RightMapControls from './RightMapControls.svelte';
+  import ErrorReportCircle from './ErrorReportCircle.svelte';
+  import ErrorReportToolbar from './ErrorReportToolbar.svelte';
+  import ErrorReportPanel from '../obstacles/ErrorReportPanel.svelte';
+  import type { ErrorReport } from '../obstacles/errorReport';
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
   import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
-  import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
+  import { obstacleMenuInnerRadius, obstacleMenuOuterRadius } from './createMapDrawingInteraction';
+  import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
 
   let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, showHelp = false, onfaq, onnotifications, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
+    selectedObstacle = $bindable<RegisteredObstacle | null>(null),
   }: {
     oncomplete?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
     onreportstart?: () => void;
@@ -36,11 +42,45 @@
     geolocationState?: GeolocationState;
     locationMessage?: string;
     accuracy?: number | null;
+    /** The registered obstacle chosen for an error report; read by the report form. */
+    selectedObstacle?: RegisteredObstacle | null;
   } = $props();
   let mapWrapper: HTMLElement;
 
   let isLayerFadeOpen = $state(false);
   let errorReportMode = $state(false);
+  let registeredObstacles = $state.raw<RegisteredObstacle[]>([]);
+  let errorCircle = $state<ScreenPoint | null>(null);
+  let errorMatch = $state.raw<RegisteredObstacle | null>(null);
+  let reportSent = $state(false);
+  let reportSentTimer: ReturnType<typeof setTimeout> | undefined;
+  onMount(() => {
+    let cancelled = false;
+    void loadRegisteredObstacles().then((obstacles) => { if (!cancelled) registeredObstacles = obstacles; });
+    return () => { cancelled = true; clearTimeout(reportSentTimer); };
+  });
+
+  function endErrorReport() {
+    errorReportMode = false;
+    mapCanvas?.focus();
+  }
+
+  // The mode stays active behind the form, so Cancel returns to the placed circle.
+  function selectErrorObstacle() {
+    if (!errorMatch) return;
+    selectedObstacle = errorMatch;
+    console.log('Selected obstacle for error report:', errorMatch);
+  }
+
+  function finishErrorReport(report: ErrorReport) {
+    // No backend yet: the console is the only consumer.
+    console.log('Error report:', report);
+    selectedObstacle = null;
+    endErrorReport();
+    reportSent = true;
+    clearTimeout(reportSentTimer);
+    reportSentTimer = setTimeout(() => { reportSent = false; }, 4000);
+  }
   let helpOpen = $state(false);
   $effect(() => {
     if (!visible || !showHelp) helpOpen = false;
@@ -98,6 +138,16 @@
 {/snippet}
 
 <main bind:this={mapWrapper} class="map-wrapper" aria-label="Home map">
+  <!-- Before the controls: same overlay layer, so map controls stay on top of the circle. -->
+  {#if errorReportMode && errorCircle && !holdOrigin}
+    <ErrorReportCircle
+      center={errorCircle}
+      innerRadius={obstacleMenuInnerRadius}
+      outerRadius={obstacleMenuOuterRadius}
+      icon={errorReportIcon}
+      onmove={(x, y) => mapCanvas?.moveErrorCircle(x, y)}
+    />
+  {/if}
   <RightMapControls
     bind:opacity
     bind:open={isLayerFadeOpen}
@@ -113,6 +163,8 @@
     {opacity}
     grayscale={isGrayscale}
     holdMode={errorReportMode ? 'error-report' : 'obstacle'}
+    {registeredObstacles}
+    onerrorcirclechange={(center, match) => { errorCircle = center; errorMatch = match; }}
     onmapclick={handleMapClick}
     ongeolocationstatechange={handleGeolocationStateChange}
     onaccuracychange={(value) => { accuracy = value; }}
@@ -136,6 +188,16 @@
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
 
+  {#if errorReportMode}
+    <ErrorReportToolbar placed={!!errorCircle} match={errorMatch} oncancel={endErrorReport} onselect={selectErrorObstacle} />
+  {/if}
+
+  {#if selectedObstacle}
+    {#key selectedObstacle.id}
+      <ErrorReportPanel obstacle={selectedObstacle} ondismiss={() => { selectedObstacle = null; }} onfinish={finishErrorReport} />
+    {/key}
+  {/if}
+
   {#if helpOpen && visible && showHelp}
     <TutorialDialog ondismiss={dismissHelp} />
   {/if}
@@ -150,6 +212,7 @@
         <RadialMenu
           pointer={holdPointer}
           innerRadius={obstacleMenuInnerRadius}
+          outerRadius={obstacleMenuOuterRadius}
           label="Choose obstacle to report"
           items={[{ id: 'error-report', label: 'Report an error', color: 'var(--color-map-error-report)', icon: errorReportIcon }]}
         />
@@ -166,6 +229,10 @@
       {/if}
     </div>
   {/if}
+
+  <div class="report-sent" role="status">
+    {#if reportSent}<p>Report sent</p>{/if}
+  </div>
 
   <div class="location-status" role="status">
     {#if locationMessage}
@@ -208,6 +275,23 @@
     color: var(--color-text-secondary);
     font-size: var(--font-size-body-small);
     line-height: var(--line-height-body);
+  }
+  /* Placed like App's .details-error, with success colours. */
+  .report-sent {
+    position: absolute;
+    z-index: var(--layer-toast);
+    top: calc(var(--map-control-inset-top) + var(--control-height-large));
+    left: var(--map-control-inset-left);
+    right: var(--map-control-inset-right);
+    pointer-events: none;
+  }
+  .report-sent p {
+    margin: 0;
+    padding: var(--space-3);
+    border-radius: var(--radius-card);
+    background: var(--color-status-success-surface);
+    color: var(--color-status-success);
+    font-weight: var(--font-weight-semibold);
   }
   .hold-menu {
     position: absolute;

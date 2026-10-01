@@ -14,11 +14,13 @@ import {
 import { createGeolocationController, type GeolocationState } from './createGeolocationController';
 import { createGeolocationDisplay } from './createGeolocationDisplay';
 import type { HoldOrigin } from './createMapHoldController';
-import { createMapDrawingInteraction, type HoldMode } from './createMapDrawingInteraction';
+import { createMapDrawingInteraction, obstacleMenuOuterRadius, type HoldMode } from './createMapDrawingInteraction';
 import { createDrawingController, type DrawingState } from '../reporting/createDrawingController';
-import type { Obstacle } from '../reporting/obstacle';
+import type { GeographicVertex, Obstacle } from '../reporting/obstacle';
 import { createReportController } from '../reporting/createReportController';
 import { createDrawingDisplay } from './createDrawingDisplay';
+import { createObstacleDisplay } from './createObstacleDisplay';
+import { findObstacleInCircle, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
 import { MetricScaleControl } from './MetricScaleControl';
 
 setWorkerUrl(mapWorkerUrl);
@@ -33,6 +35,8 @@ interface MapControllerOptions {
   onHoldMove: (x: number, y: number) => void;
   onDrawingChange: (state: DrawingState) => void;
   onObstacleRegistered?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
+  /** Circle centre in container pixels (null when hidden) and the obstacle it currently selects. */
+  onErrorCircleChange?: (center: ScreenPoint | null, match: RegisteredObstacle | null) => void;
 }
 
 export interface CameraTarget {
@@ -45,6 +49,8 @@ export interface MapController {
   setSatelliteOpacity: (opacity: number) => void;
   setGrayscale: (grayscale: boolean) => void;
   setHoldMode: (mode: HoldMode) => void;
+  setRegisteredObstacles: (obstacles: readonly RegisteredObstacle[]) => void;
+  moveErrorCircle: (x: number, y: number) => void;
   stopCamera: () => void;
   toggleGeolocation: () => void;
   flyToLocation: (target: CameraTarget) => void;
@@ -100,7 +106,39 @@ export function createMapController(
     },
     onComplete: reporting.complete,
   });
-  const drawingInteraction = createMapDrawingInteraction(map, drawing, options);
+  const drawingInteraction = createMapDrawingInteraction(map, drawing, {
+    onHoldChange: options.onHoldChange,
+    onHoldMove: options.onHoldMove,
+    onErrorReportPlace: (center) => { errorCircleCenter = center; syncErrorReport(); },
+  });
+  const obstacleDisplay = createObstacleDisplay(map);
+  let holdMode: HoldMode = 'obstacle';
+  let registeredObstacles: readonly RegisteredObstacle[] = [];
+  // Anchored geographically so the circle follows the map while panning or zooming.
+  let errorCircleCenter: GeographicVertex | null = null;
+
+  function project([lng, lat]: GeographicVertex): ScreenPoint {
+    const { x, y } = map.project([lng, lat]);
+    return { x, y };
+  }
+
+  function syncErrorReport() {
+    if (destroyed) return;
+    const active = holdMode === 'error-report';
+    const center = active && errorCircleCenter ? project(errorCircleCenter) : null;
+    const match = center && findObstacleInCircle(center, registeredObstacles,
+      (obstacle) => project([obstacle.lng, obstacle.lat]), obstacleMenuOuterRadius);
+    obstacleDisplay.show(active ? registeredObstacles : null, match?.id ?? null);
+    options.onErrorCircleChange?.(center, match ?? null);
+  }
+
+  function setHoldMode(mode: HoldMode) {
+    if (destroyed) return;
+    drawingInteraction.setHoldMode(mode);
+    holdMode = mode;
+    if (mode !== 'error-report') errorCircleCenter = null;
+    syncErrorReport();
+  }
 
   function setSatelliteOpacity(opacity: number) {
     if (destroyed) return;
@@ -159,6 +197,7 @@ export function createMapController(
   }
 
   map.on('click', handleMapClick);
+  map.on('move', syncErrorReport);
   map.on('load', handleLoad);
   map.on('style.load', handleStyleLoad);
   map.on('error', handleMapError);
@@ -169,7 +208,14 @@ export function createMapController(
     stopCamera: () => { if (!destroyed) map.stop(); },
     setSatelliteOpacity,
     setGrayscale,
-    setHoldMode: (mode) => { if (!destroyed) drawingInteraction.setHoldMode(mode); },
+    setHoldMode,
+    setRegisteredObstacles: (obstacles) => { registeredObstacles = obstacles; syncErrorReport(); },
+    moveErrorCircle: (x, y) => {
+      if (destroyed || holdMode !== 'error-report') return;
+      const { lng, lat } = map.unproject([x, y]);
+      errorCircleCenter = [lng, lat];
+      syncErrorReport();
+    },
     toggleGeolocation: geolocation.toggle,
     flyToLocation,
     undoDrawing: () => { if (!destroyed) drawing.undo(); },
@@ -180,11 +226,13 @@ export function createMapController(
       destroyed = true;
       window.removeEventListener('resize', handleResize);
       map.off('click', handleMapClick);
+      map.off('move', syncErrorReport);
       map.off('load', handleLoad);
       map.off('style.load', handleStyleLoad);
       map.off('error', handleMapError);
       drawingInteraction.destroy();
       drawingDisplay.destroy();
+      obstacleDisplay.destroy();
       reporting.destroy();
       geolocation.destroy();
       locationDisplay.destroy();

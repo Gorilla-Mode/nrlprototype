@@ -6,12 +6,14 @@
   import type { HoldMode } from './createMapDrawingInteraction';
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { Obstacle } from '../reporting/obstacle';
+  import type { RegisteredObstacle, ScreenPoint } from '../obstacles/registeredObstacles';
 
   interface Props {
     visible?: boolean;
     opacity: number;
     grayscale: boolean;
     holdMode?: HoldMode;
+    registeredObstacles?: readonly RegisteredObstacle[];
     onmapclick: () => void;
     onaccuracychange: (accuracy: number | null) => void;
     ongeolocationstatechange: (state: GeolocationState, message: string) => void;
@@ -19,9 +21,10 @@
     onholdmove: (x: number, y: number) => void;
     ondrawingchange: (state: DrawingState) => void;
     onobstacleregistered?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
+    onerrorcirclechange?: (center: ScreenPoint | null, match: RegisteredObstacle | null) => void;
   }
 
-  let { visible = true, opacity, grayscale, holdMode = 'obstacle', onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered }: Props = $props();
+  let { visible = true, opacity, grayscale, holdMode = 'obstacle', registeredObstacles = [], onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered, onerrorcirclechange }: Props = $props();
   let mapContainer: HTMLDivElement;
   let controller = $state.raw<MapController | null>(null);
 
@@ -34,6 +37,7 @@
   export function undoDrawing() { controller?.undoDrawing(); }
   export function deleteDrawing() { controller?.deleteDrawing(); }
   export function completeDrawing() { controller?.completeDrawing(); }
+  export function moveErrorCircle(x: number, y: number) { controller?.moveErrorCircle(x, y); }
   export function focus() { controller?.focus(); }
 
   onMount(() => {
@@ -47,6 +51,7 @@
       onHoldMove: (x, y) => onholdmove(x, y),
       onDrawingChange: (state) => ondrawingchange(state),
       onObstacleRegistered: (obstacle, positionReady) => onobstacleregistered?.(obstacle, positionReady),
+      onErrorCircleChange: (center, match) => onerrorcirclechange?.(center, match),
     });
     controller = instance;
 
@@ -67,6 +72,10 @@
 
   $effect(() => {
     controller?.setHoldMode(holdMode);
+  });
+
+  $effect(() => {
+    controller?.setRegisteredObstacles(registeredObstacles);
   });
 
   $effect(() => {

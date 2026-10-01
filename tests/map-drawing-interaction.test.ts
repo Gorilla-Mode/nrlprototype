@@ -35,10 +35,12 @@ function setup(t: TestContext, zoomEnabled = true) {
   const completed: ObstacleGeometry[] = [];
   const origins: (HoldOrigin | null)[] = [];
   const moves: HoldOrigin[] = [];
+  const placed: (readonly [number, number])[] = [];
   const drawing = createDrawingController({ onChange: (state) => interaction.sync(state), onComplete: (geometry) => completed.push(geometry) });
   const interaction = createMapDrawingInteraction(map as unknown as MapLibreMap, drawing, {
     onHoldChange: (origin) => origins.push(origin),
     onHoldMove: (x, y) => moves.push({ x, y }),
+    onErrorReportPlace: (center) => placed.push(center),
   });
   t.after(() => interaction.destroy());
 
@@ -66,7 +68,7 @@ function setup(t: TestContext, zoomEnabled = true) {
   function navigate() {
     events.dispatchEvent(Object.assign(new Event('movestart'), { originalEvent: new Event('wheel') }));
   }
-  return { map, drawing, interaction, fire, select, click, navigate, completed, origins, moves,
+  return { map, drawing, interaction, fire, select, click, navigate, completed, origins, moves, placed,
     state: drawing.getState, tick: () => t.mock.timers.tick(200) };
 }
 
@@ -160,8 +162,10 @@ test('error-report hold opens the menu at the press but never starts geometry; o
   assert.equal(h.select().defaultPrevented, true, 'the release click is still consumed');
   assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null]);
   assert.equal(h.state().status, 'idle');
+  assert.deepEqual(h.placed, [[1, 1.5]], 'the circle is placed at the press coordinate, not the release');
   h.interaction.setHoldMode('obstacle');
   h.select();
+  assert.equal(h.placed.length, 1);
   assert.equal(h.state().draft?.type, 'LineString');
 });
 

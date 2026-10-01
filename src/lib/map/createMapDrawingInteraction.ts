@@ -5,6 +5,7 @@ import type { DrawingController, DrawingState } from '../reporting/createDrawing
 import { obstacleGeometryChoices, type GeographicVertex } from '../reporting/obstacle.js';
 
 export const obstacleMenuInnerRadius = 46;
+export const obstacleMenuOuterRadius = 112;
 
 /** What a released hold on the map does: start new geometry, or report an error on an existing obstacle. */
 export type HoldMode = 'obstacle' | 'error-report';
@@ -12,6 +13,8 @@ export type HoldMode = 'obstacle' | 'error-report';
 export function createMapDrawingInteraction(map: Map, drawing: DrawingController, options: {
   onHoldChange: (origin: HoldOrigin | null) => void;
   onHoldMove: (x: number, y: number) => void;
+  /** Error-report release: the original press coordinate becomes the circle centre. */
+  onErrorReportPlace?: (center: GeographicVertex) => void;
 }) {
   const canvas = map.getCanvas();
   const view = canvas.ownerDocument.defaultView!;
@@ -39,6 +42,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
     onMove: options.onHoldMove,
     onRelease: (x, y) => {
       if (holdMode === 'error-report') {
+        if (initialVertex) options.onErrorReportPlace?.(initialVertex);
         initialVertex = undefined;
         return;
       }
