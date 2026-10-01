@@ -1139,6 +1139,8 @@ button {
   --report-panel-max: 32rem;
   --height-keypad-width: 20rem;
   --error-report-description-height: 7.5rem;
+  --error-report-title-size-min: 1.375rem;
+  --error-report-obstacle-type-size: 1.0625rem;
   --error-report-keypad-key-size: 3.5rem;
   --report-button-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large));
   --report-height-item-size: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default));

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  buildErrorReport, describeHeightDifference, describeLightingCorrection, formatCoordinates, isErrorReportValid, toggleErrorKind,
+  buildErrorReport, describeHeightDifference, describeLightingCorrection, describeMissingRequirement, formatCoordinates, isErrorReportValid, toggleErrorKind,
   type ErrorReportInput,
 } from '../src/lib/obstacles/errorReport.js';
 import type { RegisteredObstacle } from '../src/lib/obstacles/registeredObstacles.js';
@@ -26,6 +26,23 @@ test('validation requires a kind, a positive height for wrong height, and a desc
   assert.equal(isErrorReportValid(input({ errorKinds: ['wrong-height'], actualHeightM: 60 })), true);
   assert.equal(isErrorReportValid(input({ errorKinds: ['other'], description: '   ' })), false);
   assert.equal(isErrorReportValid(input({ errorKinds: ['other'], description: 'Painted red' })), true);
+});
+
+test('the missing requirement names the first unmet rule and agrees with validation', () => {
+  const cases: [Partial<ErrorReportInput>, string | null][] = [
+    [{}, 'Select at least one error to continue'],
+    [{ errorKinds: ['wrong-height'] }, 'Enter the correct height to continue'],
+    [{ errorKinds: ['wrong-height', 'other'], actualHeightM: 0 }, 'Enter the correct height to continue'],
+    [{ errorKinds: ['other'], description: '  ' }, 'Describe the error to continue'],
+    [{ errorKinds: ['wrong-height', 'other'], actualHeightM: 60 }, 'Describe the error to continue'],
+    [{ errorKinds: ['wrong-position'] }, null],
+    [{ errorKinds: ['other'], description: 'Painted red' }, null],
+  ];
+  for (const [overrides, expected] of cases) {
+    const value = input(overrides);
+    assert.equal(describeMissingRequirement(value), expected, JSON.stringify(overrides));
+    assert.equal(isErrorReportValid(value), expected === null);
+  }
 });
 
 test('height difference is signed relative to the registered height', () => {

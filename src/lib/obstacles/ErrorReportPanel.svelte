@@ -11,7 +11,7 @@
   import ErrorHeightKeypad from './ErrorHeightKeypad.svelte';
   import type { RegisteredObstacle } from './registeredObstacles';
   import {
-    buildErrorReport, describeHeightDifference, describeLightingCorrection, errorKindChoices, formatCoordinates, isErrorReportValid,
+    buildErrorReport, describeHeightDifference, describeLightingCorrection, describeMissingRequirement, errorKindChoices, formatCoordinates, isErrorReportValid,
     isValidHeight, toggleErrorKind, type ErrorKind, type ErrorReport,
   } from './errorReport';
 
@@ -40,6 +40,7 @@
   let lightingWrong = $derived(errorKinds.includes('wrong-lighting'));
   let input = $derived({ errorKinds, actualHeightM, description });
   let valid = $derived(isErrorReportValid(input));
+  let missingRequirement = $derived(valid ? null : describeMissingRequirement(input));
 
   let dialog: HTMLDialogElement;
   let heading: HTMLHeadingElement;
@@ -177,8 +178,10 @@
   </div>
 
   <footer class="dialog-footer report-footer">
+    <!-- Always rendered so the live region announces each change. -->
+    <p id="error-report-finish-hint" class="finish-hint" aria-live="polite">{missingRequirement ?? ''}</p>
     <button type="button" class="button cancel" onclick={ondismiss}>Cancel</button>
-    <button type="button" class="button finish" disabled={!valid} onclick={finish}>
+    <button type="button" class="button finish" disabled={!valid} aria-describedby={missingRequirement ? 'error-report-finish-hint' : undefined} onclick={finish}>
       <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><SendIcon /></svg>
       Finish report
     </button>
@@ -214,13 +217,14 @@
   .report-subtitle { margin: var(--space-1) 0 0; color: var(--color-error-report-coordinates); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); font-variant-numeric: tabular-nums; }
   .report-content { display: flex; flex-direction: column; gap: var(--space-5); }
   .section-label { display: block; margin: 0 0 var(--space-2); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); }
-  .section-hint { margin: calc(-1 * var(--space-1)) 0 var(--space-2); color: var(--color-text-secondary); font-size: var(--font-size-caption); }
+  .section-hint { margin: calc(-1 * var(--space-1)) 0 var(--space-2); color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
 
   .obstacle-card {
     display: flex; align-items: center; gap: var(--space-3);
     padding: var(--space-3); border: var(--border-default); border-radius: var(--radius-control);
     background: var(--color-background-subtle);
   }
+  .obstacle-card strong { font-size: var(--error-report-obstacle-type-size); }
   .obstacle-card p { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
   .obstacle-icon {
     display: grid; flex: none; place-items: center;
@@ -230,7 +234,7 @@
   }
 
   .choice-grid {
-    --choice-font-size: clamp(var(--font-size-body-small), 0.831rem + 0.188vw, var(--font-size-body));
+    --choice-font-size: var(--font-size-body);
     display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2);
   }
   .choice {
@@ -248,6 +252,7 @@
       + var(--line-height-body) * (var(--choice-font-size) + var(--font-size-body-small)));
   }
   .choice--stacked span { line-height: var(--line-height-body); }
+  .choice--wide .geometry-icon { width: var(--icon-size-default); height: var(--icon-size-default); }
   .choice--wide { grid-column: 1 / -1; min-height: var(--control-height-default); padding-block: var(--space-2); }
   /* Follows the button colour, so it adapts to the selected state. */
   .choice-detail { color: inherit; font-size: var(--font-size-body-small); font-weight: var(--font-weight-regular); }
@@ -285,8 +290,14 @@
   }
   .mic-button:disabled { cursor: not-allowed; opacity: var(--opacity-disabled); }
 
-  .report-footer { display: flex; gap: var(--space-3); border-top: var(--border-default); }
-  .report-footer .button { flex: 1; min-height: var(--report-button-height); border: 0; font-weight: var(--font-weight-semibold); }
+  .report-footer { display: flex; flex-wrap: wrap; column-gap: var(--space-3); border-top: var(--border-default); }
+  .finish-hint {
+    flex-basis: 100%; margin: 0 0 var(--space-3);
+    color: var(--color-text-secondary); font-size: var(--font-size-body-small); text-align: center;
+  }
+  .finish-hint:empty { margin: 0; }
+  .report-footer .button { flex: 1; min-height: var(--report-button-height); border: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+  .report-footer .geometry-icon { width: var(--icon-size-default); height: var(--icon-size-default); }
   .cancel { background: var(--color-background-subtle); }
   .finish { background: var(--color-error-report-finish); color: var(--color-error-report-on-accent); }
   .finish:not(:disabled):hover, .finish:not(:disabled):active { background: var(--color-error-report-finish-hover); }
@@ -294,7 +305,7 @@
 
   .report-header, .report-footer { padding-block: clamp(var(--space-6), 1.324rem + 0.751vw, var(--space-8)); }
   .report-content { padding-block: clamp(var(--space-5), 1.162rem + 0.376vw, var(--space-6)) clamp(var(--space-6), 1.324rem + 0.751vw, var(--space-8)); gap: clamp(var(--space-5), 1.162rem + 0.376vw, var(--space-6)); }
-  .report-header h2 { font-size: clamp(var(--font-size-heading-small), 1.162rem + 0.376vw, var(--font-size-heading)); }
-  .section-label { font-size: clamp(var(--font-size-body-small), 0.831rem + 0.188vw, var(--font-size-body)); }
+  .report-header h2 { font-size: clamp(var(--error-report-title-size-min), 1.162rem + 0.376vw, var(--font-size-heading)); }
+  .section-label { font-size: var(--font-size-body); }
   .choice { font-size: var(--choice-font-size); }
 </style>

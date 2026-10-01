@@ -45,6 +45,14 @@ export function isErrorReportValid({ errorKinds, actualHeightM, description }: E
   return true;
 }
 
+/** Why the report cannot be finished yet, in the same order as the validation rules; null when valid. */
+export function describeMissingRequirement({ errorKinds, actualHeightM, description }: ErrorReportInput): string | null {
+  if (errorKinds.length === 0) return 'Select at least one error to continue';
+  if (errorKinds.includes('wrong-height') && !isValidHeight(actualHeightM)) return 'Enter the correct height to continue';
+  if (errorKinds.includes('other') && !description.trim()) return 'Describe the error to continue';
+  return null;
+}
+
 export function describeHeightDifference(actualHeightM: number, registeredHeightM: number): string {
   const difference = Math.round((actualHeightM - registeredHeightM) * 10) / 10;
   if (difference > 0) return `+${difference} m higher than registered`;
