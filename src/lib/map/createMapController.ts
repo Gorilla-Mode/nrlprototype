@@ -14,11 +14,15 @@ import {
 import { createGeolocationController, type GeolocationState } from './createGeolocationController';
 import { createGeolocationDisplay } from './createGeolocationDisplay';
 import type { HoldOrigin } from './createMapHoldController';
-import { createMapDrawingInteraction } from './createMapDrawingInteraction';
+import { createMapDrawingInteraction, obstacleMenuOuterRadius, type HoldMode } from './createMapDrawingInteraction';
 import { createDrawingController, type DrawingState } from '../reporting/createDrawingController';
-import type { Obstacle } from '../reporting/obstacle';
+import type { GeographicVertex, Obstacle } from '../reporting/obstacle';
 import { createReportController } from '../reporting/createReportController';
 import { createDrawingDisplay } from './createDrawingDisplay';
+import { createObstacleDisplay } from './createObstacleDisplay';
+import { createPositionCorrectionDisplay } from './createPositionCorrectionDisplay';
+import { createPositionDragInteraction, positionHandleRadius } from './createPositionDragInteraction';
+import { findObstacleInCircle, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
 import { MetricScaleControl } from './MetricScaleControl';
 
 setWorkerUrl(mapWorkerUrl);
@@ -33,6 +37,12 @@ interface MapControllerOptions {
   onHoldMove: (x: number, y: number) => void;
   onDrawingChange: (state: DrawingState) => void;
   onObstacleRegistered?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
+  /**
+   * Circle centre in container pixels and on the map (null when hidden), and the obstacle
+   * it currently selects; never a match while correcting a position.
+   */
+  onErrorCircleChange?: (center: ScreenPoint | null, match: RegisteredObstacle | null, position: GeographicVertex | null) => void;
+  onPositionDragChange?: (dragging: boolean) => void;
 }
 
 export interface CameraTarget {
@@ -44,6 +54,16 @@ export interface CameraTarget {
 export interface MapController {
   setSatelliteOpacity: (opacity: number) => void;
   setGrayscale: (grayscale: boolean) => void;
+  setHoldMode: (mode: HoldMode) => void;
+  setRegisteredObstacles: (obstacles: readonly RegisteredObstacle[]) => void;
+  moveErrorCircle: (x: number, y: number) => void;
+  /** Reuses the error circle to pick a corrected position, starting at `start`. */
+  startPositionCorrection: (origin: GeographicVertex, start: GeographicVertex) => void;
+  endPositionCorrection: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  /** Height of a panel covering the bottom of the map; the position circle stays above it. */
+  setBottomInset: (pixels: number) => void;
   stopCamera: () => void;
   toggleGeolocation: () => void;
   flyToLocation: (target: CameraTarget) => void;
@@ -99,7 +119,83 @@ export function createMapController(
     },
     onComplete: reporting.complete,
   });
-  const drawingInteraction = createMapDrawingInteraction(map, drawing, options);
+  const drawingInteraction = createMapDrawingInteraction(map, drawing, {
+    onHoldChange: options.onHoldChange,
+    onHoldMove: options.onHoldMove,
+    onErrorReportPlace: (center) => { errorCircleCenter = center; syncErrorReport(); },
+  });
+  const obstacleDisplay = createObstacleDisplay(map);
+  const correctionDisplay = createPositionCorrectionDisplay(map);
+  const positionDrag = createPositionDragInteraction(map, {
+    getCenter: () => (correction && errorCircleCenter ? project(errorCircleCenter) : null),
+    onMove: (x, y) => moveErrorCircle(x, y),
+    onDragChange: (dragging) => options.onPositionDragChange?.(dragging),
+  });
+  let holdMode: HoldMode = 'obstacle';
+  let registeredObstacles: readonly RegisteredObstacle[] = [];
+  // Anchored geographically so the circle follows the map while panning or zooming.
+  let errorCircleCenter: GeographicVertex | null = null;
+  // While set, the circle picks a position instead of an obstacle; the selection circle waits in `centerBefore`.
+  let correction: { origin: GeographicVertex; centerBefore: GeographicVertex | null } | null = null;
+
+  function project([lng, lat]: GeographicVertex): ScreenPoint {
+    const { x, y } = map.project([lng, lat]);
+    return { x, y };
+  }
+
+  function syncErrorReport() {
+    if (destroyed) return;
+    const active = holdMode === 'error-report';
+    const center = active && errorCircleCenter ? project(errorCircleCenter) : null;
+    const match = center && !correction && findObstacleInCircle(center, registeredObstacles,
+      (obstacle) => project([obstacle.lng, obstacle.lat]), obstacleMenuOuterRadius);
+    obstacleDisplay.show(active && !correction ? registeredObstacles : null, match ? match.id : null);
+    correctionDisplay.show(active && correction ? correction.origin : null, errorCircleCenter);
+    options.onErrorCircleChange?.(center, match || null, center ? errorCircleCenter : null);
+  }
+
+  let bottomInset = 0;
+
+  // The registered position may be off screen or behind the bottom panel; centre it above the panel.
+  function revealCorrectionCircle() {
+    if (!correction || !errorCircleCenter) return;
+    const { x, y } = project(errorCircleCenter);
+    const { clientWidth, clientHeight } = container;
+    if (x < 0 || y < 0 || x > clientWidth || y > clientHeight - bottomInset - obstacleMenuOuterRadius) {
+      map.easeTo({ center: [...errorCircleCenter], offset: [0, -bottomInset / 2] });
+    }
+  }
+
+  function moveErrorCircle(x: number, y: number) {
+    if (destroyed || holdMode !== 'error-report') return;
+    if (correction) {
+      // Keep the drag handle on screen and the whole ring above the bottom panel.
+      const maxY = container.clientHeight - bottomInset - obstacleMenuOuterRadius;
+      x = Math.min(Math.max(x, positionHandleRadius), container.clientWidth - positionHandleRadius);
+      y = Math.min(Math.max(y, positionHandleRadius), maxY);
+    }
+    const { lng, lat } = map.unproject([x, y]);
+    errorCircleCenter = [lng, lat];
+    syncErrorReport();
+  }
+
+  // Correcting a position hands the map to pan/zoom and the circle's own drag handle.
+  function setCorrectionGestures(active: boolean) {
+    drawingInteraction.setHoldSuspended(active);
+    positionDrag.setEnabled(active);
+  }
+
+  function setHoldMode(mode: HoldMode) {
+    if (destroyed) return;
+    drawingInteraction.setHoldMode(mode);
+    holdMode = mode;
+    if (mode !== 'error-report') {
+      errorCircleCenter = null;
+      correction = null;
+      setCorrectionGestures(false);
+    }
+    syncErrorReport();
+  }
 
   function setSatelliteOpacity(opacity: number) {
     if (destroyed) return;
@@ -158,6 +254,7 @@ export function createMapController(
   }
 
   map.on('click', handleMapClick);
+  map.on('move', syncErrorReport);
   map.on('load', handleLoad);
   map.on('style.load', handleStyleLoad);
   map.on('error', handleMapError);
@@ -168,6 +265,32 @@ export function createMapController(
     stopCamera: () => { if (!destroyed) map.stop(); },
     setSatelliteOpacity,
     setGrayscale,
+    setHoldMode,
+    setRegisteredObstacles: (obstacles) => { registeredObstacles = obstacles; syncErrorReport(); },
+    moveErrorCircle,
+    startPositionCorrection: (origin, start) => {
+      if (destroyed || holdMode !== 'error-report') return;
+      correction = { origin, centerBefore: correction ? correction.centerBefore : errorCircleCenter };
+      errorCircleCenter = start;
+      setCorrectionGestures(true);
+      revealCorrectionCircle();
+      syncErrorReport();
+    },
+    endPositionCorrection: () => {
+      if (destroyed || !correction) return;
+      errorCircleCenter = correction.centerBefore;
+      correction = null;
+      setCorrectionGestures(false);
+      syncErrorReport();
+    },
+    setBottomInset: (pixels) => {
+      if (destroyed) return;
+      bottomInset = Math.max(0, pixels);
+      // The panel is measured after correction starts.
+      revealCorrectionCircle();
+    },
+    zoomIn: () => { if (!destroyed) map.zoomIn(); },
+    zoomOut: () => { if (!destroyed) map.zoomOut(); },
     toggleGeolocation: geolocation.toggle,
     flyToLocation,
     undoDrawing: () => { if (!destroyed) drawing.undo(); },
@@ -178,11 +301,15 @@ export function createMapController(
       destroyed = true;
       window.removeEventListener('resize', handleResize);
       map.off('click', handleMapClick);
+      map.off('move', syncErrorReport);
       map.off('load', handleLoad);
       map.off('style.load', handleStyleLoad);
       map.off('error', handleMapError);
+      positionDrag.destroy();
       drawingInteraction.destroy();
       drawingDisplay.destroy();
+      obstacleDisplay.destroy();
+      correctionDisplay.destroy();
       reporting.destroy();
       geolocation.destroy();
       locationDisplay.destroy();

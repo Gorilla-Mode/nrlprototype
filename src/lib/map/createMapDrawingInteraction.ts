@@ -5,10 +5,16 @@ import type { DrawingController, DrawingState } from '../reporting/createDrawing
 import { obstacleGeometryChoices, type GeographicVertex } from '../reporting/obstacle.js';
 
 export const obstacleMenuInnerRadius = 46;
+export const obstacleMenuOuterRadius = 112;
+
+/** What a released hold on the map does: start new geometry, or report an error on an existing obstacle. */
+export type HoldMode = 'obstacle' | 'error-report';
 
 export function createMapDrawingInteraction(map: Map, drawing: DrawingController, options: {
   onHoldChange: (origin: HoldOrigin | null) => void;
   onHoldMove: (x: number, y: number) => void;
+  /** Error-report release: the original press coordinate becomes the circle centre. */
+  onErrorReportPlace?: (center: GeographicVertex) => void;
 }) {
   const canvas = map.getCanvas();
   const view = canvas.ownerDocument.defaultView!;
@@ -19,6 +25,8 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   let lastTouch: { x: number; y: number; time: number } | undefined;
   let restoreDoubleClickZoom: boolean | undefined;
   let destroyed = false;
+  let holdMode: HoldMode = 'obstacle';
+  let holdSuspended = false;
 
   function coordinate(x: number, y: number): GeographicVertex {
     const { lng, lat } = map.unproject([x, y]);
@@ -27,13 +35,18 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
 
   // Register hold suppression first: its release click must never reach the drawing listener.
   const hold = createMapHoldController(canvas, {
-    isEnabled: () => drawing.getState().status === 'idle',
+    isEnabled: () => !holdSuspended && drawing.getState().status === 'idle',
     onPressStart: ({ x, y }) => { initialVertex = coordinate(x, y); },
     onActivate: () => map.stop(),
     onOpen: options.onHoldChange,
     onClose: () => options.onHoldChange(null),
     onMove: options.onHoldMove,
     onRelease: (x, y) => {
+      if (holdMode === 'error-report') {
+        if (initialVertex) options.onErrorReportPlace?.(initialVertex);
+        initialVertex = undefined;
+        return;
+      }
       const index = getHoveredRadialSegment({ x, y }, obstacleGeometryChoices.length, obstacleMenuInnerRadius);
       if (index !== null && initialVertex) drawing.start(obstacleGeometryChoices[index].type, initialVertex);
       initialVertex = undefined;
@@ -119,9 +132,24 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   map.on('movestart', handleMoveStart);
   sync(drawing.getState());
 
+  /** Pauses the hold gesture entirely, e.g. while another gesture owns the map. */
+  function setHoldSuspended(suspended: boolean) {
+    holdSuspended = suspended;
+    if (suspended) cancel();
+  }
+
+  function setHoldMode(mode: HoldMode) {
+    if (mode === holdMode) return;
+    holdMode = mode;
+    // An open menu belongs to the previous mode; never let it release into the new one.
+    cancel();
+  }
+
   return {
     cancel,
     sync,
+    setHoldMode,
+    setHoldSuspended,
     destroy() {
       if (destroyed) return;
       destroyed = true;
