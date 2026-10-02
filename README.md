@@ -12,6 +12,29 @@ Verify changes with npm run check, npm test and npm run build. No lint script is
 
 Deployed prototype: https://gorilla-mode.github.io/nrlprototype/
 
+User testing: https://gorilla-mode.github.io/nrlprototype-usertest/
+
+### Deployments
+
+Pushes and merges to `master` update the existing prototype. Pushes and merges to
+`user-test` run type checks, tests and a build, then publish generated files to
+the `gh-pages` branch of `Gorilla-Mode/nrlprototype-usertest`. Failed checks leave
+the previous testing site available. Development stays in this repository; the
+testing repository contains generated files only and needs no manual code updates.
+
+The testing repository uses GitHub Pages **Deploy from a branch**, with `gh-pages`
+and `/ (root)` as its source. Its write-enabled deploy key has its private half stored
+in this repository's Actions secret `USERTEST_DEPLOY_KEY`. Never commit that key.
+Push deployment works as soon as the workflow is on `user-test`. Manual dispatch
+also requires the workflow file to exist on the default branch (`master`); select
+`user-test` when running it. Manual testing runs on other branches are skipped.
+The production workflow accepts only `main` or `master`.
+
+The source workflow publishes the files; the destination repository's Pages workflow
+then makes them live. Check Actions in both repositories when diagnosing deployment
+failures. To restore an earlier test version, revert the relevant change on `user-test`
+and push it through the same checks and deployment process.
+
 | Mode | Link |
 | --- | --- |
 | Debug mode | [Open debug mode](https://gorilla-mode.github.io/nrlprototype/?debug=1) |
