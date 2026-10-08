@@ -212,6 +212,18 @@
     ondrawingchange={handleDrawingChange}
     onobstacleregistered={oncomplete}
   />
+  <div class="map-center-crosshair" aria-hidden="true">
+    <svg viewBox="0 0 24 24">
+      <g class="halo">
+        <path d="M12 1v8M12 15v8M1 12h8M15 12h8" />
+        <circle cx="12" cy="12" r="2" fill="var(--palette-neutral-0)" stroke="none" />
+      </g>
+      <g class="mark">
+        <path d="M12 1v8M12 15v8M1 12h8M15 12h8" />
+        <circle cx="12" cy="12" r="1.6" fill="var(--palette-black)" stroke="none" />
+      </g>
+    </svg>
+  </div>
   <MapToolbar
     {menuOpen}
     {showHelp}
@@ -354,5 +366,19 @@
     transform: translate(-50%, -50%);
     pointer-events: none;
   }
+
+  .map-center-crosshair {
+    position: absolute;
+    z-index: var(--layer-map-overlay);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: var(--map-crosshair-size);
+    height: var(--map-crosshair-size);
+    pointer-events: none;
+  }
+  .map-center-crosshair svg { display: block; width: 100%; height: 100%; fill: none; stroke-linecap: round; }
+  .map-center-crosshair .halo { stroke: var(--palette-neutral-0); stroke-width: calc(var(--icon-stroke-width) * 1.3); }
+  .map-center-crosshair .mark { stroke: var(--palette-black); stroke-width: calc(var(--icon-stroke-width) * 0.8); }
 
 </style>
