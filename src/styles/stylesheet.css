@@ -495,6 +495,10 @@
   --map-slider-position: 0%;
   --map-search-results-max: 30rem;
   --map-crosshair-size: 4rem;
+  --map-crosshair-halo-stroke-width: 1.75;
+  --map-crosshair-mark-stroke-width: 1;
+  --color-map-crosshair-halo: var(--palette-neutral-0);
+  --color-map-crosshair-mark: var(--palette-black);
   --map-help-size: calc(2 * var(--map-control-size));
   --map-help-inset-bottom: calc(var(--map-control-inset-bottom) + var(--space-12));
   --map-bottom-toolbar-inset: calc(var(--map-control-inset-bottom) + var(--space-16) + var(--space-4));
