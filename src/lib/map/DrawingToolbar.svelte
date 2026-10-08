@@ -1,11 +1,13 @@
 <script lang="ts">
+  import type { PlacementEditingVariantId } from './placementEditing';
   import { tick } from 'svelte';
   import GeometryIcon from './GeometryIcon.svelte';
   import { formatMeasurement, type DrawingState } from '../reporting/createDrawingController.js';
   import { obstacleGeometryChoices, type ObstacleGeometryType } from '../reporting/obstacle.js';
 
-  let { state: drawingState, crosshairMode = false, geometryType = $bindable<ObstacleGeometryType>('Point'),
+  let { placementEditing = 'default', state: drawingState, crosshairMode = false, geometryType = $bindable<ObstacleGeometryType>('Point'),
     onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, helpVisible = false }: {
+    placementEditing?: PlacementEditingVariantId;
     state: DrawingState;
     crosshairMode?: boolean;
     geometryType?: ObstacleGeometryType;
@@ -21,12 +23,13 @@
   let choice = $derived(obstacleGeometryChoices.find(({ type }) => type === drawingState.draft?.type));
   let crosshairDrawing = $derived(crosshairMode && drawingState.status === 'drawing');
   let deleteButton = $state<HTMLButtonElement>();
+  let completeButton = $state<HTMLButtonElement>();
   let addButton = $state<HTMLButtonElement>();
 
   async function startSelection() {
     onstart?.(geometryType);
     await tick();
-    if (drawingState.status === 'drawing') addButton?.focus({ preventScroll: true });
+    if (drawingState.status === 'drawing') (drawingState.draft?.type === 'Point' ? completeButton : addButton)?.focus({ preventScroll: true });
   }
 
   async function addPoint() {
@@ -66,9 +69,9 @@
     <div class="details">
       {#if crosshairDrawing}
         <div class="commands" role="group" aria-label="Selection actions">
-          <button type="button" class="button" onclick={onundo} disabled={drawingState.draft.vertices.length <= 1}>Undo</button>
+          <button type="button" class="button" onclick={onundo} disabled={!drawingState.canUndo}>Undo</button>
           <button type="button" class="button button--danger delete" bind:this={deleteButton} onclick={ondelete}>Delete</button>
-          <button type="button" class="button button--primary" onclick={completeSelection} disabled={!drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete</button>
+          <button type="button" class="button button--primary" bind:this={completeButton} onclick={completeSelection} disabled={!drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete</button>
         </div>
       {/if}
       <div class="summary" role="status" aria-atomic="true">
@@ -78,18 +81,23 @@
         {#if drawingState.measurement}<span>{formatMeasurement(drawingState.measurement)}</span>{/if}
       </div>
       {#if drawingState.status === 'drawing'}
+        {#if placementEditing !== 'default'}
+          <p>{placementEditing === 'two-finger' ? 'Drag placed points to edit.' : 'Hold placed points, then drag to edit.'} Arrow keys move focused points.</p>
+        {/if}
         <p id="drawing-guidance" class:invalid={!drawingState.canComplete && drawingState.draft.vertices.length >= 3} role="status">
-          {drawingState.message || (crosshairMode
+          {drawingState.message || (drawingState.draft.type === 'Point' ? 'Adjust the point, then Complete to open the report form.' : crosshairMode
             ? 'Move the map, then use Add point.'
             : 'Click or tap the map to add a point, or complete your selection.')}
         </p>
       {/if}
     </div>
     {#if crosshairDrawing}
+      {#if drawingState.draft.type !== 'Point'}
       <div class="actions">
         <button type="button" class="button button--primary complete" bind:this={addButton} onclick={addPoint}
           disabled={!onaddpoint} aria-describedby="drawing-guidance">Add point</button>
       </div>
+      {/if}
     {:else}
       <div class="actions" role="group" aria-label="Selection actions">
         <button type="button" class="button button--danger delete" bind:this={deleteButton} onclick={ondelete}>Delete</button>
@@ -97,7 +105,7 @@
           <button type="button" class="button button--primary" data-resume-details onclick={onresumedetails}>Resume details</button>
         {/if}
         {#if drawingState.status === 'drawing'}
-          <button type="button" class="button" onclick={onundo} disabled={drawingState.draft.vertices.length <= 1}>Undo</button>
+          <button type="button" class="button" onclick={onundo} disabled={!drawingState.canUndo}>Undo</button>
           <button type="button" class="button button--primary complete" onclick={completeSelection} disabled={!drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete selection</button>
         {/if}
       </div>

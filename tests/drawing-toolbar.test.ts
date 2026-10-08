@@ -7,6 +7,7 @@ import type { Component } from 'svelte';
 import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
 import { createDrawingController, idleDrawingState, type DrawingState } from '../src/lib/reporting/createDrawingController.js';
+import type { PlacementEditingVariantId } from '../src/lib/map/placementEditing.js';
 import type { ObstacleGeometryType } from '../src/lib/reporting/obstacle.js';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
 
@@ -21,6 +22,7 @@ for (const file of ['createDrawingController', 'obstacle']) {
 }
 code = code.replaceAll("'./GeometryIcon.svelte'", JSON.stringify(await compileSvelteComponent('src/lib/map/GeometryIcon.svelte')));
 interface ToolbarProps {
+  placementEditing?: PlacementEditingVariantId;
   state: DrawingState;
   onundo: () => void;
   ondelete: () => void;
@@ -154,4 +156,20 @@ test('valid drawing enables completion; completed summary retains Delete and hid
   assert.match(html, /≈ 111.2 m/);
   assert.match(html, />Delete<\/button>/);
   assert.doesNotMatch(html, /Undo|Complete selection|drawing-guidance/);
+});
+
+
+test('Basic Point exposes confirmation, omits Add point, and enables Undo after moving the initial vertex', () => {
+  const drawing = createDrawingController({ vertexEditing: true, deferPointCompletion: true, onChange: noop, onComplete: noop });
+  drawing.start('Point', [0, 0]);
+  const props = { placementEditing: 'basic' as const, crosshairMode: true, onaddpoint: noop };
+  const initial = body(drawing.getState(), props);
+  assert.doesNotMatch(initial, />Add point<\/button>/);
+  assert.match(initial, /Complete to open the report form/);
+  assert.match(initial, /Hold placed points/);
+  drawing.beginVertexMove(0); drawing.updateVertexMove([1, 1]); drawing.commitVertexMove();
+  const moved = body(drawing.getState(), props);
+  assert.match(moved, /<button[^>]*>Undo<\/button>/);
+  assert.doesNotMatch(moved, /<button[^>]* disabled[^>]*>Undo<\/button>/);
+  assert.match(body(drawing.getState(), { placementEditing: 'two-finger' }), /Drag placed points to edit/);
 });

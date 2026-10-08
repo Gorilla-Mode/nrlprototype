@@ -2,17 +2,19 @@
   import MapButton from './MapButton.svelte';
   import DrawingToolbar from './DrawingToolbar.svelte';
   import SearchBar from './SearchBar.svelte';
+  import type { PlacementEditingVariantId } from './placementEditing';
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { LocationSuggestion } from './locationSearch';
   import type { ObstacleGeometryType } from '../reporting/obstacle';
 
-  let { drawing, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), selectionControlsCovered = false, showSelectionControls = true, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, onhelp, helpOpen, showHelp = false, menuOpen }: {
+  let { placementEditing = 'default', drawing, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), selectionControlsCovered = false, showSelectionControls = true, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, onhelp, helpOpen, showHelp = false, menuOpen }: {
     onmenu: () => void;
     onreports: () => void;
     onhelp: () => void;
     helpOpen: boolean;
     showHelp?: boolean;
     menuOpen: boolean;
+    placementEditing?: PlacementEditingVariantId;
     drawing: DrawingState;
     crosshairMode: boolean;
     geometryType?: ObstacleGeometryType;
@@ -57,7 +59,7 @@
 
 {#if showSelectionControls}
 <div class:covered={selectionControlsCovered} inert={selectionControlsCovered}>
-  <DrawingToolbar state={drawing} {crosshairMode} bind:geometryType {onstart} {onaddpoint}
+  <DrawingToolbar state={drawing} {placementEditing} {crosshairMode} bind:geometryType {onstart} {onaddpoint}
     {onundo} {ondelete} {oncomplete} {onresumedetails} helpVisible={showHelp} />
 </div>
 {/if}
