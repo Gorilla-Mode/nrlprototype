@@ -10,7 +10,8 @@
   import { isReportsHash, reportsRoute } from './lib/reports/reports';
   import { isNotificationsHash, markAllRead, notificationsRoute, sampleNotifications, type ReportStatusNotification } from './lib/notifications/notifications';
   import type { GeolocationState } from './lib/map/createGeolocationController';
-  import { isTutorialEnabled } from './lib/map/tutorial';
+  import { reportingGuideRoute } from './lib/map/tutorial';
+  import ReportObstacleGuide from './lib/map/ReportObstacleGuide.svelte';
   import { createDetailsController, initialDetailsState, type DetailsHooks, type DetailsState } from './lib/reporting/createDetailsController';
   import { reportingSettings, reportingVariantUrl, resolveReportingRoute, summaryRoute } from './lib/reporting/reporting';
   import { reportingVariants } from './lib/reporting/reportingVariants';
@@ -34,13 +35,13 @@
   let search = $state(typeof window !== 'undefined' ? window.location.search : '');
   let reporting = $derived(reportingSettings(search, reportingVariants));
   let placementEditing = $derived(placementEditingSettings(search));
-  let showHelp = $derived(isTutorialEnabled(search, reporting.debug));
+  let guideOpen = $derived(hash === reportingGuideRoute);
   let ActiveReportingView = $derived(reportingVariants.find(({ id }) => id === details.variant?.id)?.component);
   let faqOpen = $derived(hash === '#/FAQ');
   let reportsOpen = $derived(isReportsHash(hash));
   let notificationsOpen = $derived(isNotificationsHash(hash));
   let settingsSection = $derived(settingsSectionFromHash(hash));
-  let pageOpen = $derived(faqOpen || reportsOpen || notificationsOpen || settingsSection !== null);
+  let pageOpen = $derived(guideOpen || faqOpen || reportsOpen || notificationsOpen || settingsSection !== null);
   let reportOpen = $derived(details.open || details.summaryOpen);
   let menuOpen = $state(false);
   let menuWasOpen = false;
@@ -85,7 +86,7 @@
       if (!wasPageOpen) menuWasOpen = menuOpen;
       menuOpen = false;
     } else if (wasPageOpen) menuOpen = menuWasOpen;
-    if (wasReportOpen && !reportOpen) restoreMapFocus();
+    if ((wasReportOpen && !reportOpen) || (wasPageOpen && !pageOpen)) restoreMapFocus();
   }
 
   function selectReportingVariant(id: string) {
@@ -155,6 +156,10 @@
   }
 
   function openPage(nextHash: string) {
+    if (!pageOpen) {
+      returnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+        ? document.activeElement : document.querySelector<HTMLElement>('[aria-label="Menu"]');
+    }
     history.pushState({ ...history.state, nrlPageEntry: true }, '', nextHash);
     syncRoute();
   }
@@ -191,9 +196,9 @@
 
 <div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || reportOpen} aria-hidden={pageOpen || reportOpen}>
   <HomeMap bind:this={homeMap} bind:menuOpen bind:opacity bind:isGrayscale={grayscale}
-    {showHelp} {placementEditing}
+    {placementEditing}
     bind:geolocationState={locationState} bind:locationMessage bind:accuracy
-    onfaq={() => openPage('#/FAQ')} onnotifications={() => openPage(notificationsRoute)} onreports={() => openPage(reportsRoute)}
+    onguide={() => openPage(reportingGuideRoute)} onfaq={() => openPage('#/FAQ')} onnotifications={() => openPage(notificationsRoute)} onreports={() => openPage(reportsRoute)}
     onsettings={(section) => openPage('#/Settings/' + section)} visible={!pageOpen && !reportOpen}
     debugContent={reporting.debug ? reportingDebug : undefined}
     onreportstart={() => detailsController.start(reporting.variant)}
@@ -217,7 +222,8 @@
 {:else if !details.open && details.error}
   <p class="details-error" role="alert">{details.error}</p>
 {/if}
-{#if faqOpen}<FaqPage onback={backToMap} />{/if}
+{#if guideOpen}<ReportObstacleGuide {placementEditing} onback={backToMap} />{/if}
+{#if faqOpen}<FaqPage onback={backToMap} onguide={() => openPage(reportingGuideRoute)} />{/if}
 {#if reportsOpen}<ReportsPage onback={backToMap} />{/if}
 {#if notificationsOpen}
   <NotificationsPage {notifications} onback={backToMap} onmarkallread={() => { notifications = markAllRead(notifications); }} />
@@ -225,7 +231,7 @@
 {#if settingsSection}
   <SettingsPage section={settingsSection} onsection={selectSettings} onclose={backToMap}
     bind:opacity bind:grayscale bind:language {locationState} {locationMessage} {accuracy}
-    onlocation={() => homeMap.toggleGeolocation()} />
+    onlocation={() => homeMap.toggleGeolocation()} onguide={() => openPage(reportingGuideRoute)} />
 {/if}
 
 <style>

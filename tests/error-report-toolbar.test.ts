@@ -34,8 +34,8 @@ const { default: MapToolbar } = await import(await compileSvelteComponent('src/l
   './SearchBar.svelte': searchBar,
 })) as { default: Component<{
   drawing: DrawingState; crosshairMode: boolean; showSelectionControls: boolean; selectionControlsCovered?: boolean;
-  menuOpen: boolean; helpOpen: boolean; onstart: () => void; onaddpoint: () => void; onundo: () => void;
-  ondelete: () => void; oncomplete: () => void; onmenu: () => void; onreports: () => void; onhelp: () => void; onsearchselect: () => void;
+  menuOpen: boolean; onstart: () => void; onaddpoint: () => void; onundo: () => void;
+  ondelete: () => void; oncomplete: () => void; onmenu: () => void; onreports: () => void; onsearchselect: () => void;
 }> };
 
 function errorToolbar(crosshairMode: boolean, obstacle: RegisteredObstacle | null, placed = false) {
@@ -52,16 +52,17 @@ test('crosshair error toolbar exposes the matched identity and Report error with
   assert.match(empty, /data-report-error[^>]*disabled[^>]*>Report error<\/button>/);
 });
 
-test('circle error toolbar retains hold guidance, selection identity and disabled no-match state', () => {
-  assert.match(errorToolbar(false, null), /Hold the map to place the circle/);
+test('circle error toolbar retains selection identity and disabled no-match state without prompts', () => {
+  assert.match(errorToolbar(false, null), /No obstacle selected/);
+  assert.doesNotMatch(errorToolbar(false, null), /Hold the map|Move the circle/);
   assert.match(errorToolbar(false, null), /data-report-error[^>]*disabled[^>]*>Select<\/button>/);
   assert.match(errorToolbar(false, null, true), /No registered obstacles here/);
   assert.match(errorToolbar(false, match, true), />Select Test mast \(40 m\)<\/button>/);
 });
 
 test('error reporting removes the geometry workflow while preserving map navigation controls', () => {
-  const props = { drawing: idleDrawingState, crosshairMode: true, showSelectionControls: false, menuOpen: false, helpOpen: false,
-    onstart: noop, onaddpoint: noop, onundo: noop, ondelete: noop, oncomplete: noop, onmenu: noop, onreports: noop, onhelp: noop, onsearchselect: noop };
+  const props = { drawing: idleDrawingState, crosshairMode: true, showSelectionControls: false, menuOpen: false,
+    onstart: noop, onaddpoint: noop, onundo: noop, ondelete: noop, oncomplete: noop, onmenu: noop, onreports: noop, onsearchselect: noop };
   const html = render(MapToolbar, { props }).body;
   assert.doesNotMatch(html, /type="radio"|Report obstacle|drawing-toolbar/);
   assert.match(html, /aria-label="Menu"/);
@@ -72,16 +73,21 @@ test('error reporting removes the geometry workflow while preserving map navigat
   assert.match(normal, /<div(?=[^>]*\binert)(?=[^>]*class="[^"]*\bcovered\b)[^>]*>/);
 });
 
-test('position guidance follows the input mode while preserving validation and correction alternatives', () => {
+test('position feedback preserves coordinates, validation and correction alternatives without prompts', () => {
   const props = { newPosition: null, registered: match, move: null, canConfirm: false, editing: true,
     oncancel: noop, onconfirm: noop, onunknown: noop, onremove: noop };
   const crosshair = render(PositionCorrectionToolbar, { props: { ...props, crosshairMode: true } }).body;
-  assert.match(crosshair, /Aim the crosshair at the correct position/);
-  assert.match(crosshair, /Move the map to where the obstacle actually is/);
+  assert.match(crosshair, /Correct obstacle position/);
+  assert.match(crosshair, /New position/);
+  assert.match(crosshair, /Registered/);
+  assert.doesNotMatch(crosshair, /Aim the crosshair|Move the map/);
   assert.match(crosshair, /disabled[^>]*>Confirm position<\/button>/);
   assert.match(crosshair, /Remove “Wrong position”/);
   assert.match(crosshair, /I don't know the exact position/);
   const circle = render(PositionCorrectionToolbar, { props }).body;
-  assert.match(circle, /Move the circle to the correct position/);
-  assert.match(circle, /Drag the circle to where the obstacle actually is/);
+  assert.match(circle, /Correct obstacle position/);
+  assert.doesNotMatch(circle, /Move the circle|Drag the circle/);
+  const moved = render(PositionCorrectionToolbar, { props: { ...props, newPosition: { lng: 10, lat: 60 }, move: { distance: '30 m', direction: 'north' }, canConfirm: true } }).body;
+  assert.match(moved, /30 m north/);
+  assert.doesNotMatch(moved, /disabled/);
 });

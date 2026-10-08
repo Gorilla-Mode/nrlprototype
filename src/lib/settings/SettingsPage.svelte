@@ -7,11 +7,12 @@
   import { settingsSections, type SettingsSection, type LanguagePreference } from './settings';
   import type { GeolocationState } from '../map/createGeolocationController';
 
-  let { section, onsection, onclose, opacity = $bindable(0), grayscale = $bindable(false),
+  let { section, onsection, onclose, onguide, opacity = $bindable(0), grayscale = $bindable(false),
     language = $bindable<LanguagePreference>('en'), locationState, locationMessage, accuracy, onlocation }: {
     section: SettingsSection;
     onsection: (section: SettingsSection) => void;
     onclose: () => void;
+    onguide: () => void;
     opacity?: number;
     grayscale?: boolean;
     language?: LanguagePreference;
@@ -47,7 +48,7 @@
               <button type="button" class="settings-nav-row" aria-current={section === item.id ? 'page' : undefined} onclick={() => onsection(item.id)}><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={item.icon} /></svg><span>{item.label}</span></button>
             {/each}
             {#if group === 'SUPPORT'}
-              <button class="settings-nav-row" type="button" disabled>How to Report an Obstacle</button>
+              <button class="settings-nav-row" type="button" onclick={onguide}>How to Report an Obstacle</button>
               <button class="settings-nav-row" type="button" disabled>Help &amp; Contact</button>
               <p class="settings-nav-notice">Not available in this prototype.</p>
             {/if}
@@ -57,9 +58,9 @@
       <footer class="settings-sidebar-footer"><button class="settings-nav-row" type="button" disabled>Log Out</button><p class="settings-nav-notice">Authentication is not connected.</p></footer>
     </aside>
     <label class="settings-mobile-nav">Settings section
-      <select value={section} onchange={(event) => onsection(event.currentTarget.value as SettingsSection)}>
+      <select value={section} onchange={(event) => { if (event.currentTarget.value === 'report-guide') onguide(); else onsection(event.currentTarget.value as SettingsSection); }}>
         {#each settingsSections as item}<option value={item.id}>{item.label}</option>{/each}
-        <optgroup label="SUPPORT"><option disabled>How to Report an Obstacle — unavailable</option><option disabled>Help &amp; Contact — unavailable</option></optgroup>
+        <optgroup label="SUPPORT"><option value="report-guide">How to Report an Obstacle</option><option disabled>Help &amp; Contact — unavailable</option></optgroup>
         <option disabled>Log Out — unavailable</option>
       </select>
     </label>

@@ -5,17 +5,24 @@ import { test } from 'node:test';
 import type { Component } from 'svelte';
 import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
-import { isTutorialEnabled, tutorialBlocks, type TutorialEntry } from '../src/lib/map/tutorial.js';
+import { reportingGuideRoute, reportingGuideBlocks, tutorialBlocks, type TutorialEntry } from '../src/lib/map/tutorial.js';
 
-test('Help requires both exact debug and help query values, in either order', () => {
-  for (const [search, debug, enabled] of [
-    ['', false, false], ['?help=1', false, false], ['?debug=1', true, false],
-    ['?debug=0&help=1', false, false], ['?debug=true&help=1', false, false],
-    ['?debug=1&help=0', true, false], ['?debug=1&help=true', true, false],
-    ['?debug=1&help=', true, false], ['?debug=1&help=1', true, true],
-    ['?other=x&help=1&debug=1', true, true],
-  ] as const) {
-    assert.equal(isTutorialEnabled(search, debug), enabled, search);
+test('reporting guide has a public hash route and describes the active placement variant', () => {
+  assert.equal(reportingGuideRoute, '#/Help/ReportObstacle');
+  const answers = (variant: Parameters<typeof reportingGuideBlocks>[0]) => reportingGuideBlocks(variant).map(b => b.answer).join(' ');
+  assert.match(answers('persistent-donut'), /Releasing keeps it open/);
+  assert.match(answers('persistent-donut'), /1\/2\/3/);
+  assert.match(answers('basic'), /100 ms with touch, or 200 ms with a mouse or pen/);
+  assert.match(answers('basic'), /72 px across/);
+  assert.match(answers('basic'), /Basic keeps Point editable/);
+  assert.match(answers('two-finger'), /edit it immediately/);
+  assert.match(answers('two-finger'), /second finger/);
+  assert.match(answers('default'), /Point opens the report form immediately/);
+  for (const variant of ['default', 'basic', 'persistent-donut', 'two-finger'] as const) {
+    assert.match(answers(variant), /reloading loses the draft and result/);
+    assert.match(answers(variant), /do not update the sample Reports or Draft lists/);
+    assert.match(answers(variant), /Add point/);
+    assert.doesNotMatch(answers(variant), /reports I have submitted|stored locally/);
   }
 });
 
@@ -33,20 +40,21 @@ async function compileComponent(name: string, imports: Record<string, string> = 
 }
 
 const blockUrl = await compileComponent('TutorialBlock');
-const dialogUrl = await compileComponent('TutorialDialog', {
+const guideUrl = await compileComponent('ReportObstacleGuide', {
   './TutorialBlock.svelte': blockUrl,
   './tutorial': new URL('../src/lib/map/tutorial.js', import.meta.url).href,
 });
-const { default: TutorialDialog } = await import(dialogUrl) as {
-  default: Component<{ blocks?: readonly TutorialEntry[]; ondismiss: () => void }>;
+const { default: ReportObstacleGuide } = await import(guideUrl) as {
+  default: Component<{ blocks?: readonly TutorialEntry[]; onback: () => void }>;
 };
-const body = (blocks?: readonly TutorialEntry[]) => render(TutorialDialog, { props: { blocks, ondismiss() {} } }).body;
+const body = (blocks?: readonly TutorialEntry[]) => render(ReportObstacleGuide, { props: { blocks, onback() {} } }).body;
 
-test('an empty tutorial retains its title, close control and keyboard scroll region', () => {
+test('an empty guide retains the page heading and back control', () => {
   const html = body([]);
-  assert.match(html, /<h2[^>]*>Tutorial<\/h2>/);
-  assert.match(html, /aria-label="Close tutorial"/);
-  assert.match(html, /tabindex="0" role="region" aria-label="Tutorial content"/);
+  assert.match(html, /<h1[^>]*tabindex="-1"[^>]*>How to Report an Obstacle<\/h1>/);
+  assert.match(html, /aria-label="Back"/);
+  assert.match(html, /<main[^>]*aria-label="How to Report an Obstacle"/);
+  assert.doesNotMatch(html, /<dialog|Close tutorial/);
   assert.doesNotMatch(html, /<section/);
 });
 
@@ -58,7 +66,7 @@ test('one block renders its header and always-visible question and answer as esc
   assert.match(html, /A &lt;question>\?/);
   assert.match(html, /<strong[^>]*>Answer<\/strong>/);
   assert.match(html, /First line\nSecond &lt;line>/);
-  assert.doesNotMatch(html, /<details|hidden|aria-expanded/);
+  assert.doesNotMatch(html, /<details|(?<!aria-)hidden=|aria-expanded/);
 });
 
 test('many long blocks render in list order without truncation or a count limit', () => {

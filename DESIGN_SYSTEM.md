@@ -40,21 +40,27 @@ Map taps and holds navigate without placing geometry in this mode. Switching mod
 keeps the current selection and restores the corresponding input method.
 
 The independent debug Placement editing selector offers the unchanged default and three
-editing modes. Placed geometry keeps its existing map rendering. Editing targets are
-44 px, keyboard focusable and labeled by point order; their opaque numbered handle
-appears on focus. Arrow keys move by 16 CSS px, Shift multiplies movement by four, and
-Escape cancels an unfinished move. Basic and Persistent use hold-then-drag; Two-finger
-uses immediate dragging. Complete locks placement, with Point confirmation exposed only
-in Basic. Add point is unavailable for its single Point vertex. Undo follows additions and
-moves, including moves of the initial vertex.
+editing modes. Placed geometry keeps its existing map rendering. Editing targets use
+semantic diameters of 72 px for touch and 44 px for mouse/pen, resolved to CSS pixels for
+hit testing. They are keyboard focusable and labeled by point order; their opaque numbered
+handle appears on focus. Arrow keys move by 16 CSS px, Shift multiplies movement by four, and
+Escape cancels an unfinished move. Basic and Persistent use hold-then-drag after 100 ms
+for touch or 200 ms for mouse/pen; Two-finger uses immediate dragging. Complete locks
+placement, with Point confirmation exposed only in Basic. Add point is unavailable for
+its single Point vertex. Undo follows additions and moves, including moves of the initial vertex.
 
-Persistent donut provides an opaque center target and guidance with labeled geometry
-choices. Its opening release leaves it open; drag its hole to move, tap the hole to
-cancel, or tap a sector/outside to choose by angle. Keyboard arrows move its center,
-Enter/Escape cancel, and geometry buttons choose placement. Two-finger guidance explains
-panning beneath a fixed donut and retains the crosshair picker as an alternative.
-Placement guidance and drawing commands consume existing opaque surfaces, focus and
-safe-area tokens. Runtime handle coordinates reuse the pointer-position CSS aliases.
+Persistent donut retains its opening release, center dragging and center-tap cancellation.
+Tap a sector/outside to choose by angle. Its wrapper is keyboard focusable and shows focus
+only for keyboard input: arrows move its center, Shift moves faster, 1/2/3 select geometry,
+and Escape cancels. No separate center button or tutorial panel is displayed.
+Guidance lives in the public How to Report an Obstacle page, including the active placement
+variant, crosshair placement, editing and session-only draft/report behavior.
+Drawing footers retain labels, counts, measurements, completion and validation feedback.
+The crosshair geometry picker uses one equal-width three-column row with icons above
+labels and native radios. Report obstacle has its own row on phones and portrait tablets.
+Drawing and error-report footers share the attribution/scale safe-area inset plus 40 px
+clearance, with no Help-specific offset, height cap or internal scrolling. Position correction
+stays bottom-anchored and retains coordinates, distances and validation without prompts.
 
 Error reporting also supports crosshair input: its toolbar replaces geometry choices
 with Report error, enabled for the nearest registered obstacle within half the measured
@@ -64,7 +70,7 @@ Wrong-position correction uses the visible midpoint when crosshair mode is on an
 draggable circle when it is off; switching input methods preserves the geographic
 candidate and form answers.
 Outside correction, turning crosshair off clears targeting, including any previously
-placed circle, and returns to hold-to-place guidance with selection disabled. After
+placed circle, and returns to a no-selection status with selection disabled. After
 correction has switched from crosshair to circle input, ending it also requires a new
 hold for ordinary targeting. Circle-only correction cancellation restores its prior circle.
 

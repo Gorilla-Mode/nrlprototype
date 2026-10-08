@@ -143,7 +143,24 @@ export function createMapController(
     },
     onComplete: reporting.complete,
   });
+  // Resolve semantic lengths through CSS so rem/calc aliases become CSS pixels.
+  const targetProbe = container.ownerDocument.createElement('span');
+  targetProbe.hidden = true;
+  container.append(targetProbe);
+  const targetSize = (token: string) => {
+    targetProbe.style.width = `var(${token})`;
+    const pixels = Number.parseFloat(getComputedStyle(targetProbe).width);
+    if (!Number.isFinite(pixels) || pixels <= 0) throw new Error(`Missing target size: ${token}`);
+    return pixels;
+  };
+  let vertexTargetSize: number;
+  let vertexTouchTargetSize: number;
+  try {
+    vertexTargetSize = targetSize('--map-vertex-target-size');
+    vertexTouchTargetSize = targetSize('--map-vertex-touch-target-size');
+  } finally { targetProbe.remove(); }
   const vertexEditing = createVertexEditingInteraction(map, drawing, {
+    targetSize: vertexTargetSize, touchTargetSize: vertexTouchTargetSize,
     variant, onHandlesChange: (handles) => options.onVertexHandlesChange?.(handles),
   });
   const drawingInteraction = createMapDrawingInteraction(map, drawing, {

@@ -36,7 +36,7 @@ function setup(t: TestContext, variant: PlacementEditingVariantId = 'basic') {
   const drawing = createDrawingController({ vertexEditing: variant !== 'default', deferPointCompletion: true,
     onChange: (state) => interaction.sync(state), onComplete: () => {} });
   const interaction = createVertexEditingInteraction(map as unknown as MapLibreMap, drawing, {
-    variant, onHandlesChange: (value) => { handles = value; },
+    variant, targetSize: 44, touchTargetSize: 72, onHandlesChange: (value) => { handles = value; },
   });
   drawing.start('LineString', [1, 1.5]);
   t.after(() => interaction.destroy());
@@ -57,10 +57,10 @@ function setup(t: TestContext, variant: PlacementEditingVariantId = 'basic') {
 
 test('nearest vertex uses a 44 px target and stable vertex order for equal distances', () => {
   const handles = [{ index: 0, x: 0, y: 0 }, { index: 1, x: 20, y: 0 }];
-  assert.equal(nearestEditableVertex(handles, { x: 10, y: 0 })?.index, 0);
-  assert.equal(nearestEditableVertex(handles, { x: 22, y: 0 })?.index, 1);
-  assert.equal(nearestEditableVertex([handles[0]], { x: 22, y: 0 })?.index, 0);
-  assert.equal(nearestEditableVertex([handles[0]], { x: 22.01, y: 0 }), undefined);
+  assert.equal(nearestEditableVertex(handles, { x: 10, y: 0 }, 44)?.index, 0);
+  assert.equal(nearestEditableVertex(handles, { x: 22, y: 0 }, 44)?.index, 1);
+  assert.equal(nearestEditableVertex([handles[0]], { x: 22, y: 0 }, 44)?.index, 0);
+  assert.equal(nearestEditableVertex([handles[0]], { x: 22.01, y: 0 }, 44), undefined);
 });
 
 for (const variant of ['basic', 'persistent-donut', 'two-finger'] as const) {
@@ -182,3 +182,46 @@ test('unchanged holds and a drag returning to its start do not add Undo entries 
   assert.deepEqual(h.drawing.getState().draft?.vertices, [[1, 1.5]]);
   assert.equal(h.drawing.getState().canUndo, false);
 });
+
+
+test('expanded touch diameter includes its boundary, excludes points beyond it, and keeps nearest/order resolution', () => {
+  const handles = [{ index: 0, x: 0, y: 0 }, { index: 1, x: 40, y: 0 }];
+  assert.equal(nearestEditableVertex([handles[0]], { x: 36, y: 0 }, 72)?.index, 0);
+  assert.equal(nearestEditableVertex([handles[0]], { x: 36.01, y: 0 }, 72), undefined);
+  assert.equal(nearestEditableVertex(handles, { x: 20, y: 0 }, 72)?.index, 0);
+  assert.equal(nearestEditableVertex(handles, { x: 21, y: 0 }, 72)?.index, 1);
+  assert.equal(nearestEditableVertex([handles[0]], { x: 25, y: 0 }, 44), undefined);
+});
+
+for (const variant of ['basic', 'persistent-donut'] as const) {
+  for (const pointerType of ['touch', 'mouse', 'pen']) {
+    test(`${variant}/${pointerType}: exact activation delay and pointer-specific target`, (t) => {
+      const h = setup(t, variant);
+      const delay = pointerType === 'touch' ? 100 : 200;
+      h.fire('pointerdown', { pointerType, clientX: pointerType === 'touch' ? 156 : 142 });
+      h.tick(delay - 1);
+      assert.equal(h.stops, 0);
+      h.tick(1);
+      assert.equal(h.stops, 1);
+      h.fire('pointermove', { clientX: 180 });
+      h.fire('pointercancel');
+      assert.deepEqual(h.drawing.getState().draft?.vertices, [[1, 1.5]]);
+      assert.equal(h.map.dragPan.enabled, true);
+      assert.equal(h.drawing.getState().canUndo, false);
+      h.fire('pointerdown', { pointerType, clientX: pointerType === 'touch' ? 156.01 : 142.01 });
+      h.tick(delay);
+      assert.equal(h.stops, 1, 'outside the target never activates');
+    });
+  }
+  test(`${variant}: touch movement over 8 px before 100 ms preserves navigation`, (t) => {
+    const h = setup(t, variant);
+    h.fire('pointerdown', { pointerType: 'touch' });
+    h.tick(99);
+    h.fire('pointermove', { pointerType: 'touch', clientX: 139 });
+    h.tick(1);
+    assert.equal(h.stops, 0);
+    assert.equal(h.fire('touchmove').defaultPrevented, false);
+    h.fire('pointerup');
+    assert.equal(h.drawing.getState().canUndo, false);
+  });
+}

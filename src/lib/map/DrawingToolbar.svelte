@@ -1,13 +1,11 @@
 <script lang="ts">
-  import type { PlacementEditingVariantId } from './placementEditing';
   import { tick } from 'svelte';
   import GeometryIcon from './GeometryIcon.svelte';
   import { formatMeasurement, type DrawingState } from '../reporting/createDrawingController.js';
   import { obstacleGeometryChoices, type ObstacleGeometryType } from '../reporting/obstacle.js';
 
-  let { placementEditing = 'default', state: drawingState, crosshairMode = false, geometryType = $bindable<ObstacleGeometryType>('Point'),
-    onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, helpVisible = false }: {
-    placementEditing?: PlacementEditingVariantId;
+  let { state: drawingState, crosshairMode = false, geometryType = $bindable<ObstacleGeometryType>('Point'),
+    onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails }: {
     state: DrawingState;
     crosshairMode?: boolean;
     geometryType?: ObstacleGeometryType;
@@ -17,7 +15,6 @@
     ondelete: () => void;
     oncomplete: () => void;
     onresumedetails?: () => void;
-    helpVisible?: boolean;
   } = $props();
 
   let choice = $derived(obstacleGeometryChoices.find(({ type }) => type === drawingState.draft?.type));
@@ -45,7 +42,7 @@
 </script>
 
 {#if crosshairMode && drawingState.status === 'idle'}
-  <section class="drawing-toolbar crosshair-mode" class:help-visible={helpVisible} aria-label="Crosshair reporting">
+  <section class="drawing-toolbar crosshair-mode" aria-label="Crosshair reporting">
     <div class="details">
       <fieldset class="geometry-choices">
         <legend class="sr-only">Obstacle geometry</legend>
@@ -57,15 +54,14 @@
           </label>
         {/each}
       </fieldset>
-      <p id="crosshair-guidance">Move the map to position the crosshair over the obstacle.</p>
     </div>
     <div class="actions">
       <button type="button" class="button button--primary complete" onclick={startSelection}
-        disabled={!onstart} aria-describedby="crosshair-guidance">Report obstacle</button>
+        disabled={!onstart}>Report obstacle</button>
     </div>
   </section>
 {:else if drawingState.draft && choice}
-  <section class="drawing-toolbar" class:crosshair-mode={crosshairMode} class:help-visible={helpVisible} aria-label="Obstacle selection" style:--geometry-color={`var(${choice.colorToken})`}>
+  <section class="drawing-toolbar" class:crosshair-mode={crosshairMode} aria-label="Obstacle selection" style:--geometry-color={`var(${choice.colorToken})`}>
     <div class="details">
       {#if crosshairDrawing}
         <div class="commands" role="group" aria-label="Selection actions">
@@ -80,22 +76,15 @@
         <span>{drawingState.draft.vertices.length} {drawingState.draft.vertices.length === 1 ? 'point' : 'points'} placed</span>
         {#if drawingState.measurement}<span>{formatMeasurement(drawingState.measurement)}</span>{/if}
       </div>
-      {#if drawingState.status === 'drawing'}
-        {#if placementEditing !== 'default'}
-          <p>{placementEditing === 'two-finger' ? 'Drag placed points to edit.' : 'Hold placed points, then drag to edit.'} Arrow keys move focused points.</p>
-        {/if}
-        <p id="drawing-guidance" class:invalid={!drawingState.canComplete && drawingState.draft.vertices.length >= 3} role="status">
-          {drawingState.message || (drawingState.draft.type === 'Point' ? 'Adjust the point, then Complete to open the report form.' : crosshairMode
-            ? 'Move the map, then use Add point.'
-            : 'Click or tap the map to add a point, or complete your selection.')}
-        </p>
+      {#if drawingState.status === 'drawing' && drawingState.message}
+        <p id="drawing-guidance" class:invalid={!drawingState.canComplete && drawingState.draft.vertices.length >= 3} role="status">{drawingState.message}</p>
       {/if}
     </div>
     {#if crosshairDrawing}
       {#if drawingState.draft.type !== 'Point'}
       <div class="actions">
         <button type="button" class="button button--primary complete" bind:this={addButton} onclick={addPoint}
-          disabled={!onaddpoint} aria-describedby="drawing-guidance">Add point</button>
+          disabled={!onaddpoint}>Add point</button>
       </div>
       {/if}
     {:else}
@@ -134,15 +123,7 @@
     box-shadow: var(--shadow-control);
     font-size: var(--font-size-body-small);
   }
-  .drawing-toolbar.help-visible { bottom: var(--map-bottom-toolbar-help-inset); }
-  .drawing-toolbar.crosshair-mode {
-    max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--map-bottom-toolbar-inset) - var(--space-4)));
-    overflow-y: auto;
-  }
-  .drawing-toolbar.crosshair-mode.help-visible {
-    max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--map-bottom-toolbar-help-inset) - var(--space-4)));
-  }
-  .geometry-choices, .commands {
+  .commands {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
@@ -151,8 +132,18 @@
     padding: 0;
     border: 0;
   }
+  .geometry-choices {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
   .geometry-choice {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto auto;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
@@ -169,6 +160,7 @@
     background: var(--color-map-control-active);
   }
   .geometry-choice:focus-within { outline: var(--border-width-emphasis) solid var(--color-focus-ring); outline-offset: var(--space-1); }
+  .geometry-choice span { grid-column: 1 / -1; text-align: center; }
   .geometry-choice input { margin: 0; accent-color: var(--color-action-secondary); }
   .geometry-choice svg { width: var(--icon-size-default); height: var(--icon-size-default); }
   .details, .summary, .actions { display: flex; }

@@ -8,19 +8,21 @@ export interface EditableVertexHandle extends ScreenPoint {
   readonly index: number;
 }
 
-/** Resolve in CSS pixels, including a 44 px diameter target. Stable ties favour vertex order. */
-export function nearestEditableVertex(handles: readonly EditableVertexHandle[], point: ScreenPoint): EditableVertexHandle | undefined {
+/** Resolve within the supplied CSS-pixel diameter. Stable ties favour vertex order. */
+export function nearestEditableVertex(handles: readonly EditableVertexHandle[], point: ScreenPoint, diameter: number): EditableVertexHandle | undefined {
   let nearest: EditableVertexHandle | undefined;
-  let distance = 22;
+  let distance = diameter / 2;
   for (const handle of handles) {
     const next = Math.hypot(handle.x - point.x, handle.y - point.y);
-    if (next <= 22 && (!nearest || next < distance)) { nearest = handle; distance = next; }
+    if (next <= diameter / 2 && (!nearest || next < distance)) { nearest = handle; distance = next; }
   }
   return nearest;
 }
 
 export function createVertexEditingInteraction(map: Map, drawing: DrawingController, options: {
   variant: PlacementEditingVariantId;
+  targetSize: number;
+  touchTargetSize: number;
   onHandlesChange: (handles: readonly EditableVertexHandle[]) => void;
 }) {
   const canvas = map.getCanvas();
@@ -102,7 +104,7 @@ export function createVertexEditingInteraction(map: Map, drawing: DrawingControl
     refresh();
     const rect = canvas.getBoundingClientRect();
     const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-    const handle = nearestEditableVertex(handles, point);
+    const handle = nearestEditableVertex(handles, point, event.pointerType === 'touch' ? options.touchTargetSize : options.targetSize);
     if (!handle) return;
     suppressClick = true;
     press = { id: event.pointerId, index: handle.index, x: event.clientX, y: event.clientY,
@@ -111,7 +113,7 @@ export function createVertexEditingInteraction(map: Map, drawing: DrawingControl
     // Consume the vertex press for the append listener; map mouse/touch navigation remains available until activation.
     event.stopImmediatePropagation();
     if (options.variant === 'two-finger') activate();
-    else timer = setTimeout(activate, 200);
+    else timer = setTimeout(activate, event.pointerType === 'touch' ? 100 : 200);
   }
 
   function move(event: PointerEvent) {

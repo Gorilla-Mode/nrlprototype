@@ -7,7 +7,6 @@ import type { Component } from 'svelte';
 import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
 import { createDrawingController, idleDrawingState, type DrawingState } from '../src/lib/reporting/createDrawingController.js';
-import type { PlacementEditingVariantId } from '../src/lib/map/placementEditing.js';
 import type { ObstacleGeometryType } from '../src/lib/reporting/obstacle.js';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
 
@@ -22,7 +21,6 @@ for (const file of ['createDrawingController', 'obstacle']) {
 }
 code = code.replaceAll("'./GeometryIcon.svelte'", JSON.stringify(await compileSvelteComponent('src/lib/map/GeometryIcon.svelte')));
 interface ToolbarProps {
-  placementEditing?: PlacementEditingVariantId;
   state: DrawingState;
   onundo: () => void;
   ondelete: () => void;
@@ -51,7 +49,7 @@ test('crosshair idle exposes labeled geometry radios and Report obstacle with Po
   }
   assert.match(html, /value="Point"[^>]*checked/);
   assert.match(html, />Report obstacle<\/button>/);
-  assert.doesNotMatch(html, /disabled|Add point|Complete selection|Resume details/);
+  assert.doesNotMatch(html, /disabled|Add point|Complete selection|Resume details|Move the map|crosshair-guidance/);
   const polygon = body(idleDrawingState, { crosshairMode: true, geometryType: 'Polygon', onstart: noop });
   assert.match(polygon, /value="Polygon"[^>]*checked/);
 });
@@ -74,7 +72,7 @@ test('crosshair drawing exposes Add point and validation; completed selections r
   assert.match(body(drawing.getState(), { crosshairMode: true }), /<button[^>]* disabled[^>]*>Add point<\/button>/);
   drawing.append([0.001, 0]);
   const valid = body(drawing.getState(), props);
-  assert.match(valid, /use Add point/);
+  assert.doesNotMatch(valid, /drawing-guidance|Move the map|Click or tap/);
   assert.doesNotMatch(valid, / disabled/);
   assert.match(valid, /≈ 111.2 m/);
   drawing.undo();
@@ -162,14 +160,14 @@ test('valid drawing enables completion; completed summary retains Delete and hid
 test('Basic Point exposes confirmation, omits Add point, and enables Undo after moving the initial vertex', () => {
   const drawing = createDrawingController({ vertexEditing: true, deferPointCompletion: true, onChange: noop, onComplete: noop });
   drawing.start('Point', [0, 0]);
-  const props = { placementEditing: 'basic' as const, crosshairMode: true, onaddpoint: noop };
+  const props = { crosshairMode: true, onaddpoint: noop };
   const initial = body(drawing.getState(), props);
   assert.doesNotMatch(initial, />Add point<\/button>/);
-  assert.match(initial, /Complete to open the report form/);
-  assert.match(initial, /Hold placed points/);
+  assert.match(initial, />Complete<\/button>/);
+  assert.doesNotMatch(initial, /Complete to open the report form|Hold placed points|drawing-guidance/);
   drawing.beginVertexMove(0); drawing.updateVertexMove([1, 1]); drawing.commitVertexMove();
   const moved = body(drawing.getState(), props);
   assert.match(moved, /<button[^>]*>Undo<\/button>/);
   assert.doesNotMatch(moved, /<button[^>]* disabled[^>]*>Undo<\/button>/);
-  assert.match(body(drawing.getState(), { placementEditing: 'two-finger' }), /Drag placed points to edit/);
+  assert.doesNotMatch(body(drawing.getState()), /Drag placed points to edit|Arrow keys/);
 });

@@ -55,8 +55,10 @@ reporting parameter is missing or invalid. Explicit `reporting` overrides requir
 `debug=1`, which also exposes the menu selector. It offers `one-step-keypad`,
 `one-step` (“One step — scrolling”), `two-step` and `two-step-keypad`.
 Combine query parameters with `&` before any route hash.
-The map Help button appears only with both `debug=1` and `help=1`; enabling it does not
-open the tutorial automatically. Other `help` values leave the button hidden.
+How to Report an Obstacle is a public page at `#/Help/ReportObstacle`, reachable from
+Menu, FAQ drawing instructions and Settings support. It uses the normal history, page
+focus and inert-map lifecycle and describes the active placement variant. Legacy `help`
+parameters are ignored and do not affect map layout.
 Changing the debug selector replaces the current URL and reloads the application,
 clearing the drawing, draft, map view and other session state. Selecting the current
 variant does nothing. The URL keeps its deployment path, unrelated query parameters
@@ -103,18 +105,21 @@ The drawing controller replaces coordinates immutably, validates and measures du
 moves, and allows invalid intermediate geometry while disabling Complete. Each changed,
 committed move adds one Undo entry; additions and moves undo in chronological order.
 Cancelled or unchanged moves add none. Undo never removes the initial vertex.
-`createVertexEditingInteraction` resolves nearest projected vertices within a 44 px
-minimum target, with vertex-order ties. Basic and Persistent activate after 200 ms;
-movement beyond 8 px before activation remains navigation. Two-finger activates vertex
-editing immediately. Moves preserve grab offset, stop camera movement, suppress conflicting
+`createVertexEditingInteraction` resolves nearest projected vertices within CSS-resolved
+semantic target diameters: 72 px for touch and 44 px for mouse/pen, with vertex-order ties.
+Basic and Persistent activate after 100 ms for touch or 200 ms for mouse/pen; movement
+beyond 8 px before activation remains navigation. Two-finger activates vertex editing
+immediately. Moves preserve grab offset, stop camera movement, suppress conflicting
 gestures and restore their original enabled states. Cancellation restores coordinates.
 Pointer cancellation, lost capture, second touch, blur, hidden maps, resize, mode changes,
 Delete and teardown cancel gestures. Typed projected handles expose keyboard editing.
 
 Persistent donut ignores its opening release. Subsequent center drags beyond 8 px move
 its screen and geographic center together, leaving the map stationary and the donut open.
-Center taps cancel; sector and outside taps use the existing angle selection. Keyboard
-arrows move the center and labeled geometry buttons select its placement.
+Center taps cancel; sector and outside taps use the existing angle selection. A focusable
+donut wrapper supports keyboard arrows to move the center, Shift for faster movement,
+1/2/3 to choose Point/Line/Polygon, and Escape to cancel. There are no separate geometry
+buttons, center button or tutorial panels.
 Two-finger placement keeps ordinary hold/release selection, but adding a second touch to
 an open donut pans the map using touch-centroid deltas and MapLibre `panBy` without
 animation. Zoom, bearing and pitch stay unchanged, and placement is sampled under the
