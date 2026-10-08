@@ -22,9 +22,13 @@ The map error-report controller owns registered-obstacle targeting and position
 correction for circle and crosshair input. Crosshair matching uses the measured rendered
 width and canvas midpoint in CSS pixels, refreshing on movement and resize. Selection
 and position confirmation stop the camera and sample again; neither creates new obstacle
-geometry. Position correction retains its original registered position and selection
-while switching input methods. The error-report form keeps its own answers and the
-existing prototype completion handler.
+geometry. Disabling crosshair clears ordinary targeting, including a previously placed
+circle, until a new hold places one. Active position correction preserves its geographic
+candidate and original registered position while switching input methods, but discards
+the saved ordinary target when crosshair is disabled. Starting correction in crosshair
+mode does not save its midpoint as an ordinary circle. Circle-only correction cancellation
+restores the prior circle. The error-report form keeps its own answers and the existing
+prototype completion handler.
 
 ## Navigation and map lifecycle
 

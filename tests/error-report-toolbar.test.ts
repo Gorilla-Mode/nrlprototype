@@ -54,6 +54,7 @@ test('crosshair error toolbar exposes the matched identity and Report error with
 
 test('circle error toolbar retains hold guidance, selection identity and disabled no-match state', () => {
   assert.match(errorToolbar(false, null), /Hold the map to place the circle/);
+  assert.match(errorToolbar(false, null), /data-report-error[^>]*disabled[^>]*>Select<\/button>/);
   assert.match(errorToolbar(false, null, true), /No registered obstacles here/);
   assert.match(errorToolbar(false, match, true), />Select Test mast \(40 m\)<\/button>/);
 });

@@ -52,6 +52,7 @@
   }
   .error-report-toolbar.help-visible { bottom: var(--map-bottom-toolbar-help-inset); }
   .error-report-toolbar.crosshair-mode {
+    width: var(--layout-form-max);
     max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--map-bottom-toolbar-inset) - var(--space-4)));
     overflow-y: auto;
   }

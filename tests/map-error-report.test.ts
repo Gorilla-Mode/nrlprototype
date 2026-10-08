@@ -103,7 +103,7 @@ test('camera movement and resize refresh targeting; activation stops and resampl
   assert.ok(h.map.stops > 0);
 });
 
-test('circle input retains its wider radius; toggles preserve the geographic candidate and crosshair preference', (t) => {
+test('circle input retains its wider radius; closing error reporting retains the crosshair preference', (t) => {
   const h = setup(t);
   h.controller.setHoldMode('error-report');
   h.controller.setRegisteredObstacles([obstacle('circle', 3)]);
@@ -114,7 +114,8 @@ test('circle input retains its wider radius; toggles preserve the geographic can
   assert.equal(h.controller.sample().match, null, 'outside the narrower crosshair radius');
   h.map.camera = [4, 5];
   h.controller.setCrosshairMode(false);
-  assert.deepEqual(h.controller.sample().position, [4, 5]);
+  assert.deepEqual(h.controller.sample(), { center: null, match: null, position: null });
+  h.controller.placeCircle([4, 5]);
   h.map.camera = [5, 6];
   h.fire();
   assert.deepEqual(h.controller.sample().position, [4, 5], 'circle is geographically anchored');
@@ -124,6 +125,42 @@ test('circle input retains its wider radius; toggles preserve the geographic can
   h.map.camera = [6, 7];
   h.controller.setHoldMode('error-report');
   assert.deepEqual(h.controller.sample().position, [6, 7], 'closing error reporting retains crosshair input');
+});
+
+test('disabling crosshair clears ordinary targeting until a new hold, including a previously placed circle', (t) => {
+  for (const previouslyPlaced of [false, true]) {
+    const h = setup(t);
+    h.controller.setHoldMode('error-report');
+    if (previouslyPlaced) h.controller.placeCircle([2, 3]);
+    aim(h);
+    h.controller.setRegisteredObstacles([obstacle('target', 4, 5)]);
+    h.map.camera = [4, 5];
+    h.fire();
+    assert.equal(h.controller.sample().match?.id, 'target');
+    h.controller.setCrosshairMode(false);
+    const empty = { center: null, match: null, position: null };
+    assert.deepEqual(h.updates.at(-1), empty);
+    assert.equal(h.highlights.at(-1), null);
+    h.map.camera = [5, 6];
+    h.fire();
+    assert.deepEqual(h.updates.at(-1), empty);
+    h.viewport.width = 834;
+    h.viewport.height = 1194;
+    h.fire('resize');
+    assert.deepEqual(h.updates.at(-1), empty);
+    h.controller.setRegisteredObstacles([obstacle('new', 5, 6)]);
+    assert.deepEqual(h.updates.at(-1), empty);
+    h.controller.setCrosshairSize(96);
+    h.controller.setBottomInset(200);
+    assert.deepEqual(h.controller.sync(), empty);
+    assert.deepEqual(h.controller.sample(), empty);
+    h.controller.setCrosshairMode(false);
+    assert.deepEqual(h.updates.at(-1), empty);
+    h.controller.placeCircle([5, 6]);
+    assert.deepEqual(h.controller.sample().center, { x: 417, y: 597 });
+    assert.equal(h.controller.sample().match?.id, 'new');
+    assert.deepEqual(h.controller.sample().position, [5, 6]);
+  }
 });
 
 test('crosshair correction centers the initial candidate despite padding, tracks movement and resamples confirmation', (t) => {
@@ -155,7 +192,7 @@ test('crosshair correction centers the initial candidate despite padding, tracks
   assert.deepEqual(h.gestures.at(-1), { correcting: false, crosshair: true });
 });
 
-test('correction input switches retain the candidate; circle cancellation restores the prior selection circle', (t) => {
+test('correction input switches retain the latest candidate but clear the prior ordinary target', (t) => {
   const h = setup(t);
   h.controller.setHoldMode('error-report');
   h.controller.placeCircle([2, 3]);
@@ -164,13 +201,45 @@ test('correction input switches retain the candidate; circle cancellation restor
   h.controller.setCrosshairMode(true);
   assert.deepEqual(h.controller.sample().position, candidate);
   h.map.camera = [4, 5];
-  h.fire();
   h.controller.setCrosshairMode(false);
   assert.deepEqual(h.controller.sample().position, [4, 5]);
   assert.ok(h.controller.getDragCenter());
   assert.deepEqual(h.gestures.at(-1), { correcting: true, crosshair: false });
+  assert.deepEqual(h.corrections.at(-1), { origin: [2, 3], target: [4, 5] });
+  h.map.camera = [4.1, 5.1];
+  h.fire();
+  assert.deepEqual(h.controller.sample().position, [4, 5], 'correction circle stays geographically anchored');
+  h.controller.startPositionCorrection([2, 3], [4, 5]);
+  h.controller.endPositionCorrection();
+  assert.deepEqual(h.controller.sample(), { center: null, match: null, position: null });
+  assert.equal(h.controller.getDragCenter(), null);
+  h.controller.placeCircle([2, 3]);
+  assert.deepEqual(h.controller.sample().position, [2, 3]);
+});
+
+test('correction started in crosshair input does not restore a sampled midpoint as an ordinary circle', (t) => {
+  const h = setup(t);
+  aim(h);
+  h.controller.startPositionCorrection([2, 3], [2.1, 3.1]);
+  h.controller.setCrosshairMode(false);
+  assert.deepEqual(h.controller.sample().position, [2.1, 3.1]);
+  h.controller.setCrosshairMode(true);
+  assert.deepEqual(h.controller.sample().position, [2.1, 3.1]);
+  h.controller.setCrosshairMode(false);
+  h.controller.endPositionCorrection();
+  assert.deepEqual(h.controller.sample(), { center: null, match: null, position: null });
+});
+
+test('circle-only correction cancellation restores the prior selection circle', (t) => {
+  const h = setup(t);
+  h.controller.setHoldMode('error-report');
+  h.controller.setRegisteredObstacles([obstacle('chosen')]);
+  h.controller.placeCircle([2, 3]);
+  h.controller.startPositionCorrection([2, 3], [2.1, 3.1]);
+  h.controller.moveCircle(240, 350);
   h.controller.endPositionCorrection();
   assert.deepEqual(h.controller.sample().position, [2, 3]);
+  assert.equal(h.controller.sample().match?.id, 'chosen');
 });
 
 test('circle correction clamps dragging above the measured panel and abandons correction on mode exit', (t) => {

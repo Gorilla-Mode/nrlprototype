@@ -137,10 +137,14 @@ export function createMapErrorReportController(map: ErrorReportMap, options: {
     },
     setCrosshairMode(enabled: boolean) {
       if (destroyed || enabled === crosshair) return;
-      // Capture the latest midpoint before returning to an anchored circle.
-      if (crosshair) sync();
+      // Preserve only an active correction candidate when leaving crosshair input.
+      if (crosshair && correction) sync();
       const candidate: GeographicVertex | null = position ? [...position] : null;
       crosshair = enabled;
+      if (!crosshair) {
+        if (correction) correction.centerBefore = null;
+        else position = null;
+      }
       options.onGesturesChange(!!correction, crosshair);
       if (crosshair && correction && candidate) centerCrosshair(candidate);
       else revealCircle();
@@ -152,7 +156,7 @@ export function createMapErrorReportController(map: ErrorReportMap, options: {
     },
     startPositionCorrection(origin: GeographicVertex, start: GeographicVertex) {
       if (!viewport() || holdMode !== 'error-report') return;
-      correction = { origin: [...origin], centerBefore: correction ? correction.centerBefore : position && [...position] };
+      correction = { origin: [...origin], centerBefore: correction ? correction.centerBefore : !crosshair && position ? [...position] : null };
       position = [...start];
       options.onGesturesChange(true, crosshair);
       if (crosshair) centerCrosshair(start);
