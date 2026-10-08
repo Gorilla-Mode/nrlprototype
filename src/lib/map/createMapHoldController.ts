@@ -16,6 +16,8 @@ interface MapHoldOptions {
   /** Final offset from the initial press. Cancellation never calls this. */
   onRelease?: (x: number, y: number) => void;
   holdDelay?: number;
+  /** Per-press delay, e.g. 0 to open at once on a target; falls back to `holdDelay`. */
+  holdDelayAt?: (origin: HoldOrigin) => number | undefined;
   movementTolerance?: number;
 }
 
@@ -29,6 +31,7 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
   onMove,
   onRelease,
   holdDelay = 200,
+  holdDelayAt,
   movementTolerance = 8,
 }: MapHoldOptions) {
   const view = canvas.ownerDocument.defaultView!;
@@ -73,16 +76,21 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
       origin: { x: event.clientX - rect.left, y: event.clientY - rect.top },
     };
     onPressStart?.(press.origin);
-    timer = setTimeout(() => {
-      timer = undefined;
-      if (!press || destroyed || !isEnabled()) return;
-      open = true;
-      suppressClick = true;
-      canvas.setPointerCapture(press.id);
-      const origin = press.origin;
-      onActivate();
-      if (open) onOpen(origin);
-    }, holdDelay);
+    const delay = holdDelayAt?.(press.origin) ?? holdDelay;
+    // Opening during pointerdown also blocks the map's own mousedown/touchstart for this press.
+    if (delay <= 0) activate();
+    else timer = setTimeout(activate, delay);
+  }
+
+  function activate() {
+    timer = undefined;
+    if (!press || destroyed || !isEnabled()) return;
+    open = true;
+    suppressClick = true;
+    canvas.setPointerCapture(press.id);
+    const origin = press.origin;
+    onActivate();
+    if (open) onOpen(origin);
   }
 
   function handlePointerMove(event: PointerEvent) {

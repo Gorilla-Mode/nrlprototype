@@ -35,10 +35,12 @@ function setup(t: TestContext, zoomEnabled = true) {
   const completed: ObstacleGeometry[] = [];
   const origins: (HoldOrigin | null)[] = [];
   const moves: HoldOrigin[] = [];
+  const placed: (readonly [number, number])[] = [];
   const drawing = createDrawingController({ onChange: (state) => interaction.sync(state), onComplete: (geometry) => completed.push(geometry) });
   const interaction = createMapDrawingInteraction(map as unknown as MapLibreMap, drawing, {
     onHoldChange: (origin) => origins.push(origin),
     onHoldMove: (x, y) => moves.push({ x, y }),
+    onErrorReportPlace: (center) => placed.push(center),
   });
   t.after(() => interaction.destroy());
 
@@ -66,7 +68,7 @@ function setup(t: TestContext, zoomEnabled = true) {
   function navigate() {
     events.dispatchEvent(Object.assign(new Event('movestart'), { originalEvent: new Event('wheel') }));
   }
-  return { map, drawing, interaction, fire, select, click, navigate, completed, origins, moves,
+  return { map, drawing, interaction, fire, select, click, navigate, completed, origins, moves, placed,
     state: drawing.getState, tick: () => t.mock.timers.tick(200) };
 }
 
@@ -152,6 +154,60 @@ test('no menu during drawing or completion; Delete permits a fresh held object',
   h.select(120, 50);
   assert.equal(h.state().draft?.type, 'Point');
   assert.deepEqual(h.state().draft?.vertices, [[1, 1.5]]);
+});
+
+test('error-report hold opens the menu at the press but never starts geometry; obstacle mode restores selection', (t) => {
+  const h = setup(t);
+  h.interaction.setHoldMode('error-report');
+  assert.equal(h.select().defaultPrevented, true, 'the release click is still consumed');
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null]);
+  assert.equal(h.state().status, 'idle');
+  assert.deepEqual(h.placed, [[1, 1.5]], 'the circle is placed at the press coordinate, not the release');
+  h.interaction.setHoldMode('obstacle');
+  h.select();
+  assert.equal(h.placed.length, 1);
+  assert.equal(h.state().draft?.type, 'LineString');
+});
+
+test('a suspended hold opens nothing and places nothing; resuming restores it', (t) => {
+  const h = setup(t);
+  h.interaction.setHoldMode('error-report');
+  h.fire('pointerdown');
+  h.tick();
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }]);
+  h.interaction.setHoldSuspended(true);
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null], 'suspending closes an open hold');
+  h.fire('pointerup');
+  h.select();
+  assert.equal(h.origins.length, 2);
+  assert.deepEqual(h.placed, []);
+  h.interaction.setHoldSuspended(false);
+  h.select();
+  assert.deepEqual(h.placed, [[1, 1.5]]);
+});
+
+test('error-report hold released in the centre, without a drag into the ring, places nothing', (t) => {
+  const h = setup(t);
+  h.interaction.setHoldMode('error-report');
+  h.fire('pointerdown');
+  h.tick();
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }], 'the ring shows while held');
+  h.fire('pointermove', { clientX: 130, clientY: 160 });
+  h.fire('pointerup', { clientX: 130, clientY: 160 });
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null], 'the ring closes on release');
+  assert.deepEqual(h.placed, []);
+  assert.equal(h.fire('click', { clientX: 130, clientY: 160 }).defaultPrevented, true, 'the release never reaches the map as a tap');
+});
+
+test('changing hold mode closes an open menu without selection', (t) => {
+  const h = setup(t);
+  h.fire('pointerdown');
+  h.tick();
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }]);
+  h.interaction.setHoldMode('error-report');
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null]);
+  h.fire('pointerup', { clientX: 220, clientY: 220 });
+  assert.equal(h.state().status, 'idle');
 });
 
 for (const gesture of ['drag', 'drag returning to start', 'pinch', 'wheel', 'navigation', 'pointercancel', 'blur', 'control', 'modified click', 'no physical press']) {

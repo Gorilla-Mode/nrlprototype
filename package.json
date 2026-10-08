@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js",
+    "data:brannstasjoner": "node scripts/fetch-brannstasjoner.mjs",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.test.json --noEmit"
   },
   "devDependencies": {
