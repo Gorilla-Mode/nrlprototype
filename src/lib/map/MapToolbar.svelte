@@ -6,7 +6,7 @@
   import type { LocationSuggestion } from './locationSearch';
   import type { ObstacleGeometryType } from '../reporting/obstacle';
 
-  let { drawing, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, onhelp, helpOpen, showHelp = false, menuOpen }: {
+  let { drawing, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), selectionControlsCovered = false, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, onhelp, helpOpen, showHelp = false, menuOpen }: {
     onmenu: () => void;
     onreports: () => void;
     onhelp: () => void;
@@ -16,6 +16,7 @@
     drawing: DrawingState;
     crosshairMode: boolean;
     geometryType?: ObstacleGeometryType;
+    selectionControlsCovered?: boolean;
     onstart: (type: ObstacleGeometryType) => void;
     onaddpoint: () => void;
     onundo: () => void;
@@ -53,10 +54,14 @@
   </button>
 {/if}
 
-<DrawingToolbar state={drawing} {crosshairMode} bind:geometryType {onstart} {onaddpoint}
-  {onundo} {ondelete} {oncomplete} {onresumedetails} helpVisible={showHelp} />
+<div class:covered={selectionControlsCovered} inert={selectionControlsCovered}>
+  <DrawingToolbar state={drawing} {crosshairMode} bind:geometryType {onstart} {onaddpoint}
+    {onundo} {ondelete} {oncomplete} {onresumedetails} helpVisible={showHelp} />
+</div>
 
 <style>
+  .covered { visibility: hidden; }
+
   .map-toolbar {
     position: absolute;
     /* Search results must stay above lower map actions on short viewports. */

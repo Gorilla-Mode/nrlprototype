@@ -140,6 +140,7 @@
     {drawing}
     {crosshairMode}
     bind:geometryType
+    selectionControlsCovered={isLayerFadeOpen}
     onstart={(type) => mapCanvas?.startAtCrosshair(type)}
     onaddpoint={() => mapCanvas?.appendAtCrosshair()}
     onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}

@@ -477,6 +477,7 @@
   --map-control-border: var(--border-default);
   --map-control-radius: var(--radius-round);
   --map-controls-position-block: 50%;
+  --map-controls-compact-position-block: calc(var(--map-controls-position-block) - var(--map-control-size) - 2 * var(--map-control-gap));
   --map-toolbar-gap: var(--space-2);
   --map-search-padding-inline: var(--space-2);
   --map-search-max: 38rem;

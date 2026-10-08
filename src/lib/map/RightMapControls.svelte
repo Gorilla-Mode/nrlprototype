@@ -60,4 +60,9 @@
     gap: var(--map-control-gap);
     transform: translateY(-50%);
   }
+
+  /* Leave room for bottom selection actions on short portrait viewports. */
+  @media (max-width: 60rem) and (max-height: 60rem) {
+    .right-map-controls { top: var(--map-controls-compact-position-block); }
+  }
 </style>

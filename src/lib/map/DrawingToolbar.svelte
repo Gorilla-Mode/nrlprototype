@@ -35,14 +35,14 @@
 </script>
 
 {#if crosshairMode && drawingState.status === 'idle'}
-  <section class="drawing-toolbar" class:help-visible={helpVisible} aria-label="Crosshair reporting">
+  <section class="drawing-toolbar crosshair-mode" class:help-visible={helpVisible} aria-label="Crosshair reporting">
     <div class="details">
       <fieldset class="geometry-choices">
         <legend class="sr-only">Obstacle geometry</legend>
         {#each obstacleGeometryChoices as geometry (geometry.id)}
           <label class="geometry-choice" class:selected={geometryType === geometry.type}>
             <input type="radio" name="crosshair-geometry" value={geometry.type} bind:group={geometryType} />
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><GeometryIcon type={geometry.type} /></svg>
+            <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><GeometryIcon type={geometry.type} /></svg>
             <span>{geometry.label}</span>
           </label>
         {/each}
@@ -55,7 +55,7 @@
     </div>
   </section>
 {:else if drawingState.draft && choice}
-  <section class="drawing-toolbar" class:help-visible={helpVisible} aria-label="Obstacle selection" style:--geometry-color={`var(${choice.colorToken})`}>
+  <section class="drawing-toolbar" class:crosshair-mode={crosshairMode} class:help-visible={helpVisible} aria-label="Obstacle selection" style:--geometry-color={`var(${choice.colorToken})`}>
     <div class="details">
       <div class="summary" role="status" aria-atomic="true">
         <strong class="object-type">{choice.label}</strong>
@@ -66,7 +66,7 @@
       {#if drawingState.status === 'drawing'}
         <p id="drawing-guidance" class:invalid={!drawingState.canComplete && drawingState.draft.vertices.length >= 3} role="status">
           {drawingState.message || (crosshairMode
-            ? 'Move the map and use Add point to place a vertex at the crosshair, or complete your selection.'
+            ? 'Move the map, then use Add point.'
             : 'Click or tap the map to add a point, or complete your selection.')}
         </p>
       {/if}
@@ -109,6 +109,13 @@
     font-size: var(--font-size-body-small);
   }
   .drawing-toolbar.help-visible { bottom: var(--map-bottom-toolbar-help-inset); }
+  .drawing-toolbar.crosshair-mode {
+    max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--map-bottom-toolbar-inset) - var(--space-4)));
+    overflow-y: auto;
+  }
+  .drawing-toolbar.crosshair-mode.help-visible {
+    max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--map-bottom-toolbar-help-inset) - var(--space-4)));
+  }
   .geometry-choices {
     display: flex;
     flex-wrap: wrap;
