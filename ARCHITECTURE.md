@@ -18,6 +18,14 @@ backend, database, authentication or submission endpoint.
 - Live map settings follow the existing App → HomeMap → MapCanvas → controller path.
   Do not create a parallel store or let controls reach into MapLibre directly.
 
+The map error-report controller owns registered-obstacle targeting and position
+correction for circle and crosshair input. Crosshair matching uses the measured rendered
+width and canvas midpoint in CSS pixels, refreshing on movement and resize. Selection
+and position confirmation stop the camera and sample again; neither creates new obstacle
+geometry. Position correction retains its original registered position and selection
+while switching input methods. The error-report form keeps its own answers and the
+existing prototype completion handler.
+
 ## Navigation and map lifecycle
 
 Routing uses browser history and hashes without a routing dependency. A hidden HomeMap

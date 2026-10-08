@@ -192,3 +192,41 @@ for (const cause of ['pointercancel', 'lostpointercapture', 'blur', 'Escape', 'm
     });
   }
 }
+
+test('a per-press delay of 0 opens during pointerdown; other presses keep the hold delay', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const view = new EventTarget();
+  const canvas = Object.assign(new EventTarget(), {
+    ownerDocument: { defaultView: view },
+    captured: new Set<number>(),
+    getBoundingClientRect: () => ({ left: 0, top: 0 }),
+    setPointerCapture(id: number) { this.captured.add(id); },
+    hasPointerCapture(id: number) { return this.captured.has(id); },
+    releasePointerCapture(id: number) { this.captured.delete(id); },
+  });
+  const origins: HoldOrigin[] = [];
+  const controller = createMapHoldController(canvas as unknown as HTMLCanvasElement, {
+    // Only presses left of x = 50 count as on a target.
+    holdDelayAt: ({ x }) => (x < 50 ? 0 : undefined),
+    onActivate: () => {},
+    onOpen: (origin) => origins.push(origin),
+    onClose: () => {},
+  });
+  t.after(() => controller.destroy());
+  const fire = (type: string, clientX: number) => {
+    const event = new Event(type, { cancelable: true });
+    for (const [key, value] of Object.entries({ target: canvas, pointerId: 1, isPrimary: true, button: 0, buttons: 1, clientX, clientY: 10 })) {
+      Object.defineProperty(event, key, { value });
+    }
+    view.dispatchEvent(event);
+  };
+  fire('pointerdown', 20);
+  assert.deepEqual(origins, [{ x: 20, y: 10 }], 'open without waiting');
+  fire('pointerup', 20);
+  fire('pointerdown', 120);
+  assert.equal(origins.length, 1);
+  t.mock.timers.tick(199);
+  assert.equal(origins.length, 1);
+  t.mock.timers.tick(1);
+  assert.deepEqual(origins[1], { x: 120, y: 10 });
+});

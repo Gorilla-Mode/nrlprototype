@@ -39,6 +39,12 @@ a selection at the visible crosshair; Line and Polygon add vertices through Add 
 Map taps and holds navigate without placing geometry in this mode. Switching modes
 keeps the current selection and restores the corresponding input method.
 
+Error reporting also supports crosshair input: its toolbar replaces geometry choices
+with Report error, enabled for the nearest registered obstacle within half the measured
+crosshair width. The selected obstacle is highlighted. Wrong-position correction uses
+the visible midpoint when crosshair mode is on and the draggable circle when it is off;
+switching input methods preserves the geographic candidate and form answers.
+
 Expanding map controls overlay rather than reflow neighbouring buttons. Covered controls
 become hidden and inert; dismissal restores focus. Preserve ordinary MapLibre keyboard
 interaction and return focus deliberately after destructive actions.

@@ -5,10 +5,18 @@ import type { DrawingController, DrawingState } from '../reporting/createDrawing
 import { obstacleGeometryChoices, type GeographicVertex, type ObstacleGeometryType } from '../reporting/obstacle.js';
 
 export const obstacleMenuInnerRadius = 46;
+export const obstacleMenuOuterRadius = 112;
+
+/** What a released hold on the map does: start new geometry, or report an error on an existing obstacle. */
+export type HoldMode = 'obstacle' | 'error-report';
 
 export function createMapDrawingInteraction(map: Map, drawing: DrawingController, options: {
   onHoldChange: (origin: HoldOrigin | null) => void;
   onHoldMove: (x: number, y: number) => void;
+  /** Error-report release: the original press coordinate becomes the circle centre. */
+  onErrorReportPlace?: (center: GeographicVertex) => void;
+  /** Error-report mode: a press on an obstacle opens the ring at once instead of after the hold delay. */
+  isOnObstacle?: (origin: HoldOrigin) => boolean;
 }) {
   const canvas = map.getCanvas();
   const view = canvas.ownerDocument.defaultView!;
@@ -20,6 +28,8 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   let restoreDoubleClickZoom: boolean | undefined;
   let destroyed = false;
   let crosshairMode = false;
+  let holdMode: HoldMode = 'obstacle';
+  let holdSuspended = false;
 
   function coordinate(x: number, y: number): GeographicVertex {
     const { lng, lat } = map.unproject([x, y]);
@@ -28,13 +38,21 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
 
   // Register hold suppression first: its release click must never reach the drawing listener.
   const hold = createMapHoldController(canvas, {
-    isEnabled: () => !crosshairMode && drawing.getState().status === 'idle',
+    isEnabled: () => !crosshairMode && !holdSuspended && drawing.getState().status === 'idle',
+    holdDelayAt: (origin) => (holdMode === 'error-report' && options.isOnObstacle?.(origin) ? 0 : undefined),
     onPressStart: ({ x, y }) => { initialVertex = coordinate(x, y); },
     onActivate: () => map.stop(),
     onOpen: options.onHoldChange,
     onClose: () => options.onHoldChange(null),
     onMove: options.onHoldMove,
     onRelease: (x, y) => {
+      if (holdMode === 'error-report') {
+        // Same rule as the obstacle menu: only a drag out of the centre into the ring confirms.
+        const confirmed = getHoveredRadialSegment({ x, y }, 1, obstacleMenuInnerRadius) !== null;
+        if (confirmed && initialVertex) options.onErrorReportPlace?.(initialVertex);
+        initialVertex = undefined;
+        return;
+      }
       const index = getHoveredRadialSegment({ x, y }, obstacleGeometryChoices.length, obstacleMenuInnerRadius);
       if (index !== null && initialVertex) drawing.start(obstacleGeometryChoices[index].type, initialVertex);
       initialVertex = undefined;
@@ -46,7 +64,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   function handlePointerDown(event: PointerEvent) {
     pointers.add(event.pointerId);
     cancelTap();
-    if (crosshairMode || drawing.getState().status !== 'drawing' || event.target !== canvas || pointers.size !== 1 ||
+    if (crosshairMode || holdMode !== 'obstacle' || holdSuspended || drawing.getState().status !== 'drawing' || event.target !== canvas || pointers.size !== 1 ||
       !event.isPrimary || event.button !== 0 || event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
     press = { id: event.pointerId, x: event.clientX, y: event.clientY, pointerType: event.pointerType, released: false };
   }
@@ -66,7 +84,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   function handleClick(event: MouseEvent) {
     const tap = press;
     cancelTap();
-    if (crosshairMode || !tap?.released || event.target !== canvas || event.defaultPrevented || event.detail > 1 ||
+    if (crosshairMode || holdMode !== 'obstacle' || holdSuspended || !tap?.released || event.target !== canvas || event.defaultPrevented || event.detail > 1 ||
       event.button !== 0 || event.ctrlKey || event.shiftKey || event.altKey || event.metaKey ||
       drawing.getState().status !== 'drawing') return;
     // Some touch browsers report detail=1 for both clicks of a double tap.
@@ -97,10 +115,10 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
 
   function sync(state: DrawingState) {
     if (destroyed) return;
-    if (!crosshairMode && state.status === 'drawing' && restoreDoubleClickZoom === undefined) {
+    if (!crosshairMode && !holdSuspended && holdMode === 'obstacle' && state.status === 'drawing' && restoreDoubleClickZoom === undefined) {
       restoreDoubleClickZoom = map.doubleClickZoom.isEnabled();
       map.doubleClickZoom.disable();
-    } else if (crosshairMode || state.status !== 'drawing') {
+    } else if (crosshairMode || holdSuspended || holdMode !== 'obstacle' || state.status !== 'drawing') {
       if (restoreDoubleClickZoom) map.doubleClickZoom.enable();
       restoreDoubleClickZoom = undefined;
       cancelTap();
@@ -121,7 +139,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   sync(drawing.getState());
 
   function crosshairVertex(): GeographicVertex | undefined {
-    if (destroyed || !crosshairMode || canvas.closest('[inert]')) return;
+    if (destroyed || !crosshairMode || holdMode !== 'obstacle' || holdSuspended || canvas.closest('[inert]')) return;
     cancel();
     map.stop();
     // CSS pixels match the visible crosshair, including on high-DPI screens.
@@ -129,6 +147,22 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
     const { width, height } = canvas.getBoundingClientRect();
     if (width <= 0 || height <= 0) return;
     return coordinate(width / 2, height / 2);
+  }
+
+  /** Pauses the hold gesture entirely, e.g. while another gesture owns the map. */
+  function setHoldSuspended(suspended: boolean) {
+    if (destroyed) return;
+    holdSuspended = suspended;
+    if (suspended) cancel();
+    sync(drawing.getState());
+  }
+
+  function setHoldMode(mode: HoldMode) {
+    if (destroyed || mode === holdMode) return;
+    holdMode = mode;
+    sync(drawing.getState());
+    // An open menu belongs to the previous mode; never let it release into the new one.
+    cancel();
   }
 
   return {
@@ -150,6 +184,8 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
       const vertex = crosshairVertex();
       if (vertex) drawing.append(vertex);
     },
+    setHoldMode,
+    setHoldSuspended,
     destroy() {
       if (destroyed) return;
       destroyed = true;
