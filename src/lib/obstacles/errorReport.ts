@@ -1,14 +1,13 @@
 import type { RegisteredObstacle } from './registeredObstacles.js';
 import type { GeoPosition } from './position.js';
 
-export type ErrorKind = 'does-not-exist' | 'wrong-position' | 'wrong-height' | 'wrong-lighting' | 'other';
+export type ErrorKind = 'does-not-exist' | 'wrong-position' | 'wrong-height' | 'wrong-lighting';
 
 export const errorKindChoices: readonly { kind: ErrorKind; label: string }[] = [
   { kind: 'does-not-exist', label: 'Does not exist' },
   { kind: 'wrong-position', label: 'Wrong position' },
   { kind: 'wrong-height', label: 'Wrong height' },
   { kind: 'wrong-lighting', label: 'Wrong lighting' },
-  { kind: 'other', label: 'Other' },
 ];
 
 export interface ErrorReport {
@@ -66,18 +65,23 @@ export function isValidHeight(height: number | null): height is number {
   return height !== null && Number.isFinite(height) && height > 0;
 }
 
-export function isErrorReportValid({ errorKinds, actualHeightM, description }: ErrorReportInput): boolean {
-  if (errorKinds.length === 0) return false;
+/** A description can stand in for the choices when none of them fits. */
+function hasErrorOrDescription({ errorKinds, description }: ErrorReportInput): boolean {
+  return errorKinds.length > 0 || description.trim() !== '';
+}
+
+export function isErrorReportValid(input: ErrorReportInput): boolean {
+  const { errorKinds, actualHeightM } = input;
+  if (!hasErrorOrDescription(input)) return false;
   if (errorKinds.includes('wrong-height') && !isValidHeight(actualHeightM)) return false;
-  if (errorKinds.includes('other') && !description.trim()) return false;
   return true;
 }
 
 /** Why the report cannot be finished yet, in the same order as the validation rules; null when valid. */
-export function describeMissingRequirement({ errorKinds, actualHeightM, description }: ErrorReportInput): string | null {
-  if (errorKinds.length === 0) return 'Select at least one error to continue';
+export function describeMissingRequirement(input: ErrorReportInput): string | null {
+  const { errorKinds, actualHeightM } = input;
+  if (!hasErrorOrDescription(input)) return 'Select an error or describe it to continue';
   if (errorKinds.includes('wrong-height') && !isValidHeight(actualHeightM)) return 'Enter the correct height to continue';
-  if (errorKinds.includes('other') && !description.trim()) return 'Describe the error to continue';
   return null;
 }
 

@@ -149,7 +149,8 @@ export function createMapController(
     const center = active && errorCircleCenter ? project(errorCircleCenter) : null;
     const match = center && !correction && findObstacleInCircle(center, registeredObstacles,
       (obstacle) => project([obstacle.lng, obstacle.lat]), obstacleMenuOuterRadius);
-    obstacleDisplay.show(active && !correction ? registeredObstacles : null, match ? match.id : null);
+    // Registered obstacles are always on the map; a position correction shows only its own marker.
+    obstacleDisplay.show(correction ? null : registeredObstacles, match ? match.id : null);
     correctionDisplay.show(active && correction ? correction.origin : null, errorCircleCenter);
     options.onErrorCircleChange?.(center, match || null, center ? errorCircleCenter : null);
   }

@@ -20,7 +20,7 @@
   <div class="actions" role="group" aria-label="Error report actions">
     <button type="button" class="button" onclick={oncancel}>Cancel</button>
     <button type="button" class="button button--primary select" onclick={onselect} disabled={!match}>
-      {match ? `Select ${match.type} (${match.heightM} m)` : 'Select'}
+      {match ? `Select ${match.name ?? match.type} (${match.heightM} m)` : 'Select'}
     </button>
   </div>
 </section>

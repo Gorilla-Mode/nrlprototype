@@ -4,7 +4,6 @@
   import DoesNotExistIcon from '../icons/DoesNotExistIcon.svelte';
   import WrongPositionIcon from '../icons/WrongPositionIcon.svelte';
   import WrongHeightIcon from '../icons/WrongHeightIcon.svelte';
-  import OtherIcon from '../icons/OtherIcon.svelte';
   import LitIcon from '../icons/LitIcon.svelte';
   import MicIcon from '../icons/MicIcon.svelte';
   import SendIcon from '../icons/SendIcon.svelte';
@@ -31,7 +30,6 @@
     'wrong-position': WrongPositionIcon,
     'wrong-height': WrongHeightIcon,
     'wrong-lighting': LitIcon,
-    other: OtherIcon,
   };
   const closeIcon = 'm6 6 12 12M6 18 18 6';
 
@@ -41,7 +39,6 @@
   let correctedPosition = $state.raw<GeoPosition | null>(null);
 
   let heightWrong = $derived(errorKinds.includes('wrong-height'));
-  let descriptionRequired = $derived(errorKinds.includes('other'));
   let actualHeightM = $derived(heightValue);
   let lightingWrong = $derived(errorKinds.includes('wrong-lighting'));
   let positionWrong = $derived(errorKinds.includes('wrong-position'));
@@ -132,8 +129,8 @@
         <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><ObstacleIcon /></svg>
       </span>
       <div>
-        <strong>{obstacle.type}</strong>
-        <p>Registered: {obstacle.heightM} m · {obstacle.lit ? 'Lit' : 'Not lit'} · ID {obstacle.id}</p>
+        <strong>{obstacle.name ?? obstacle.type}</strong>
+        <p>{obstacle.name ? `${obstacle.type} · ` : ''}Registered: {obstacle.heightM} m · {obstacle.lit ? 'Lit' : 'Not lit'} · ID {obstacle.id}</p>
       </div>
     </section>
 
@@ -145,9 +142,7 @@
           {@const Icon = kindIcons[choice.kind]}
           <button
             type="button"
-            class="choice"
-            class:choice--stacked={choice.kind !== 'other'}
-            class:choice--wide={choice.kind === 'other'}
+            class="choice choice--stacked"
             class:selected={errorKinds.includes(choice.kind)}
             aria-pressed={errorKinds.includes(choice.kind)}
             data-kind={choice.kind}
@@ -196,14 +191,13 @@
     {/if}
 
     <section>
-      <label class="section-label" for="error-report-description">Description ({descriptionRequired ? 'required' : 'optional'})</label>
+      <label class="section-label" for="error-report-description">Description (optional)</label>
       <div class="description-box">
         <textarea
           id="error-report-description"
           bind:this={descriptionField}
           class="form-control description-field"
           placeholder="Describe what is wrong…"
-          required={descriptionRequired}
           bind:value={description}
           oninput={resizeDescription}
         ></textarea>
@@ -290,8 +284,6 @@
       + var(--line-height-body) * (var(--choice-font-size) + var(--font-size-body-small) + var(--error-report-position-detail-size)));
   }
   .choice--stacked span { line-height: var(--line-height-body); }
-  .choice--wide .geometry-icon { width: var(--icon-size-default); height: var(--icon-size-default); }
-  .choice--wide { grid-column: 1 / -1; min-height: var(--control-height-default); padding-block: var(--space-2); }
   /* Follows the button colour, so it adapts to the selected state. */
   .choice-detail { color: inherit; font-size: var(--font-size-body-small); font-weight: var(--font-weight-regular); }
   /* Sits directly under the move line, without the flex gap. */

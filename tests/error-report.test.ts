@@ -12,31 +12,37 @@ const input = (overrides: Partial<ErrorReportInput>): ErrorReportInput =>
 
 test('"Does not exist" excludes the other kinds, in both directions', () => {
   assert.deepEqual(toggleErrorKind(['wrong-position', 'wrong-height'], 'does-not-exist'), ['does-not-exist']);
-  assert.deepEqual(toggleErrorKind(['does-not-exist'], 'other'), ['other']);
+  assert.deepEqual(toggleErrorKind(['does-not-exist'], 'wrong-lighting'), ['wrong-lighting']);
   assert.deepEqual(toggleErrorKind(['wrong-position'], 'wrong-height'), ['wrong-position', 'wrong-height']);
   assert.deepEqual(toggleErrorKind(['wrong-position', 'wrong-height'], 'wrong-position'), ['wrong-height']);
 });
 
-test('validation requires a kind, a positive height for wrong height, and a description for other', () => {
+test('a description alone is enough; blank descriptions do not count', () => {
+  assert.equal(isErrorReportValid(input({ description: 'The mast was removed last summer' })), true);
+  assert.equal(isErrorReportValid(input({ description: '   ' })), false);
+  assert.equal(describeMissingRequirement(input({ description: '\n ' })), 'Select an error or describe it to continue');
+  assert.deepEqual(buildErrorReport(obstacle, input({ description: ' Moved by the owner ' })).errorKinds, []);
+});
+
+test('validation requires a kind or description, and a positive height for wrong height; description stays optional', () => {
   assert.equal(isErrorReportValid(input({})), false);
   assert.equal(isErrorReportValid(input({ errorKinds: ['wrong-position'] })), true);
   for (const height of [null, 0, -5, Number.NaN]) {
     assert.equal(isErrorReportValid(input({ errorKinds: ['wrong-height'], actualHeightM: height })), false, String(height));
   }
   assert.equal(isErrorReportValid(input({ errorKinds: ['wrong-height'], actualHeightM: 60 })), true);
-  assert.equal(isErrorReportValid(input({ errorKinds: ['other'], description: '   ' })), false);
-  assert.equal(isErrorReportValid(input({ errorKinds: ['other'], description: 'Painted red' })), true);
+  assert.equal(isErrorReportValid(input({ errorKinds: ['wrong-position'], description: '' })), true);
 });
 
 test('the missing requirement names the first unmet rule and agrees with validation', () => {
   const cases: [Partial<ErrorReportInput>, string | null][] = [
-    [{}, 'Select at least one error to continue'],
+    [{}, 'Select an error or describe it to continue'],
+    [{ description: 'Painted red' }, null],
+    [{ errorKinds: ['wrong-height'], description: 'Taller now' }, 'Enter the correct height to continue'],
     [{ errorKinds: ['wrong-height'] }, 'Enter the correct height to continue'],
-    [{ errorKinds: ['wrong-height', 'other'], actualHeightM: 0 }, 'Enter the correct height to continue'],
-    [{ errorKinds: ['other'], description: '  ' }, 'Describe the error to continue'],
-    [{ errorKinds: ['wrong-height', 'other'], actualHeightM: 60 }, 'Describe the error to continue'],
+    [{ errorKinds: ['wrong-height', 'wrong-lighting'], actualHeightM: 0 }, 'Enter the correct height to continue'],
+    [{ errorKinds: ['wrong-height', 'wrong-lighting'], actualHeightM: 60 }, null],
     [{ errorKinds: ['wrong-position'] }, null],
-    [{ errorKinds: ['other'], description: 'Painted red' }, null],
   ];
   for (const [overrides, expected] of cases) {
     const value = input(overrides);
@@ -79,8 +85,8 @@ test('position choices select, keep or clear "Wrong position" and its coordinate
     { errorKinds: ['wrong-position'], correctedPosition: position });
   assert.deepEqual(applyPositionChoice(['wrong-height'], null, { kind: 'unknown' }),
     { errorKinds: ['wrong-height', 'wrong-position'], correctedPosition: null });
-  assert.deepEqual(applyPositionChoice(['wrong-position', 'other'], position, { kind: 'remove' }),
-    { errorKinds: ['other'], correctedPosition: null });
+  assert.deepEqual(applyPositionChoice(['wrong-position', 'wrong-lighting'], position, { kind: 'remove' }),
+    { errorKinds: ['wrong-lighting'], correctedPosition: null });
   assert.deepEqual(applyPositionChoice(['wrong-position'], position, { kind: 'cancel' }),
     { errorKinds: ['wrong-position'], correctedPosition: position }, 'cancel keeps an existing answer');
   assert.deepEqual(applyPositionChoice([], null, { kind: 'cancel' }), { errorKinds: [], correctedPosition: null });
@@ -93,7 +99,7 @@ test('corrected coordinates are reported only with "Wrong position"', () => {
   assert.equal(with_.correctedLng, 5.34);
   const unknown = buildErrorReport(obstacle, input({ errorKinds: ['wrong-position'] }));
   assert.equal('correctedLat' in unknown, false);
-  const deselected = buildErrorReport(obstacle, input({ errorKinds: ['other'], correctedPosition, description: 'x' }));
+  const deselected = buildErrorReport(obstacle, input({ errorKinds: ['wrong-lighting'], correctedPosition }));
   assert.equal('correctedLat' in deselected, false);
 });
 

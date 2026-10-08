@@ -1,6 +1,6 @@
 import type { FeatureCollection, Point } from 'geojson';
 import type { GeoJSONSource, Map } from 'maplibre-gl';
-import type { RegisteredObstacle } from '../obstacles/registeredObstacles.js';
+import { registeredObstacleAttribution, type RegisteredObstacle } from '../obstacles/registeredObstacles.js';
 
 export const registeredObstacleSourceId = 'registered-obstacles';
 const markerLayerId = 'registered-obstacles-markers';
@@ -68,7 +68,9 @@ export function createObstacleDisplay(map: Map) {
     else {
       // isStyleLoaded() stays false while any tile loads; only the style itself must be ready.
       // Before that addSource throws, and the style.load listener renders again.
-      try { map.addSource(registeredObstacleSourceId, { type: 'geojson', data: features() }); } catch { return; }
+      try {
+        map.addSource(registeredObstacleSourceId, { type: 'geojson', data: features(), attribution: registeredObstacleAttribution });
+      } catch { return; }
     }
     if (!map.getLayer(markerLayerId)) map.addLayer({
       id: markerLayerId, type: 'circle', source: registeredObstacleSourceId,
