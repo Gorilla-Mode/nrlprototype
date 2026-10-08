@@ -19,6 +19,7 @@
   } = $props();
 
   let choice = $derived(obstacleGeometryChoices.find(({ type }) => type === drawingState.draft?.type));
+  let crosshairDrawing = $derived(crosshairMode && drawingState.status === 'drawing');
   let deleteButton = $state<HTMLButtonElement>();
   let addButton = $state<HTMLButtonElement>();
 
@@ -26,6 +27,12 @@
     onstart?.(geometryType);
     await tick();
     if (drawingState.status === 'drawing') addButton?.focus({ preventScroll: true });
+  }
+
+  async function addPoint() {
+    onaddpoint?.();
+    await tick();
+    addButton?.focus({ preventScroll: true });
   }
 
   function completeSelection() {
@@ -57,6 +64,13 @@
 {:else if drawingState.draft && choice}
   <section class="drawing-toolbar" class:crosshair-mode={crosshairMode} class:help-visible={helpVisible} aria-label="Obstacle selection" style:--geometry-color={`var(${choice.colorToken})`}>
     <div class="details">
+      {#if crosshairDrawing}
+        <div class="commands" role="group" aria-label="Selection actions">
+          <button type="button" class="button" onclick={onundo} disabled={drawingState.draft.vertices.length <= 1}>Undo</button>
+          <button type="button" class="button button--danger delete" bind:this={deleteButton} onclick={ondelete}>Delete</button>
+          <button type="button" class="button button--primary" onclick={completeSelection} disabled={!drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete</button>
+        </div>
+      {/if}
       <div class="summary" role="status" aria-atomic="true">
         <strong class="object-type">{choice.label}</strong>
         {#if drawingState.status === 'completed'}<strong>Selection complete</strong>{/if}
@@ -71,19 +85,23 @@
         </p>
       {/if}
     </div>
-    <div class="actions" role="group" aria-label="Selection actions">
-      <button type="button" class="button button--danger delete" bind:this={deleteButton} onclick={ondelete}>Delete</button>
-      {#if drawingState.status === 'completed' && onresumedetails}
-        <button type="button" class="button button--primary" data-resume-details onclick={onresumedetails}>Resume details</button>
-      {/if}
-      {#if drawingState.status === 'drawing'}
-        {#if crosshairMode}
-          <button type="button" class="button" bind:this={addButton} onclick={onaddpoint} disabled={!onaddpoint}>Add point</button>
+    {#if crosshairDrawing}
+      <div class="actions">
+        <button type="button" class="button button--primary complete" bind:this={addButton} onclick={addPoint}
+          disabled={!onaddpoint} aria-describedby="drawing-guidance">Add point</button>
+      </div>
+    {:else}
+      <div class="actions" role="group" aria-label="Selection actions">
+        <button type="button" class="button button--danger delete" bind:this={deleteButton} onclick={ondelete}>Delete</button>
+        {#if drawingState.status === 'completed' && onresumedetails}
+          <button type="button" class="button button--primary" data-resume-details onclick={onresumedetails}>Resume details</button>
         {/if}
-        <button type="button" class="button" onclick={onundo} disabled={drawingState.draft.vertices.length <= 1}>Undo</button>
-        <button type="button" class="button button--primary complete" onclick={completeSelection} disabled={!drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete selection</button>
-      {/if}
-    </div>
+        {#if drawingState.status === 'drawing'}
+          <button type="button" class="button" onclick={onundo} disabled={drawingState.draft.vertices.length <= 1}>Undo</button>
+          <button type="button" class="button button--primary complete" onclick={completeSelection} disabled={!drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete selection</button>
+        {/if}
+      </div>
+    {/if}
   </section>
 {/if}
 
@@ -116,7 +134,7 @@
   .drawing-toolbar.crosshair-mode.help-visible {
     max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--map-bottom-toolbar-help-inset) - var(--space-4)));
   }
-  .geometry-choices {
+  .geometry-choices, .commands {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);

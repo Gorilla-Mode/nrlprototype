@@ -38,6 +38,7 @@ const noop = () => {};
 const body = (state: DrawingState, props: Partial<ToolbarProps> = {}) => render(DrawingToolbar, {
   props: { state, onundo: noop, ondelete: noop, oncomplete: noop, ...props },
 }).body;
+const buttonLabels = (html: string) => [...html.matchAll(/<button\b[^>]*>([^<]+)<\/button>/g)].map((match) => match[1]);
 
 test('crosshair idle exposes labeled geometry radios and Report obstacle with Point selected by default', () => {
   const html = body(idleDrawingState, { crosshairMode: true, onstart: noop });
@@ -58,17 +59,62 @@ test('crosshair drawing exposes Add point and validation; completed selections r
   drawing.start('LineString', [0, 0]);
   const props = { crosshairMode: true, onaddpoint: noop, onresumedetails: noop };
   const initial = body(drawing.getState(), props);
-  assert.match(initial, />Add point<\/button>/);
+  assert.deepEqual(buttonLabels(initial), ['Undo', 'Delete', 'Complete', 'Add point']);
+  assert.match(initial, /<button[^>]*class="button button--primary complete[^>]*>Add point<\/button>/);
+  assert.match(initial, /<button[^>]*class="button button--primary[^>]*>Complete<\/button>/);
+  assert.match(initial, /<button[^>]*class="button button--danger delete[^>]*>Delete<\/button>/);
+  assert.match(initial, /<button[^>]* disabled[^>]*>Undo<\/button>/);
+  assert.match(initial, /<button[^>]* disabled[^>]*>Complete<\/button>/);
+  assert.ok(initial.indexOf('>Complete</button>') < initial.indexOf('1 point placed'));
+  assert.ok(initial.indexOf('1 point placed') < initial.indexOf('>Add point</button>'));
   assert.match(initial, /at least two distinct points/);
-  assert.doesNotMatch(initial, /Report obstacle|type="radio"|Click or tap/);
+  assert.doesNotMatch(initial, /Report obstacle|type="radio"|aria-pressed|aria-checked|Click or tap/);
+  assert.match(body(drawing.getState(), { crosshairMode: true }), /<button[^>]* disabled[^>]*>Add point<\/button>/);
   drawing.append([0.001, 0]);
-  assert.match(body(drawing.getState(), props), /use Add point/);
+  const valid = body(drawing.getState(), props);
+  assert.match(valid, /use Add point/);
+  assert.doesNotMatch(valid, / disabled/);
+  assert.match(valid, /≈ 111.2 m/);
+  drawing.undo();
+  assert.match(body(drawing.getState(), props), /<button[^>]* disabled[^>]*>Undo<\/button>/);
+  drawing.append([0.001, 0]);
   drawing.complete();
   const completed = body(drawing.getState(), props);
-  assert.match(completed, />Resume details<\/button>/);
+  assert.deepEqual(buttonLabels(completed), ['Delete', 'Resume details']);
   assert.doesNotMatch(completed, /Add point|Undo|Complete selection|Report obstacle/);
   drawing.delete();
   assert.match(body(drawing.getState(), { ...props, onstart: noop }), />Report obstacle<\/button>/);
+});
+
+test('crosshair polygon keeps validation between commands and Add point when edges cross', () => {
+  const drawing = createDrawingController({ onChange: noop, onComplete: noop });
+  drawing.start('Polygon', [0, 0]);
+  for (const vertex of [[2, 2], [0, 2], [2, 0]] as const) drawing.append(vertex);
+  const html = body(drawing.getState(), { crosshairMode: true, onaddpoint: noop });
+  assert.deepEqual(buttonLabels(html), ['Undo', 'Delete', 'Complete', 'Add point']);
+  assert.match(html, /<button[^>]* disabled[^>]*aria-describedby="drawing-guidance"[^>]*>Complete<\/button>/);
+  assert.match(html, /4 points placed/);
+  assert.match(html, /edges must not cross/);
+  assert.ok(html.indexOf('>Complete</button>') < html.indexOf('edges must not cross'));
+  assert.ok(html.indexOf('edges must not cross') < html.indexOf('>Add point</button>'));
+  assert.doesNotMatch(html, /m²|≈/);
+  drawing.undo();
+  assert.doesNotMatch(body(drawing.getState(), { crosshairMode: true, onaddpoint: noop }), / disabled/);
+});
+
+test('switching input modes retains the summary and restores ordinary drawing commands', () => {
+  const drawing = createDrawingController({ onChange: noop, onComplete: noop });
+  drawing.start('LineString', [0, 0]);
+  drawing.append([0.001, 0]);
+  for (const crosshairMode of [true, false, true]) {
+    const html = body(drawing.getState(), { crosshairMode, onaddpoint: noop });
+    assert.deepEqual(buttonLabels(html), crosshairMode
+      ? ['Undo', 'Delete', 'Complete', 'Add point']
+      : ['Delete', 'Undo', 'Complete selection']);
+    assert.match(html, /2 points placed/);
+    assert.match(html, /≈ 111.2 m/);
+    assert.doesNotMatch(html, / disabled/);
+  }
 });
 
 test('idle hides toolbar; initial line shows count, measurement, Delete and disabled Undo/Complete', () => {
