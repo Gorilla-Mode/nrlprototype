@@ -11,7 +11,7 @@
   import type { HoldOrigin } from './createMapHoldController';
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
-  import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
+  import { obstacleGeometryChoices, type Obstacle, type ObstacleGeometryType } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
 
   let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, showHelp = false, onfaq, onnotifications, onreports, onsettings,
@@ -40,6 +40,8 @@
   let mapWrapper: HTMLElement;
 
   let isLayerFadeOpen = $state(false);
+  let crosshairMode = $state(false);
+  let geometryType = $state<ObstacleGeometryType>('Point');
   let helpOpen = $state(false);
   $effect(() => {
     if (!visible || !showHelp) helpOpen = false;
@@ -97,10 +99,13 @@
     bind:open={isLayerFadeOpen}
     bind:grayscale={isGrayscale}
     {geolocationState}
+    {crosshairMode}
+    oncrosshairtoggle={() => { crosshairMode = !crosshairMode; }}
     ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
   />
   <MapCanvas
     {visible}
+    {crosshairMode}
     bind:this={mapCanvas}
     {opacity}
     grayscale={isGrayscale}
@@ -112,6 +117,7 @@
     ondrawingchange={handleDrawingChange}
     onobstacleregistered={oncomplete}
   />
+  {#if crosshairMode}
   <div class="map-center-crosshair" aria-hidden="true">
     <svg viewBox="0 0 24 24">
       <g class="halo">
@@ -124,6 +130,7 @@
       </g>
     </svg>
   </div>
+  {/if}
   <MapToolbar
     {menuOpen}
     {showHelp}
@@ -131,6 +138,10 @@
     onhelp={() => { isLayerFadeOpen = false; helpOpen = true; }}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
     {drawing}
+    {crosshairMode}
+    bind:geometryType
+    onstart={(type) => mapCanvas?.startAtCrosshair(type)}
+    onaddpoint={() => mapCanvas?.appendAtCrosshair()}
     onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}
     onundo={() => mapCanvas?.undoDrawing()}
     ondelete={deleteSelection}

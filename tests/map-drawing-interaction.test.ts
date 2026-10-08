@@ -9,10 +9,12 @@ import type { ObstacleGeometry } from '../src/lib/reporting/obstacle.js';
 function setup(t: TestContext, zoomEnabled = true) {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const view = new EventTarget();
+  const viewport = { width: 400, height: 600, inert: false };
   const canvas = Object.assign(new EventTarget(), {
     ownerDocument: { defaultView: view },
     captured: new Set<number>(),
-    getBoundingClientRect: () => ({ left: 20, top: 30 }),
+    getBoundingClientRect: () => ({ left: 20, top: 30, width: viewport.width, height: viewport.height }),
+    closest: () => viewport.inert ? {} : null,
     setPointerCapture(id: number) { this.captured.add(id); },
     hasPointerCapture(id: number) { return this.captured.has(id); },
     releasePointerCapture(id: number) { this.captured.delete(id); },
@@ -66,9 +68,127 @@ function setup(t: TestContext, zoomEnabled = true) {
   function navigate() {
     events.dispatchEvent(Object.assign(new Event('movestart'), { originalEvent: new Event('wheel') }));
   }
-  return { map, drawing, interaction, fire, select, click, navigate, completed, origins, moves,
+  return { map, viewport, drawing, interaction, fire, select, click, navigate, completed, origins, moves,
     state: drawing.getState, tick: () => t.mock.timers.tick(200) };
 }
+
+test('crosshair Point samples the CSS midpoint at activation and completes exactly once', (t) => {
+  const h = setup(t);
+  h.interaction.startAtCrosshair('Point');
+  assert.equal(h.state().status, 'idle', 'disabled mode cannot place geometry');
+  h.interaction.setCrosshairMode(true);
+  let stops = 0;
+  h.map.stop = () => { stops++; h.map.scale = 0.02; };
+  h.interaction.startAtCrosshair('Point');
+  assert.equal(stops, 1, 'camera stops before unprojecting');
+  assert.deepEqual(h.completed, [{ type: 'Point', coordinates: [4, 6] }]);
+  h.interaction.startAtCrosshair('LineString');
+  h.interaction.appendAtCrosshair();
+  assert.equal(h.completed.length, 1);
+  assert.equal(stops, 1, 'completed selections reject further placement');
+});
+
+for (const type of ['LineString', 'Polygon'] as const) {
+  test(`crosshair ${type} appends at the current camera/viewport midpoint and retains validation`, (t) => {
+    const h = setup(t);
+    h.interaction.setCrosshairMode(true);
+    h.interaction.startAtCrosshair(type);
+    assert.deepEqual(h.state().draft?.vertices, [[2, 3]]);
+    assert.equal(h.state().canComplete, false);
+    h.interaction.appendAtCrosshair();
+    assert.equal(h.state().canComplete, false, 'coincident vertices cannot complete');
+    h.drawing.undo();
+    h.navigate();
+    h.map.scale = 0.02;
+    h.viewport.width = 834;
+    h.viewport.height = 1194;
+    h.interaction.appendAtCrosshair();
+    assert.deepEqual(h.state().draft?.vertices, [[2, 3], [8.34, 11.94]]);
+    assert.equal(h.state().canComplete, type === 'LineString');
+    if (type === 'Polygon') {
+      h.viewport.width = 600;
+      h.interaction.appendAtCrosshair();
+      assert.equal(h.state().canComplete, true);
+    }
+    h.drawing.complete();
+    assert.equal(h.completed.length, 1);
+    assert.equal(h.completed[0].type, type);
+    h.drawing.delete();
+    h.interaction.startAtCrosshair('Point');
+    assert.equal(h.completed.length, 2, 'mode remains enabled after deletion');
+  });
+}
+
+test('crosshair mode preserves geometry and navigation while suppressing holds and map taps', (t) => {
+  const h = setup(t);
+  h.interaction.setCrosshairMode(true);
+  h.select();
+  assert.equal(h.origins.length, 0);
+  assert.equal(h.state().status, 'idle');
+  h.interaction.startAtCrosshair('LineString');
+  const before = h.state();
+  h.click();
+  h.navigate();
+  assert.equal(h.state(), before);
+  assert.equal(h.map.doubleClickZoom.isEnabled(), true);
+  h.interaction.setCrosshairMode(false);
+  assert.equal(h.state(), before);
+  assert.equal(h.map.doubleClickZoom.isEnabled(), false);
+  h.interaction.appendAtCrosshair();
+  assert.equal(h.state(), before, 'disabled mode cannot append');
+  h.click({ clientX: 150 });
+  assert.equal(h.state().draft?.vertices.length, 2, 'ordinary tap drawing is restored');
+  h.interaction.setCrosshairMode(true);
+  assert.equal(h.map.doubleClickZoom.isEnabled(), true);
+  h.drawing.delete();
+  h.interaction.setCrosshairMode(false);
+  h.select(120, 50);
+  assert.equal(h.state().status, 'completed', 'ordinary radial selection is restored');
+});
+
+test('switching modes cancels pending holds and taps without creating vertices', (t) => {
+  const h = setup(t);
+  h.fire('pointerdown');
+  h.interaction.setCrosshairMode(true);
+  h.tick();
+  h.fire('pointerup', { clientX: 220, clientY: 220 });
+  h.fire('click');
+  assert.equal(h.state().status, 'idle');
+  assert.equal(h.origins.length, 0);
+  h.interaction.setCrosshairMode(false);
+  h.select();
+  h.fire('pointerdown');
+  h.interaction.setCrosshairMode(true);
+  h.interaction.setCrosshairMode(false);
+  h.fire('pointerup');
+  h.fire('click');
+  assert.equal(h.state().draft?.vertices.length, 1);
+});
+
+test('crosshair commands reject inert, zero-size and destroyed maps', (t) => {
+  const h = setup(t);
+  h.interaction.setCrosshairMode(true);
+  h.viewport.inert = true;
+  h.interaction.startAtCrosshair('Point');
+  h.viewport.inert = false;
+  h.viewport.width = 0;
+  h.interaction.startAtCrosshair('Point');
+  assert.equal(h.state().status, 'idle');
+  h.viewport.width = 400;
+  h.interaction.startAtCrosshair('LineString');
+  const before = h.state();
+  h.viewport.inert = true;
+  h.interaction.appendAtCrosshair();
+  assert.equal(h.state(), before);
+  h.viewport.inert = false;
+  h.interaction.destroy();
+  h.interaction.appendAtCrosshair();
+  h.interaction.setCrosshairMode(false);
+  assert.equal(h.state(), before);
+  h.drawing.delete();
+  h.interaction.startAtCrosshair('Point');
+  assert.equal(h.state().status, 'idle');
+});
 
 for (const pointerType of ['mouse', 'touch', 'pen']) {
   test(`${pointerType}: selection creates one vertex at pointer-down, consuming the release click`, (t) => {

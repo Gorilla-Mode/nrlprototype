@@ -4,8 +4,9 @@
   import SearchBar from './SearchBar.svelte';
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { LocationSuggestion } from './locationSearch';
+  import type { ObstacleGeometryType } from '../reporting/obstacle';
 
-  let { drawing, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, onhelp, helpOpen, showHelp = false, menuOpen }: {
+  let { drawing, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, onhelp, helpOpen, showHelp = false, menuOpen }: {
     onmenu: () => void;
     onreports: () => void;
     onhelp: () => void;
@@ -13,6 +14,10 @@
     showHelp?: boolean;
     menuOpen: boolean;
     drawing: DrawingState;
+    crosshairMode: boolean;
+    geometryType?: ObstacleGeometryType;
+    onstart: (type: ObstacleGeometryType) => void;
+    onaddpoint: () => void;
     onundo: () => void;
     ondelete: () => void;
     oncomplete: () => void;
@@ -48,7 +53,8 @@
   </button>
 {/if}
 
-<DrawingToolbar state={drawing} {onundo} {ondelete} {oncomplete} {onresumedetails} helpVisible={showHelp} />
+<DrawingToolbar state={drawing} {crosshairMode} bind:geometryType {onstart} {onaddpoint}
+  {onundo} {ondelete} {oncomplete} {onresumedetails} helpVisible={showHelp} />
 
 <style>
   .map-toolbar {

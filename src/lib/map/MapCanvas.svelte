@@ -4,10 +4,11 @@
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
   import type { DrawingState } from '../reporting/createDrawingController';
-  import type { Obstacle } from '../reporting/obstacle';
+  import type { Obstacle, ObstacleGeometryType } from '../reporting/obstacle';
 
   interface Props {
     visible?: boolean;
+    crosshairMode?: boolean;
     opacity: number;
     grayscale: boolean;
     onmapclick: () => void;
@@ -19,7 +20,7 @@
     onobstacleregistered?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
   }
 
-  let { visible = true, opacity, grayscale, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered }: Props = $props();
+  let { visible = true, crosshairMode = false, opacity, grayscale, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered }: Props = $props();
   let mapContainer: HTMLDivElement;
   let controller = $state.raw<MapController | null>(null);
 
@@ -32,6 +33,8 @@
   export function undoDrawing() { controller?.undoDrawing(); }
   export function deleteDrawing() { controller?.deleteDrawing(); }
   export function completeDrawing() { controller?.completeDrawing(); }
+  export function startAtCrosshair(type: ObstacleGeometryType) { controller?.startAtCrosshair(type); }
+  export function appendAtCrosshair() { controller?.appendAtCrosshair(); }
   export function focus() { controller?.focus(); }
 
   onMount(() => {
@@ -53,6 +56,10 @@
       instance.destroy();
       ongeolocationstatechange('unavailable', '');
     };
+  });
+
+  $effect(() => {
+    controller?.setCrosshairMode(crosshairMode);
   });
 
   $effect(() => {

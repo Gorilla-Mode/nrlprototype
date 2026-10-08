@@ -16,7 +16,7 @@ import { createGeolocationDisplay } from './createGeolocationDisplay';
 import type { HoldOrigin } from './createMapHoldController';
 import { createMapDrawingInteraction } from './createMapDrawingInteraction';
 import { createDrawingController, type DrawingState } from '../reporting/createDrawingController';
-import type { Obstacle } from '../reporting/obstacle';
+import type { Obstacle, ObstacleGeometryType } from '../reporting/obstacle';
 import { createReportController } from '../reporting/createReportController';
 import { createDrawingDisplay } from './createDrawingDisplay';
 import { MetricScaleControl } from './MetricScaleControl';
@@ -50,6 +50,9 @@ export interface MapController {
   undoDrawing: () => void;
   deleteDrawing: () => void;
   completeDrawing: () => void;
+  setCrosshairMode: (enabled: boolean) => void;
+  startAtCrosshair: (type: ObstacleGeometryType) => void;
+  appendAtCrosshair: () => void;
   focus: () => void;
   destroy: () => void;
 }
@@ -173,6 +176,9 @@ export function createMapController(
     undoDrawing: () => { if (!destroyed) drawing.undo(); },
     deleteDrawing: () => { if (!destroyed) drawing.delete(); },
     completeDrawing: () => { if (!destroyed) drawing.complete(); },
+    setCrosshairMode: drawingInteraction.setCrosshairMode,
+    startAtCrosshair: drawingInteraction.startAtCrosshair,
+    appendAtCrosshair: drawingInteraction.appendAtCrosshair,
     destroy() {
       if (destroyed) return;
       destroyed = true;
