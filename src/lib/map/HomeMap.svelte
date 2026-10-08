@@ -17,7 +17,7 @@
   import type { HoldOrigin } from './createMapHoldController';
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
-  import { obstacleGeometryChoices, type GeographicVertex, type Obstacle } from '../reporting/obstacle';
+  import { obstacleGeometryChoices, type GeographicVertex, type Obstacle, type ObstacleGeometryType } from '../reporting/obstacle';
   import { obstacleMenuInnerRadius, obstacleMenuOuterRadius } from './createMapDrawingInteraction';
   import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
 
@@ -50,6 +50,9 @@
   let mapWrapper: HTMLElement;
 
   let isLayerFadeOpen = $state(false);
+  let crosshairMode = $state(false);
+  let crosshairSize = $state(0);
+  let geometryType = $state<ObstacleGeometryType>('Point');
   let errorReportMode = $state(false);
   let registeredObstacles = $state.raw<RegisteredObstacle[]>([]);
   let errorCircle = $state<ScreenPoint | null>(null);
@@ -78,9 +81,9 @@
 
   // The mode stays active behind the form, so Cancel returns to the placed circle.
   function selectErrorObstacle() {
-    if (!errorMatch) return;
-    selectedObstacle = errorMatch;
-    console.log('Selected obstacle for error report:', errorMatch);
+    const target = mapCanvas?.sampleErrorReportTarget();
+    if (!target?.match) return;
+    selectedObstacle = target.match;
   }
 
   // The toggle stays reachable while picking; turning the mode off abandons the whole report.
@@ -96,7 +99,31 @@
     positionPick = { editing: selected };
     mapCanvas?.startPositionCorrection(origin, position ? [position.lng, position.lat] : origin);
     await tick();
-    mapWrapper.querySelector<HTMLElement>('.error-report-circle')?.focus({ preventScroll: true });
+    focusPositionInput();
+  }
+
+  function focusPositionInput() {
+    if (crosshairMode) mapCanvas?.focus();
+    else mapWrapper.querySelector<HTMLElement>('.error-report-circle')?.focus({ preventScroll: true });
+  }
+
+  async function toggleCrosshairMode() {
+    crosshairMode = !crosshairMode;
+    await tick();
+    if (positionPick) focusPositionInput();
+  }
+
+  function confirmPositionPick() {
+    const position = mapCanvas?.sampleErrorReportTarget()?.position;
+    if (!position || !selectedObstacle) return;
+    const candidate = { lng: position[0], lat: position[1] };
+    if (distanceM(selectedObstacle, candidate) >= minimumMoveM) finishPositionPick({ kind: 'set', position: candidate });
+  }
+
+  async function dismissErrorForm() {
+    selectedObstacle = null;
+    await tick();
+    mapWrapper.querySelector<HTMLElement>('[data-report-error]')?.focus({ preventScroll: true });
   }
 
   function finishPositionPick(choice: PositionChoice) {
@@ -172,7 +199,7 @@
 
 <main bind:this={mapWrapper} class="map-wrapper" aria-label="Home map">
   <!-- Before the controls: same overlay layer, so map controls stay on top of the circle. -->
-  {#if errorReportMode && errorCircle && !holdOrigin}
+  {#if errorReportMode && !crosshairMode && errorCircle && !holdOrigin}
     <ErrorReportCircle
       center={errorCircle}
       innerRadius={obstacleMenuInnerRadius}
@@ -192,10 +219,14 @@
     onzoomin={() => mapCanvas?.zoomIn()}
     onzoomout={() => mapCanvas?.zoomOut()}
     {geolocationState}
+    {crosshairMode}
+    oncrosshairtoggle={toggleCrosshairMode}
     ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
   />
   <MapCanvas
     {visible}
+    {crosshairMode}
+    {crosshairSize}
     bind:this={mapCanvas}
     {opacity}
     grayscale={isGrayscale}
@@ -212,25 +243,31 @@
     ondrawingchange={handleDrawingChange}
     onobstacleregistered={oncomplete}
   />
-  <div class="map-center-crosshair" aria-hidden="true">
+  {#if crosshairMode}
+  <div class="map-center-crosshair" bind:clientWidth={crosshairSize} aria-hidden="true">
     <svg viewBox="0 0 24 24">
       <g class="halo">
-        <path d="M12 1v8M12 15v8M1 12h8M15 12h8" />
-        <circle cx="12" cy="12" r="2" fill="var(--palette-neutral-0)" stroke="none" />
+        <path d="M12 1V23M1 12H23" />
       </g>
       <g class="mark">
-        <path d="M12 1v8M12 15v8M1 12h8M15 12h8" />
-        <circle cx="12" cy="12" r="1.6" fill="var(--palette-black)" stroke="none" />
+        <path d="M12 1V23M1 12H23" />
       </g>
     </svg>
   </div>
+  {/if}
   <MapToolbar
     {menuOpen}
-    {showHelp}
+    showHelp={showHelp && !positionPick}
     {helpOpen}
     onhelp={() => { isLayerFadeOpen = false; helpOpen = true; }}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
     {drawing}
+    {crosshairMode}
+    bind:geometryType
+    showSelectionControls={!errorReportMode}
+    selectionControlsCovered={isLayerFadeOpen}
+    onstart={(type) => mapCanvas?.startAtCrosshair(type)}
+    onaddpoint={() => mapCanvas?.appendAtCrosshair()}
     onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}
     onundo={() => mapCanvas?.undoDrawing()}
     ondelete={deleteSelection}
@@ -239,27 +276,31 @@
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
 
+  <div class:covered={isLayerFadeOpen} inert={isLayerFadeOpen}>
   {#if errorReportMode && positionPick && selectedObstacle}
     <PositionCorrectionToolbar
       bind:height={positionPanelHeight}
+      {crosshairMode}
       newPosition={pickedPosition}
       registered={selectedObstacle}
       move={pickedPosition ? moveParts(selectedObstacle, pickedPosition) : null}
       canConfirm={pickedDistanceM >= minimumMoveM}
       editing={positionPick.editing}
       oncancel={() => finishPositionPick({ kind: 'cancel' })}
-      onconfirm={() => { if (pickedPosition) finishPositionPick({ kind: 'set', position: pickedPosition }); }}
+      onconfirm={confirmPositionPick}
       onunknown={() => finishPositionPick({ kind: 'unknown' })}
       onremove={() => finishPositionPick({ kind: 'remove' })}
     />
   {:else if errorReportMode}
-    <ErrorReportToolbar placed={!!errorCircle} match={errorMatch} oncancel={endErrorReport} onselect={selectErrorObstacle} />
+    <ErrorReportToolbar {crosshairMode} helpVisible={showHelp} placed={!!errorCircle} match={errorMatch} oncancel={endErrorReport} onselect={selectErrorObstacle} />
   {/if}
+
+  </div>
 
   {#if selectedObstacle}
     {#key selectedObstacle.id}
       <ErrorReportPanel bind:this={errorPanel} obstacle={selectedObstacle} hidden={!!positionPick}
-        ondismiss={() => { selectedObstacle = null; }} onfinish={finishErrorReport} onpickposition={pickPosition} />
+        ondismiss={dismissErrorForm} onfinish={finishErrorReport} onpickposition={pickPosition} />
     {/key}
   {/if}
 
@@ -308,6 +349,8 @@
 </main>
 
 <style>
+  .covered { visibility: hidden; }
+
   .map-wrapper {
     position: relative;
     width: 100%;
@@ -378,7 +421,7 @@
     pointer-events: none;
   }
   .map-center-crosshair svg { display: block; width: 100%; height: 100%; fill: none; stroke-linecap: round; }
-  .map-center-crosshair .halo { stroke: var(--palette-neutral-0); stroke-width: calc(var(--icon-stroke-width) * 1.3); }
-  .map-center-crosshair .mark { stroke: var(--palette-black); stroke-width: calc(var(--icon-stroke-width) * 0.8); }
+  .map-center-crosshair .halo { stroke: var(--color-map-crosshair-halo); stroke-width: var(--map-crosshair-halo-stroke-width); }
+  .map-center-crosshair .mark { stroke: var(--color-map-crosshair-mark); stroke-width: var(--map-crosshair-mark-stroke-width); }
 
 </style>

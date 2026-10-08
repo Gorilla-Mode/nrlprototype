@@ -14,15 +14,16 @@ import {
 import { createGeolocationController, type GeolocationState } from './createGeolocationController';
 import { createGeolocationDisplay } from './createGeolocationDisplay';
 import type { HoldOrigin } from './createMapHoldController';
-import { createMapDrawingInteraction, obstacleMenuOuterRadius, type HoldMode } from './createMapDrawingInteraction';
+import { createMapDrawingInteraction, type HoldMode } from './createMapDrawingInteraction';
 import { createDrawingController, type DrawingState } from '../reporting/createDrawingController';
-import type { GeographicVertex, Obstacle } from '../reporting/obstacle';
+import type { GeographicVertex, Obstacle, ObstacleGeometryType } from '../reporting/obstacle';
 import { createReportController } from '../reporting/createReportController';
 import { createDrawingDisplay } from './createDrawingDisplay';
 import { createObstacleDisplay } from './createObstacleDisplay';
 import { createPositionCorrectionDisplay } from './createPositionCorrectionDisplay';
-import { createPositionDragInteraction, positionHandleRadius } from './createPositionDragInteraction';
-import { findObstacleInCircle, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
+import { createPositionDragInteraction } from './createPositionDragInteraction';
+import type { RegisteredObstacle, ScreenPoint } from '../obstacles/registeredObstacles';
+import { createMapErrorReportController, type ErrorReportTarget } from './createMapErrorReportController';
 import { MetricScaleControl } from './MetricScaleControl';
 
 setWorkerUrl(mapWorkerUrl);
@@ -70,6 +71,11 @@ export interface MapController {
   undoDrawing: () => void;
   deleteDrawing: () => void;
   completeDrawing: () => void;
+  setCrosshairMode: (enabled: boolean) => void;
+  setCrosshairSize: (pixels: number) => void;
+  sampleErrorReportTarget: () => ErrorReportTarget;
+  startAtCrosshair: (type: ObstacleGeometryType) => void;
+  appendAtCrosshair: () => void;
   focus: () => void;
   destroy: () => void;
 }
@@ -122,84 +128,38 @@ export function createMapController(
   const drawingInteraction = createMapDrawingInteraction(map, drawing, {
     onHoldChange: options.onHoldChange,
     onHoldMove: options.onHoldMove,
-    onErrorReportPlace: (center) => { errorCircleCenter = center; syncErrorReport(); },
-    isOnObstacle: (origin) => findObstacleInCircle(origin, registeredObstacles,
-      (obstacle) => project([obstacle.lng, obstacle.lat]), obstacleTouchRadius) !== null,
+    onErrorReportPlace: (center) => errorReporting.placeCircle(center),
+    // Marker radius 7 px plus a generous 24 px touch margin.
+    isOnObstacle: (origin) => errorReporting.isOnObstacle(origin, 7 + 24),
   });
   const obstacleDisplay = createObstacleDisplay(map);
   const correctionDisplay = createPositionCorrectionDisplay(map);
   const positionDrag = createPositionDragInteraction(map, {
-    getCenter: () => (correction && errorCircleCenter ? project(errorCircleCenter) : null),
-    onMove: (x, y) => moveErrorCircle(x, y),
+    getCenter: () => errorReporting.getDragCenter(),
+    onMove: (x, y) => errorReporting.moveCircle(x, y),
     onDragChange: (dragging) => options.onPositionDragChange?.(dragging),
   });
-  let holdMode: HoldMode = 'obstacle';
-  // A press this close to an obstacle (marker radius 7 px + 24 px) opens the error report ring at once.
-  const obstacleTouchRadius = 7 + 24;
-  let registeredObstacles: readonly RegisteredObstacle[] = [];
-  // Anchored geographically so the circle follows the map while panning or zooming.
-  let errorCircleCenter: GeographicVertex | null = null;
-  // While set, the circle picks a position instead of an obstacle; the selection circle waits in `centerBefore`.
-  let correction: { origin: GeographicVertex; centerBefore: GeographicVertex | null } | null = null;
-
-  function project([lng, lat]: GeographicVertex): ScreenPoint {
-    const { x, y } = map.project([lng, lat]);
-    return { x, y };
-  }
-
-  function syncErrorReport() {
-    if (destroyed) return;
-    const active = holdMode === 'error-report';
-    const center = active && errorCircleCenter ? project(errorCircleCenter) : null;
-    const match = center && !correction && findObstacleInCircle(center, registeredObstacles,
-      (obstacle) => project([obstacle.lng, obstacle.lat]), obstacleMenuOuterRadius);
-    // Registered obstacles are always on the map; a position correction shows only its own marker.
-    obstacleDisplay.show(correction ? null : registeredObstacles, match ? match.id : null);
-    correctionDisplay.show(active && correction ? correction.origin : null, errorCircleCenter);
-    options.onErrorCircleChange?.(center, match || null, center ? errorCircleCenter : null);
-  }
-
-  let bottomInset = 0;
-
-  // The registered position may be off screen or behind the bottom panel; centre it above the panel.
-  function revealCorrectionCircle() {
-    if (!correction || !errorCircleCenter) return;
-    const { x, y } = project(errorCircleCenter);
-    const { clientWidth, clientHeight } = container;
-    if (x < 0 || y < 0 || x > clientWidth || y > clientHeight - bottomInset - obstacleMenuOuterRadius) {
-      map.easeTo({ center: [...errorCircleCenter], offset: [0, -bottomInset / 2] });
-    }
-  }
-
-  function moveErrorCircle(x: number, y: number) {
-    if (destroyed || holdMode !== 'error-report') return;
-    if (correction) {
-      // Keep the drag handle on screen and the whole ring above the bottom panel.
-      const maxY = container.clientHeight - bottomInset - obstacleMenuOuterRadius;
-      x = Math.min(Math.max(x, positionHandleRadius), container.clientWidth - positionHandleRadius);
-      y = Math.min(Math.max(y, positionHandleRadius), maxY);
-    }
-    const { lng, lat } = map.unproject([x, y]);
-    errorCircleCenter = [lng, lat];
-    syncErrorReport();
-  }
-
-  // Correcting a position hands the map to pan/zoom and the circle's own drag handle.
-  function setCorrectionGestures(active: boolean) {
-    drawingInteraction.setHoldSuspended(active);
-    positionDrag.setEnabled(active);
-  }
+  const errorReporting = createMapErrorReportController(map, {
+    onChange: ({ center, match, position }) => options.onErrorCircleChange?.(center, match, position),
+    onObstaclesChange: (obstacles, selectedId) => obstacleDisplay.show(obstacles, selectedId),
+    onCorrectionChange: (origin, target) => correctionDisplay.show(origin, target),
+    onGesturesChange: (correcting, crosshair) => {
+      drawingInteraction.setHoldSuspended(correcting);
+      positionDrag.setEnabled(correcting && !crosshair);
+    },
+    onCameraChange: () => geolocation.stopFollowing(),
+  });
 
   function setHoldMode(mode: HoldMode) {
-    if (destroyed) return;
+    if (destroyed || (mode === 'error-report' && drawing.getState().status !== 'idle')) return;
     drawingInteraction.setHoldMode(mode);
-    holdMode = mode;
-    if (mode !== 'error-report') {
-      errorCircleCenter = null;
-      correction = null;
-      setCorrectionGestures(false);
-    }
-    syncErrorReport();
+    errorReporting.setHoldMode(mode);
+  }
+
+  function setCrosshairMode(enabled: boolean) {
+    if (destroyed) return;
+    drawingInteraction.setCrosshairMode(enabled);
+    errorReporting.setCrosshairMode(enabled);
   }
 
   function setSatelliteOpacity(opacity: number) {
@@ -259,7 +219,6 @@ export function createMapController(
   }
 
   map.on('click', handleMapClick);
-  map.on('move', syncErrorReport);
   map.on('load', handleLoad);
   map.on('style.load', handleStyleLoad);
   map.on('error', handleMapError);
@@ -271,29 +230,13 @@ export function createMapController(
     setSatelliteOpacity,
     setGrayscale,
     setHoldMode,
-    setRegisteredObstacles: (obstacles) => { registeredObstacles = obstacles; syncErrorReport(); },
-    moveErrorCircle,
-    startPositionCorrection: (origin, start) => {
-      if (destroyed || holdMode !== 'error-report') return;
-      correction = { origin, centerBefore: correction ? correction.centerBefore : errorCircleCenter };
-      errorCircleCenter = start;
-      setCorrectionGestures(true);
-      revealCorrectionCircle();
-      syncErrorReport();
-    },
-    endPositionCorrection: () => {
-      if (destroyed || !correction) return;
-      errorCircleCenter = correction.centerBefore;
-      correction = null;
-      setCorrectionGestures(false);
-      syncErrorReport();
-    },
-    setBottomInset: (pixels) => {
-      if (destroyed) return;
-      bottomInset = Math.max(0, pixels);
-      // The panel is measured after correction starts.
-      revealCorrectionCircle();
-    },
+    setRegisteredObstacles: errorReporting.setRegisteredObstacles,
+    moveErrorCircle: errorReporting.moveCircle,
+    startPositionCorrection: errorReporting.startPositionCorrection,
+    endPositionCorrection: errorReporting.endPositionCorrection,
+    setBottomInset: errorReporting.setBottomInset,
+    sampleErrorReportTarget: errorReporting.sample,
+    setCrosshairSize: errorReporting.setCrosshairSize,
     zoomIn: () => { if (!destroyed) map.zoomIn(); },
     zoomOut: () => { if (!destroyed) map.zoomOut(); },
     toggleGeolocation: geolocation.toggle,
@@ -301,15 +244,18 @@ export function createMapController(
     undoDrawing: () => { if (!destroyed) drawing.undo(); },
     deleteDrawing: () => { if (!destroyed) drawing.delete(); },
     completeDrawing: () => { if (!destroyed) drawing.complete(); },
+    setCrosshairMode,
+    startAtCrosshair: drawingInteraction.startAtCrosshair,
+    appendAtCrosshair: drawingInteraction.appendAtCrosshair,
     destroy() {
       if (destroyed) return;
       destroyed = true;
       window.removeEventListener('resize', handleResize);
       map.off('click', handleMapClick);
-      map.off('move', syncErrorReport);
       map.off('load', handleLoad);
       map.off('style.load', handleStyleLoad);
       map.off('error', handleMapError);
+      errorReporting.destroy();
       positionDrag.destroy();
       drawingInteraction.destroy();
       drawingDisplay.destroy();

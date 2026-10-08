@@ -32,8 +32,24 @@ raster basemaps only. Keep boundaries and editing vertices visible on varied ima
 
 Preserve the radial selector's choice arrangement, original press coordinate, central
 cancellation zone and generous sectors. Expanded SVG paths must stay inside the viewport
-for Safari. Geometry starts through the established hold/radial interaction unless a
-feature explicitly replaces it.
+for Safari. Geometry starts through the established hold/radial interaction when
+crosshair mode is off. The right-side crosshair toggle starts off and retains its state
+for the map session. When on, a bottom geometry picker and Report obstacle button start
+a selection at the visible crosshair; Line and Polygon add vertices through Add point.
+Map taps and holds navigate without placing geometry in this mode. Switching modes
+keeps the current selection and restores the corresponding input method.
+
+Error reporting also supports crosshair input: its toolbar replaces geometry choices
+with Report error, enabled for the nearest registered obstacle within half the measured
+crosshair width. Its toolbar width stays stable as obstacle guidance changes, using the
+form-width token within the map gutters. The selected obstacle is highlighted.
+Wrong-position correction uses the visible midpoint when crosshair mode is on and the
+draggable circle when it is off; switching input methods preserves the geographic
+candidate and form answers.
+Outside correction, turning crosshair off clears targeting, including any previously
+placed circle, and returns to hold-to-place guidance with selection disabled. After
+correction has switched from crosshair to circle input, ending it also requires a new
+hold for ordinary targeting. Circle-only correction cancellation restores its prior circle.
 
 Expanding map controls overlay rather than reflow neighbouring buttons. Covered controls
 become hidden and inert; dismissal restores focus. Preserve ordinary MapLibre keyboard

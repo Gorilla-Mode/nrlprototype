@@ -2,7 +2,7 @@ import type { Map, MapLibreEvent } from 'maplibre-gl';
 import { createMapHoldController, type HoldOrigin } from './createMapHoldController.js';
 import { getHoveredRadialSegment } from '../radial-menu/radialMenu.js';
 import type { DrawingController, DrawingState } from '../reporting/createDrawingController.js';
-import { obstacleGeometryChoices, type GeographicVertex } from '../reporting/obstacle.js';
+import { obstacleGeometryChoices, type GeographicVertex, type ObstacleGeometryType } from '../reporting/obstacle.js';
 
 export const obstacleMenuInnerRadius = 46;
 export const obstacleMenuOuterRadius = 112;
@@ -27,6 +27,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   let lastTouch: { x: number; y: number; time: number } | undefined;
   let restoreDoubleClickZoom: boolean | undefined;
   let destroyed = false;
+  let crosshairMode = false;
   let holdMode: HoldMode = 'obstacle';
   let holdSuspended = false;
 
@@ -37,7 +38,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
 
   // Register hold suppression first: its release click must never reach the drawing listener.
   const hold = createMapHoldController(canvas, {
-    isEnabled: () => !holdSuspended && drawing.getState().status === 'idle',
+    isEnabled: () => !crosshairMode && !holdSuspended && drawing.getState().status === 'idle',
     holdDelayAt: (origin) => (holdMode === 'error-report' && options.isOnObstacle?.(origin) ? 0 : undefined),
     onPressStart: ({ x, y }) => { initialVertex = coordinate(x, y); },
     onActivate: () => map.stop(),
@@ -63,7 +64,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   function handlePointerDown(event: PointerEvent) {
     pointers.add(event.pointerId);
     cancelTap();
-    if (drawing.getState().status !== 'drawing' || event.target !== canvas || pointers.size !== 1 ||
+    if (crosshairMode || holdMode !== 'obstacle' || holdSuspended || drawing.getState().status !== 'drawing' || event.target !== canvas || pointers.size !== 1 ||
       !event.isPrimary || event.button !== 0 || event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
     press = { id: event.pointerId, x: event.clientX, y: event.clientY, pointerType: event.pointerType, released: false };
   }
@@ -83,7 +84,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   function handleClick(event: MouseEvent) {
     const tap = press;
     cancelTap();
-    if (!tap?.released || event.target !== canvas || event.defaultPrevented || event.detail > 1 ||
+    if (crosshairMode || holdMode !== 'obstacle' || holdSuspended || !tap?.released || event.target !== canvas || event.defaultPrevented || event.detail > 1 ||
       event.button !== 0 || event.ctrlKey || event.shiftKey || event.altKey || event.metaKey ||
       drawing.getState().status !== 'drawing') return;
     // Some touch browsers report detail=1 for both clicks of a double tap.
@@ -114,10 +115,10 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
 
   function sync(state: DrawingState) {
     if (destroyed) return;
-    if (state.status === 'drawing' && restoreDoubleClickZoom === undefined) {
+    if (!crosshairMode && !holdSuspended && holdMode === 'obstacle' && state.status === 'drawing' && restoreDoubleClickZoom === undefined) {
       restoreDoubleClickZoom = map.doubleClickZoom.isEnabled();
       map.doubleClickZoom.disable();
-    } else if (state.status !== 'drawing') {
+    } else if (crosshairMode || holdSuspended || holdMode !== 'obstacle' || state.status !== 'drawing') {
       if (restoreDoubleClickZoom) map.doubleClickZoom.enable();
       restoreDoubleClickZoom = undefined;
       cancelTap();
@@ -137,15 +138,29 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   map.on('movestart', handleMoveStart);
   sync(drawing.getState());
 
+  function crosshairVertex(): GeographicVertex | undefined {
+    if (destroyed || !crosshairMode || holdMode !== 'obstacle' || holdSuspended || canvas.closest('[inert]')) return;
+    cancel();
+    map.stop();
+    // CSS pixels match the visible crosshair, including on high-DPI screens.
+    // Unproject the visual midpoint rather than a camera center offset by padding.
+    const { width, height } = canvas.getBoundingClientRect();
+    if (width <= 0 || height <= 0) return;
+    return coordinate(width / 2, height / 2);
+  }
+
   /** Pauses the hold gesture entirely, e.g. while another gesture owns the map. */
   function setHoldSuspended(suspended: boolean) {
+    if (destroyed) return;
     holdSuspended = suspended;
     if (suspended) cancel();
+    sync(drawing.getState());
   }
 
   function setHoldMode(mode: HoldMode) {
-    if (mode === holdMode) return;
+    if (destroyed || mode === holdMode) return;
     holdMode = mode;
+    sync(drawing.getState());
     // An open menu belongs to the previous mode; never let it release into the new one.
     cancel();
   }
@@ -153,6 +168,22 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   return {
     cancel,
     sync,
+    setCrosshairMode(enabled: boolean) {
+      if (destroyed || crosshairMode === enabled) return;
+      cancel();
+      crosshairMode = enabled;
+      sync(drawing.getState());
+    },
+    startAtCrosshair(type: ObstacleGeometryType) {
+      if (drawing.getState().status !== 'idle') return;
+      const vertex = crosshairVertex();
+      if (vertex) drawing.start(type, vertex);
+    },
+    appendAtCrosshair() {
+      if (drawing.getState().status !== 'drawing') return;
+      const vertex = crosshairVertex();
+      if (vertex) drawing.append(vertex);
+    },
     setHoldMode,
     setHoldSuspended,
     destroy() {
