@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { placementEditingSettings, placementEditingVariantUrl } from './lib/map/placementEditing';
   import HomeMap from './lib/map/HomeMap.svelte';
   import FaqPage from './lib/faq/FaqPage.svelte';
   import ReportsPage from './lib/reports/ReportsPage.svelte';
@@ -32,6 +33,7 @@
   let hash = $state(typeof window !== 'undefined' ? window.location.hash : '');
   let search = $state(typeof window !== 'undefined' ? window.location.search : '');
   let reporting = $derived(reportingSettings(search, reportingVariants));
+  let placementEditing = $derived(placementEditingSettings(search));
   let showHelp = $derived(isTutorialEnabled(search, reporting.debug));
   let ActiveReportingView = $derived(reportingVariants.find(({ id }) => id === details.variant?.id)?.component);
   let faqOpen = $derived(hash === '#/FAQ');
@@ -90,6 +92,11 @@
     const variant = reportingVariants.find((entry) => entry.id === id);
     if (!variant || variant.id === reporting.variant.id) return;
     window.location.replace(reportingVariantUrl(window.location.href, variant));
+  }
+
+  function selectPlacementEditing(id: string) {
+    const url = placementEditingVariantUrl(window.location.href, id);
+    if (url) window.location.replace(url);
   }
 
   function openDetails(report?: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) {
@@ -179,12 +186,12 @@
 </script>
 
 {#snippet reportingDebug()}
-  <ReportingDebug variants={reportingVariants} selectedId={reporting.variant.id} onchange={selectReportingVariant} />
+  <ReportingDebug variants={reportingVariants} selectedId={reporting.variant.id} onchange={selectReportingVariant} {placementEditing} onplacementchange={selectPlacementEditing} />
 {/snippet}
 
 <div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || reportOpen} aria-hidden={pageOpen || reportOpen}>
   <HomeMap bind:this={homeMap} bind:menuOpen bind:opacity bind:isGrayscale={grayscale}
-    {showHelp}
+    {showHelp} {placementEditing}
     bind:geolocationState={locationState} bind:locationMessage bind:accuracy
     onfaq={() => openPage('#/FAQ')} onnotifications={() => openPage(notificationsRoute)} onreports={() => openPage(reportsRoute)}
     onsettings={(section) => openPage('#/Settings/' + section)} visible={!pageOpen && !reportOpen}

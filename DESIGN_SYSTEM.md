@@ -39,6 +39,23 @@ a selection at the visible crosshair; Line and Polygon add vertices through Add 
 Map taps and holds navigate without placing geometry in this mode. Switching modes
 keeps the current selection and restores the corresponding input method.
 
+The independent debug Placement editing selector offers the unchanged default and three
+editing modes. Placed geometry keeps its existing map rendering. Editing targets are
+44 px, keyboard focusable and labeled by point order; their opaque numbered handle
+appears on focus. Arrow keys move by 16 CSS px, Shift multiplies movement by four, and
+Escape cancels an unfinished move. Basic and Persistent use hold-then-drag; Two-finger
+uses immediate dragging. Complete locks placement, with Point confirmation exposed only
+in Basic. Add point is unavailable for its single Point vertex. Undo follows additions and
+moves, including moves of the initial vertex.
+
+Persistent donut provides an opaque center target and guidance with labeled geometry
+choices. Its opening release leaves it open; drag its hole to move, tap the hole to
+cancel, or tap a sector/outside to choose by angle. Keyboard arrows move its center,
+Enter/Escape cancel, and geometry buttons choose placement. Two-finger guidance explains
+panning beneath a fixed donut and retains the crosshair picker as an alternative.
+Placement guidance and drawing commands consume existing opaque surfaces, focus and
+safe-area tokens. Runtime handle coordinates reuse the pointer-position CSS aliases.
+
 Error reporting also supports crosshair input: its toolbar replaces geometry choices
 with Report error, enabled for the nearest registered obstacle within half the measured
 crosshair width. Its toolbar width stays stable as obstacle guidance changes, using the

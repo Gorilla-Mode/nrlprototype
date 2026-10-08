@@ -1,3 +1,4 @@
+import type { PlacementEditingVariantId } from './placementEditing.js';
 import type { Map, MapLibreEvent } from 'maplibre-gl';
 import { createMapHoldController, type HoldOrigin } from './createMapHoldController.js';
 import { getHoveredRadialSegment } from '../radial-menu/radialMenu.js';
@@ -11,6 +12,7 @@ export const obstacleMenuOuterRadius = 112;
 export type HoldMode = 'obstacle' | 'error-report';
 
 export function createMapDrawingInteraction(map: Map, drawing: DrawingController, options: {
+  variant?: PlacementEditingVariantId;
   onHoldChange: (origin: HoldOrigin | null) => void;
   onHoldMove: (x: number, y: number) => void;
   /** Error-report release: the original press coordinate becomes the circle centre. */
@@ -30,6 +32,9 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   let crosshairMode = false;
   let holdMode: HoldMode = 'obstacle';
   let holdSuspended = false;
+  let visible = true;
+  let controllerPan = false;
+  let menuCenter: HoldOrigin | undefined;
 
   function coordinate(x: number, y: number): GeographicVertex {
     const { lng, lat } = map.unproject([x, y]);
@@ -38,12 +43,25 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
 
   // Register hold suppression first: its release click must never reach the drawing listener.
   const hold = createMapHoldController(canvas, {
-    isEnabled: () => !crosshairMode && !holdSuspended && drawing.getState().status === 'idle',
+    isEnabled: () => visible && !canvas.closest('[inert]') && !crosshairMode && !holdSuspended && drawing.getState().status === 'idle',
     holdDelayAt: (origin) => (holdMode === 'error-report' && options.isOnObstacle?.(origin) ? 0 : undefined),
     onPressStart: ({ x, y }) => { initialVertex = coordinate(x, y); },
     onActivate: () => map.stop(),
-    onOpen: options.onHoldChange,
-    onClose: () => options.onHoldChange(null),
+    persistent: () => options.variant === 'persistent-donut' && holdMode === 'obstacle',
+    twoFinger: () => options.variant === 'two-finger' && holdMode === 'obstacle',
+    onCenterMove: (origin) => {
+      menuCenter = origin;
+      initialVertex = coordinate(origin.x, origin.y);
+      options.onHoldChange(origin);
+    },
+    onTwoFingerPan: (dx, dy) => {
+      controllerPan = true;
+      try { map.panBy([-dx, -dy], { animate: false }); }
+      finally { controllerPan = false; }
+      if (menuCenter) initialVertex = coordinate(menuCenter.x, menuCenter.y);
+    },
+    onOpen: (origin) => { menuCenter = origin; options.onHoldChange(origin); },
+    onClose: () => { menuCenter = undefined; options.onHoldChange(null); },
     onMove: options.onHoldMove,
     onRelease: (x, y) => {
       if (holdMode === 'error-report') {
@@ -105,10 +123,10 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
 
   function handleMoveStart(event: MapLibreEvent) {
     // MapLibre emits movestart for a resize even when the camera stays still.
-    if (event.originalEvent || map.isMoving()) cancel();
+    if (!controllerPan && (event.originalEvent || map.isMoving())) cancel();
   }
 
-  function handleBlur() { pointers.clear(); cancel(); }
+  function handleBlur(event: Event) { if (event.target === view) { pointers.clear(); cancel(); } }
   function handleLostCapture(event: PointerEvent) {
     if (press?.id === event.pointerId && !press.released) cancelTap();
   }
@@ -136,6 +154,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   view.addEventListener('blur', handleBlur, capture);
   canvas.addEventListener('lostpointercapture', handleLostCapture, capture);
   map.on('movestart', handleMoveStart);
+  map.on('resize', cancel);
   sync(drawing.getState());
 
   function crosshairVertex(): GeographicVertex | undefined {
@@ -168,6 +187,14 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   return {
     cancel,
     sync,
+    setVisible(value: boolean) { visible = value; if (!value) cancel(); },
+    movePersistentCenter(x: number, y: number) { hold.moveCenter({ x, y }); },
+    selectPersistentGeometry(type: ObstacleGeometryType) {
+      if (options.variant !== 'persistent-donut' || !menuCenter || !initialVertex || !visible || holdMode !== 'obstacle') return;
+      const vertex = initialVertex;
+      cancel();
+      drawing.start(type, vertex);
+    },
     setCrosshairMode(enabled: boolean) {
       if (destroyed || crosshairMode === enabled) return;
       cancel();
@@ -191,6 +218,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
       destroyed = true;
       listeners.abort();
       map.off('movestart', handleMoveStart);
+      map.off('resize', cancel);
       hold.destroy();
       cancelTap();
       pointers.clear();

@@ -24,11 +24,15 @@ import { createPositionCorrectionDisplay } from './createPositionCorrectionDispl
 import { createPositionDragInteraction } from './createPositionDragInteraction';
 import type { RegisteredObstacle, ScreenPoint } from '../obstacles/registeredObstacles';
 import { createMapErrorReportController, type ErrorReportTarget } from './createMapErrorReportController';
+import type { PlacementEditingVariantId } from './placementEditing';
+import { createVertexEditingInteraction, type EditableVertexHandle } from './createVertexEditingInteraction';
 import { MetricScaleControl } from './MetricScaleControl';
 
 setWorkerUrl(mapWorkerUrl);
 
 interface MapControllerOptions {
+  placementEditing?: PlacementEditingVariantId;
+  onVertexHandlesChange?: (handles: readonly EditableVertexHandle[]) => void;
   initialOpacity: number;
   initialGrayscale: boolean;
   onGeolocationAccuracyChange: (accuracy: number | null) => void;
@@ -53,6 +57,13 @@ export interface CameraTarget {
 }
 
 export interface MapController {
+  setVisible: (visible: boolean) => void;
+  vertexKeyDown: (index: number, event: KeyboardEvent) => void;
+  vertexKeyUp: (event: KeyboardEvent) => void;
+  finishKeyboardMove: () => void;
+  movePersistentCenter: (x: number, y: number) => void;
+  selectPersistentGeometry: (type: ObstacleGeometryType) => void;
+  cancelPlacement: () => void;
   setSatelliteOpacity: (opacity: number) => void;
   setGrayscale: (grayscale: boolean) => void;
   setHoldMode: (mode: HoldMode) => void;
@@ -87,6 +98,9 @@ export function createMapController(
   let satelliteOpacity = options.initialOpacity;
   let grayscale = options.initialGrayscale;
   let destroyed = false;
+  let holdMode: HoldMode = 'obstacle';
+  let crosshairMode = false;
+  let visible = true;
   const map = new Map({
     ...mapDefaults,
     container,
@@ -114,18 +128,26 @@ export function createMapController(
   });
   const drawingDisplay = createDrawingDisplay(map);
   let drawingStatus: DrawingState['status'] = 'idle';
+  const variant = options.placementEditing ?? 'default';
   const drawing = createDrawingController({
+    vertexEditing: variant !== 'default',
+    deferPointCompletion: variant === 'basic',
     onChange: (state) => {
       if (drawingStatus === 'idle' && state.status === 'drawing') reporting.start();
       if (state.status === 'idle') reporting.cancel();
       drawingStatus = state.status;
       drawingDisplay.show(state.draft);
       drawingInteraction.sync(state);
+      vertexEditing.sync(state);
       options.onDrawingChange(state);
     },
     onComplete: reporting.complete,
   });
+  const vertexEditing = createVertexEditingInteraction(map, drawing, {
+    variant, onHandlesChange: (handles) => options.onVertexHandlesChange?.(handles),
+  });
   const drawingInteraction = createMapDrawingInteraction(map, drawing, {
+    variant,
     onHoldChange: options.onHoldChange,
     onHoldMove: options.onHoldMove,
     onErrorReportPlace: (center) => errorReporting.placeCircle(center),
@@ -151,13 +173,18 @@ export function createMapController(
   });
 
   function setHoldMode(mode: HoldMode) {
-    if (destroyed || (mode === 'error-report' && drawing.getState().status !== 'idle')) return;
+    if (destroyed || mode === holdMode || (mode === 'error-report' && drawing.getState().status !== 'idle')) return;
+    holdMode = mode;
+    vertexEditing.cancel();
+    vertexEditing.setEnabled(visible && mode === 'obstacle');
     drawingInteraction.setHoldMode(mode);
     errorReporting.setHoldMode(mode);
   }
 
   function setCrosshairMode(enabled: boolean) {
-    if (destroyed) return;
+    if (destroyed || crosshairMode === enabled) return;
+    crosshairMode = enabled;
+    vertexEditing.cancel();
     drawingInteraction.setCrosshairMode(enabled);
     errorReporting.setCrosshairMode(enabled);
   }
@@ -195,7 +222,12 @@ export function createMapController(
 
   function handleResize() {
     drawingInteraction.cancel();
+    vertexEditing.cancel();
     map.resize();
+  }
+
+  function handleVisibility() {
+    if (document.hidden) { drawingInteraction.cancel(); vertexEditing.cancel(); }
   }
 
   function handleLoad() {
@@ -223,8 +255,21 @@ export function createMapController(
   map.on('style.load', handleStyleLoad);
   map.on('error', handleMapError);
   window.addEventListener('resize', handleResize);
+  document.addEventListener('visibilitychange', handleVisibility);
 
   return {
+    setVisible: (value) => {
+      if (destroyed || visible === value) return;
+      visible = value;
+      drawingInteraction.setVisible(value);
+      vertexEditing.setEnabled(value && holdMode === 'obstacle');
+    },
+    vertexKeyDown: vertexEditing.keyDown,
+    vertexKeyUp: vertexEditing.keyUp,
+    finishKeyboardMove: vertexEditing.finishKeyboardMove,
+    movePersistentCenter: drawingInteraction.movePersistentCenter,
+    selectPersistentGeometry: drawingInteraction.selectPersistentGeometry,
+    cancelPlacement: () => { drawingInteraction.cancel(); vertexEditing.cancel(); },
     focus: () => map.getCanvas().focus({ preventScroll: true }),
     stopCamera: () => { if (!destroyed) map.stop(); },
     setSatelliteOpacity,
@@ -241,8 +286,8 @@ export function createMapController(
     zoomOut: () => { if (!destroyed) map.zoomOut(); },
     toggleGeolocation: geolocation.toggle,
     flyToLocation,
-    undoDrawing: () => { if (!destroyed) drawing.undo(); },
-    deleteDrawing: () => { if (!destroyed) drawing.delete(); },
+    undoDrawing: () => { if (!destroyed) { vertexEditing.cancel(); drawing.undo(); } },
+    deleteDrawing: () => { if (!destroyed) { drawingInteraction.cancel(); vertexEditing.cancel(); drawing.delete(); } },
     completeDrawing: () => { if (!destroyed) drawing.complete(); },
     setCrosshairMode,
     startAtCrosshair: drawingInteraction.startAtCrosshair,
@@ -251,12 +296,14 @@ export function createMapController(
       if (destroyed) return;
       destroyed = true;
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
       map.off('click', handleMapClick);
       map.off('load', handleLoad);
       map.off('style.load', handleStyleLoad);
       map.off('error', handleMapError);
       errorReporting.destroy();
       positionDrag.destroy();
+      vertexEditing.destroy();
       drawingInteraction.destroy();
       drawingDisplay.destroy();
       obstacleDisplay.destroy();

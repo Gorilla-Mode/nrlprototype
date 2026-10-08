@@ -84,6 +84,45 @@ summary; closing it releases that result. Reload loses drafts and results. These
 do not write to the mock report lists or provide durable saving or submission. Browser
 history cannot restore a report route without its matching in-memory draft or result.
 
+## Placement editing variants
+
+`src/lib/map/placementEditing.ts` resolves the independent `placementEditing` query
+parameter only with `debug=1`. Missing or invalid values use `default`. The debug menu
+selects `default`, `basic`, `persistent-donut`, or `two-finger`, preserving reporting,
+unrelated parameters, deployment paths and hashes. Changes replace the URL and reload;
+selecting the current choice does nothing. The value passes through App → HomeMap →
+MapCanvas → createMapController and remains fixed for that map instance.
+
+Default placement retains hold/drag/release and immediate Point completion. All three
+editing variants allow placed vertices to move while drawing, including crosshair
+geometry. Only Basic defers Point completion: its single vertex cannot be appended;
+Complete opens the existing report form once. Completing locks every geometry. Editing
+does not create another reporting session or restart reporter GPS.
+
+The drawing controller replaces coordinates immutably, validates and measures during
+moves, and allows invalid intermediate geometry while disabling Complete. Each changed,
+committed move adds one Undo entry; additions and moves undo in chronological order.
+Cancelled or unchanged moves add none. Undo never removes the initial vertex.
+`createVertexEditingInteraction` resolves nearest projected vertices within a 44 px
+minimum target, with vertex-order ties. Basic and Persistent activate after 200 ms;
+movement beyond 8 px before activation remains navigation. Two-finger activates vertex
+editing immediately. Moves preserve grab offset, stop camera movement, suppress conflicting
+gestures and restore their original enabled states. Cancellation restores coordinates.
+Pointer cancellation, lost capture, second touch, blur, hidden maps, resize, mode changes,
+Delete and teardown cancel gestures. Typed projected handles expose keyboard editing.
+
+Persistent donut ignores its opening release. Subsequent center drags beyond 8 px move
+its screen and geographic center together, leaving the map stationary and the donut open.
+Center taps cancel; sector and outside taps use the existing angle selection. Keyboard
+arrows move the center and labeled geometry buttons select its placement.
+Two-finger placement keeps ordinary hold/release selection, but adding a second touch to
+an open donut pans the map using touch-centroid deltas and MapLibre `panBy` without
+animation. Zoom, bearing and pitch stay unchanged, and placement is sampled under the
+fixed donut center. Controller-driven camera events bypass ordinary hold cancellation.
+Selection is suspended until the second finger lifts. Lifting the original finger first
+cancels. Normal pinch and pan remain available outside this gesture. Error reporting and
+registered-obstacle position correction retain their existing gesture paths.
+
 ## External data and geolocation
 
 Raster tiles come from Kartverket, OpenStreetMap and Esri; search uses Geonorge address

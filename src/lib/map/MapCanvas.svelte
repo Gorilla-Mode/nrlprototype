@@ -8,7 +8,12 @@
   import type { GeographicVertex, Obstacle, ObstacleGeometryType } from '../reporting/obstacle';
   import type { RegisteredObstacle, ScreenPoint } from '../obstacles/registeredObstacles';
 
+  import type { PlacementEditingVariantId } from './placementEditing';
+  import type { EditableVertexHandle } from './createVertexEditingInteraction';
+
   interface Props {
+    placementEditing?: PlacementEditingVariantId;
+    onvertexhandleschange?: (handles: readonly EditableVertexHandle[]) => void;
     visible?: boolean;
     crosshairMode?: boolean;
     /** Measured rendered width of the crosshair in CSS pixels. */
@@ -30,9 +35,16 @@
     onpositiondragchange?: (dragging: boolean) => void;
   }
 
-  let { visible = true, crosshairMode = false, crosshairSize = 0, opacity, grayscale, holdMode = 'obstacle', registeredObstacles = [], bottomInset = 0, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered, onerrorcirclechange, onpositiondragchange }: Props = $props();
+  let { placementEditing = 'default', onvertexhandleschange, visible = true, crosshairMode = false, crosshairSize = 0, opacity, grayscale, holdMode = 'obstacle', registeredObstacles = [], bottomInset = 0, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered, onerrorcirclechange, onpositiondragchange }: Props = $props();
   let mapContainer: HTMLDivElement;
   let controller = $state.raw<MapController | null>(null);
+
+  export function vertexKeyDown(index: number, event: KeyboardEvent) { controller?.vertexKeyDown(index, event); }
+  export function vertexKeyUp(event: KeyboardEvent) { controller?.vertexKeyUp(event); }
+  export function finishKeyboardMove() { controller?.finishKeyboardMove(); }
+  export function movePersistentCenter(x: number, y: number) { controller?.movePersistentCenter(x, y); }
+  export function selectPersistentGeometry(type: ObstacleGeometryType) { controller?.selectPersistentGeometry(type); }
+  export function cancelPlacement() { controller?.cancelPlacement(); }
 
   export function toggleGeolocation() {
     controller?.toggleGeolocation();
@@ -55,6 +67,8 @@
 
   onMount(() => {
     const instance = createMapController(mapContainer, {
+      placementEditing,
+      onVertexHandlesChange: (handles) => onvertexhandleschange?.(handles),
       initialOpacity: opacity,
       onGeolocationAccuracyChange: onaccuracychange,
       initialGrayscale: grayscale,
@@ -99,6 +113,7 @@
   });
 
   $effect(() => {
+    controller?.setVisible(visible);
     if (!visible) controller?.stopCamera();
   });
 </script>

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { createDrawingController, type DrawingState } from '../src/lib/reporting/createDrawingController.js';
 import { createReportController } from '../src/lib/reporting/createReportController.js';
 import { createDetailsController, type DetailsHooks, type DetailsPayload, type CompleteReport } from '../src/lib/reporting/createDetailsController.js';
 import { createGeolocationController } from '../src/lib/map/createGeolocationController.js';
@@ -199,4 +200,40 @@ test('application teardown releases pending GPS without calling Finish', async (
   assert.equal(calls, 0);
   assert.equal(details.getState().draft, null);
   assert.equal(details.getState().summaryOpen, false);
+});
+
+
+test('editing a draft does not restart reporter GPS or replace its reporting session', async (t) => {
+  let requests = 0;
+  let reporterSuccess!: PositionCallback;
+  const geo: Geolocation = { getCurrentPosition(success) { requests++; reporterSuccess = success; }, watchPosition() { return 0; }, clearWatch() {} };
+  for (const [key, value] of Object.entries({ window: { isSecureContext: true }, navigator: { geolocation: geo } })) {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { value, configurable: true });
+    t.after(() => { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); });
+  }
+  const details = createDetailsController({ onChange() {} });
+  let ids = 0;
+  const reporting = createReportController({ createId: () => `session-${++ids}`,
+    onRegister: (obstacle, ready) => details.begin(obstacle, oneStep, ready) });
+  t.after(() => reporting.destroy());
+  let status: DrawingState['status'] = 'idle';
+  const drawing = createDrawingController({ vertexEditing: true, deferPointCompletion: true,
+    onChange: (state) => {
+      if (status === 'idle' && state.status === 'drawing') reporting.start();
+      if (state.status === 'idle') reporting.cancel();
+      status = state.status;
+    }, onComplete: reporting.complete });
+  drawing.start('Point', [5, 60]);
+  drawing.beginVertexMove(0); drawing.updateVertexMove([6, 61]); drawing.cancelVertexMove();
+  drawing.beginVertexMove(0); drawing.updateVertexMove([7, 62]); drawing.commitVertexMove();
+  drawing.undo();
+  drawing.complete(); drawing.complete();
+  assert.equal(requests, 1);
+  assert.equal(ids, 1);
+  assert.equal(details.getState().draft?.report.id, 'session-1');
+  assert.deepEqual(details.getState().draft?.report.obstacle_position, { type: 'Point', coordinates: [5, 60] });
+  reporterSuccess(position(3, 58));
+  await Promise.resolve();
+  assert.deepEqual(details.getState().draft?.report.gps_position, { lng: 3, lat: 58 });
 });

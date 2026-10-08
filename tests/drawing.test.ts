@@ -179,3 +179,98 @@ test('measurements are approximate metres or square metres with up to one decima
   assert.equal(formatMeasurement({ value: 1234.567, unit: 'm' }), '≈ 1,234.6 m');
   assert.equal(formatMeasurement({ value: 100, unit: 'm²' }), '≈ 100 m²');
 });
+
+function editing(deferPointCompletion = true) {
+  const completed: ObstacleGeometry[] = [];
+  const drawing = createDrawingController({ vertexEditing: true, deferPointCompletion,
+    onChange: () => {}, onComplete: (geometry) => completed.push(geometry) });
+  return { drawing, completed, state: drawing.getState };
+}
+
+test('editable Point cannot append, moves immutably, and completes only once at its final position', () => {
+  const h = editing();
+  h.drawing.start('Point', [5, 60]);
+  const before = h.state().draft;
+  h.drawing.append([6, 61]);
+  assert.equal(h.state().draft, before);
+  assert.equal(h.state().canUndo, false);
+  assert.equal(h.drawing.beginVertexMove(0), true);
+  h.drawing.updateVertexMove([6, 61]);
+  assert.deepEqual(before?.vertices, [[5, 60]]);
+  h.drawing.complete();
+  assert.equal(h.completed.length, 0, 'an active move cannot complete');
+  h.drawing.commitVertexMove();
+  assert.equal(h.state().canUndo, true);
+  h.drawing.undo();
+  assert.deepEqual(h.state().draft?.vertices, [[5, 60]]);
+  assert.equal(h.state().canUndo, false);
+  h.drawing.beginVertexMove(0);
+  h.drawing.updateVertexMove([7, 62]);
+  h.drawing.commitVertexMove();
+  h.drawing.complete();
+  h.drawing.complete();
+  h.drawing.beginVertexMove(0);
+  h.drawing.updateVertexMove([8, 63]);
+  assert.deepEqual(h.completed, [{ type: 'Point', coordinates: [7, 62] }]);
+});
+
+test('Undo reverses additions and committed moves chronologically; cancelled and unchanged moves add no history', () => {
+  const h = editing();
+  h.drawing.start('LineString', [0, 0]);
+  h.drawing.append([0.001, 0]);
+  const initialLength = h.state().measurement!.value;
+  h.drawing.beginVertexMove(0);
+  h.drawing.updateVertexMove([-0.001, 0]);
+  assert.ok(h.state().measurement!.value > initialLength);
+  h.drawing.updateVertexMove([-0.002, 0]);
+  h.drawing.commitVertexMove();
+  h.drawing.append([0.002, 0]);
+  h.drawing.beginVertexMove(1);
+  h.drawing.updateVertexMove([3, 3]);
+  h.drawing.cancelVertexMove();
+  h.drawing.beginVertexMove(1);
+  h.drawing.commitVertexMove();
+  h.drawing.undo();
+  assert.deepEqual(h.state().draft?.vertices, [[-0.002, 0], [0.001, 0]]);
+  h.drawing.undo();
+  assert.deepEqual(h.state().draft?.vertices, [[0, 0], [0.001, 0]]);
+  assert.equal(h.state().measurement!.value, initialLength);
+  h.drawing.undo();
+  h.drawing.undo();
+  assert.deepEqual(h.state().draft?.vertices, [[0, 0]]);
+  assert.equal(h.state().canUndo, false);
+});
+
+test('moving a polygon allows invalid intermediate shapes and repairs validation without replacing the draft session', () => {
+  const h = editing();
+  h.drawing.start('Polygon', [0, 0]);
+  for (const vertex of [[2, 0], [2, 2], [0, 2]] as const) h.drawing.append(vertex);
+  h.drawing.beginVertexMove(1);
+  h.drawing.updateVertexMove([1, 3]);
+  assert.match(h.state().message, /cross/);
+  h.drawing.commitVertexMove();
+  assert.equal(h.state().canComplete, false);
+  h.drawing.complete();
+  assert.equal(h.completed.length, 0);
+  h.drawing.beginVertexMove(1);
+  h.drawing.updateVertexMove([3, 0]);
+  h.drawing.commitVertexMove();
+  assert.equal(h.state().canComplete, true);
+  assert.ok(h.state().measurement!.value > 0);
+  h.drawing.undo();
+  assert.equal(h.state().canComplete, false);
+});
+
+test('default controller rejects editing and invalid move indices never change state', () => {
+  const h = setup();
+  h.drawing.start('LineString', [0, 0]);
+  const before = h.state();
+  assert.equal(h.drawing.beginVertexMove(0), false);
+  h.drawing.updateVertexMove([1, 1]);
+  h.drawing.commitVertexMove();
+  h.drawing.cancelVertexMove();
+  assert.equal(h.state(), before);
+  const e = editing();
+  e.drawing.start('Point', [0, 0]);
+  for (const index of [-1, 1, 0.5, NaN]) assert.equal(e.drawing.beginVertexMove(index), false);
+});

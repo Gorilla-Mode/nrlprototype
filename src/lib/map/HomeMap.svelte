@@ -21,12 +21,16 @@
   import { obstacleMenuInnerRadius, obstacleMenuOuterRadius } from './createMapDrawingInteraction';
   import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
 
-  let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, showHelp = false, onfaq, onnotifications, onreports, onsettings,
+  import type { PlacementEditingVariantId } from './placementEditing';
+  import type { EditableVertexHandle } from './createVertexEditingInteraction';
+
+  let { placementEditing = 'default', oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, showHelp = false, onfaq, onnotifications, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
     selectedObstacle = $bindable<RegisteredObstacle | null>(null),
   }: {
+    placementEditing?: PlacementEditingVariantId;
     oncomplete?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
     onreportstart?: () => void;
     debugContent?: Snippet;
@@ -152,6 +156,7 @@
     if (visible && showHelp) mapWrapper.querySelector<HTMLButtonElement>('.map-help')?.focus({ preventScroll: true });
   }
   let mapCanvas: MapCanvas;
+  let vertexHandles = $state.raw<readonly EditableVertexHandle[]>([]);
   let holdOrigin = $state<HoldOrigin | null>(null);
   let holdPointer = $state<{ x: number; y: number } | null>(null);
   export function toggleGeolocation() { mapCanvas?.toggleGeolocation(); }
@@ -173,6 +178,24 @@
   function handleDrawingChange(state: DrawingState) {
     if (drawing.status === 'idle' && state.status === 'drawing') onreportstart?.();
     drawing = state;
+  }
+
+  function movePersistentCenter(event: KeyboardEvent) {
+    if (!holdOrigin) return;
+    if (event.key === 'Escape') { event.preventDefault(); mapCanvas?.cancelPlacement(); return; }
+    const step = event.shiftKey ? 64 : 16;
+    const offsets: Record<string, [number, number]> = {
+      ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0],
+    };
+    const offset = offsets[event.key];
+    if (!offset) return;
+    event.preventDefault();
+    mapCanvas?.movePersistentCenter(holdOrigin.x + offset[0], holdOrigin.y + offset[1]);
+  }
+
+  function handleHoldChange(origin: HoldOrigin | null) {
+    holdOrigin = origin;
+    holdPointer = null;
   }
 
   function handleMapClick() {
@@ -224,7 +247,9 @@
     ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
   />
   <MapCanvas
-    {visible}
+    visible={visible && !menuOpen && !helpOpen && (!selectedObstacle || !!positionPick)}
+    {placementEditing}
+    onvertexhandleschange={(handles) => { vertexHandles = handles; }}
     {crosshairMode}
     {crosshairSize}
     bind:this={mapCanvas}
@@ -238,11 +263,19 @@
     onmapclick={handleMapClick}
     ongeolocationstatechange={handleGeolocationStateChange}
     onaccuracychange={(value) => { accuracy = value; }}
-    onholdchange={(origin) => { holdOrigin = origin; holdPointer = null; }}
+    onholdchange={handleHoldChange}
     onholdmove={(x, y) => { holdPointer = { x, y }; }}
     ondrawingchange={handleDrawingChange}
     onobstacleregistered={oncomplete}
   />
+  {#each vertexHandles as handle (handle.index)}
+    <button type="button" class="vertex-handle" style:--hold-x={`${handle.x}px`} style:--hold-y={`${handle.y}px`}
+      aria-label={`Move point ${handle.index + 1}. Use arrow keys; Shift moves faster; Escape cancels`}
+      onkeydown={(event) => mapCanvas?.vertexKeyDown(handle.index, event)}
+      onkeyup={(event) => mapCanvas?.vertexKeyUp(event)} onblur={() => mapCanvas?.finishKeyboardMove()}>
+      <span aria-hidden="true">{handle.index + 1}</span>
+    </button>
+  {/each}
   {#if crosshairMode}
   <div class="map-center-crosshair" bind:clientWidth={crosshairSize} aria-hidden="true">
     <svg viewBox="0 0 24 24">
@@ -262,6 +295,7 @@
     onhelp={() => { isLayerFadeOpen = false; helpOpen = true; }}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
     {drawing}
+    {placementEditing}
     {crosshairMode}
     bind:geometryType
     showSelectionControls={!errorReportMode}
@@ -336,6 +370,30 @@
     </div>
   {/if}
 
+  {#if holdOrigin && !errorReportMode && placementEditing !== 'default'}
+    {#if placementEditing === 'persistent-donut'}
+      <button type="button" class="persistent-center"
+        style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}
+        aria-label="Donut center. Arrow keys move placement; Shift moves faster; Enter or Escape cancels"
+        onkeydown={movePersistentCenter} onclick={() => mapCanvas?.cancelPlacement()}>×</button>
+    {/if}
+    <section class="placement-guidance" aria-label="Placement guidance">
+      {#if placementEditing === 'persistent-donut'}
+        <p>Drag the center to move placement. Tap the center to cancel, or choose a geometry.</p>
+        <div class="placement-choices">
+          {#each obstacleGeometryChoices as choice (choice.id)}
+            <button type="button" class="button" onclick={() => mapCanvas?.selectPersistentGeometry(choice.type)}>{choice.label}</button>
+          {/each}
+          <button type="button" class="button" onclick={() => mapCanvas?.cancelPlacement()}>Cancel</button>
+        </div>
+      {:else if placementEditing === 'two-finger'}
+        <p>Keep holding to choose geometry. Add a second finger to pan beneath the donut. The crosshair picker is also available.</p>
+      {:else}
+        <p>Drag out to choose geometry. Hold placed points to edit them; Complete confirms placement.</p>
+      {/if}
+    </section>
+  {/if}
+
   <div class="report-sent" role="status">
     {#if reportSent}<p>Report sent</p>{/if}
   </div>
@@ -349,6 +407,46 @@
 </main>
 
 <style>
+  .vertex-handle, .persistent-center {
+    position: absolute;
+    z-index: var(--layer-map-overlay);
+    left: var(--hold-x);
+    top: var(--hold-y);
+    transform: translate(-50%, -50%);
+    width: var(--target-size-min);
+    height: var(--target-size-min);
+    padding: 0;
+    border: var(--border-strong);
+    border-radius: var(--radius-round);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-body-small);
+    box-shadow: var(--shadow-control);
+    pointer-events: none;
+  }
+  .vertex-handle { background: transparent; border-color: transparent; box-shadow: none; }
+  .vertex-handle span { visibility: hidden; }
+  .vertex-handle:focus-visible { background: var(--color-background-raised); border: var(--border-strong); }
+  .vertex-handle:focus-visible span { visibility: visible; }
+  .persistent-center { z-index: var(--layer-popover); }
+  .placement-guidance {
+    position: absolute;
+    z-index: var(--layer-map-overlay);
+    inset-inline: var(--map-control-inset-left) var(--map-control-inset-right);
+    bottom: var(--map-bottom-toolbar-inset);
+    margin-inline: auto;
+    width: fit-content;
+    max-width: calc(100% - var(--map-control-inset-left) - var(--map-control-inset-right));
+    padding: var(--space-3);
+    border: var(--border-strong);
+    border-radius: var(--radius-card);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-control);
+    font-size: var(--font-size-body-small);
+  }
+  .placement-guidance p { margin: 0; line-height: var(--line-height-body); }
+  .placement-choices { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
   .covered { visibility: hidden; }
 
   .map-wrapper {

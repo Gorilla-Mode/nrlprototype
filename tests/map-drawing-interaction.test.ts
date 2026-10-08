@@ -3,10 +3,11 @@ import { test, type TestContext } from 'node:test';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { createMapDrawingInteraction } from '../src/lib/map/createMapDrawingInteraction.js';
 import { createDrawingController } from '../src/lib/reporting/createDrawingController.js';
+import type { PlacementEditingVariantId } from '../src/lib/map/placementEditing.js';
 import type { HoldOrigin } from '../src/lib/map/createMapHoldController.js';
 import type { ObstacleGeometry } from '../src/lib/reporting/obstacle.js';
 
-function setup(t: TestContext, zoomEnabled = true) {
+function setup(t: TestContext, zoomEnabled = true, variant: PlacementEditingVariantId = 'default') {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const view = new EventTarget();
   const viewport = { width: 400, height: 600, inert: false };
@@ -22,10 +23,16 @@ function setup(t: TestContext, zoomEnabled = true) {
   const events = new EventTarget();
   const map = {
     scale: 0.01,
+    pan: [0, 0],
+    zoom: 9, bearing: 17, pitch: 30,
+    panBy([x, y]: [number, number]) {
+      this.pan[0] += x; this.pan[1] += y;
+      events.dispatchEvent(Object.assign(new Event('movestart'), { originalEvent: undefined }));
+    },
     getCanvas: () => canvas,
-    unproject([x, y]: [number, number]) { return { lng: x * this.scale, lat: y * this.scale }; },
+    unproject([x, y]: [number, number]) { return { lng: (x + this.pan[0]) * this.scale, lat: (y + this.pan[1]) * this.scale }; },
     stop() {},
-    isMoving: () => false,
+    isMoving: () => map.pan.some((value) => value !== 0),
     on: events.addEventListener.bind(events),
     off: events.removeEventListener.bind(events),
     doubleClickZoom: {
@@ -38,8 +45,9 @@ function setup(t: TestContext, zoomEnabled = true) {
   const origins: (HoldOrigin | null)[] = [];
   const moves: HoldOrigin[] = [];
   const placed: (readonly [number, number])[] = [];
-  const drawing = createDrawingController({ onChange: (state) => interaction.sync(state), onComplete: (geometry) => completed.push(geometry) });
+  const drawing = createDrawingController({ vertexEditing: variant !== 'default', deferPointCompletion: variant === 'basic', onChange: (state) => interaction.sync(state), onComplete: (geometry) => completed.push(geometry) });
   const interaction = createMapDrawingInteraction(map as unknown as MapLibreMap, drawing, {
+    variant,
     onHoldChange: (origin) => origins.push(origin),
     onHoldMove: (x, y) => moves.push({ x, y }),
     onErrorReportPlace: (center) => placed.push(center),
@@ -49,7 +57,7 @@ function setup(t: TestContext, zoomEnabled = true) {
   function fire(type: string, init: Record<string, unknown> = {}) {
     const event = new Event(type, { cancelable: true });
     for (const [key, value] of Object.entries({
-      target: canvas, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+      target: type === 'blur' ? view : canvas, pointerId: 1, pointerType: 'mouse', isPrimary: true,
       button: 0, buttons: 1, clientX: 120, clientY: 180, detail: 1, ...init,
     })) Object.defineProperty(event, key, { value });
     (type === 'lostpointercapture' ? canvas : view).dispatchEvent(event);
@@ -422,3 +430,81 @@ test('crosshair error-report input suppresses radial selection and geometry comm
   h.interaction.appendAtCrosshair();
   assert.equal(h.state().draft?.vertices.length, 2);
 });
+
+for (const pointerType of ['mouse', 'pen', 'touch']) {
+  test(`persistent donut ${pointerType}: opening release ignores sectors; center drag keeps it open and moves geographic placement`, (t) => {
+    const h = setup(t, true, 'persistent-donut');
+    h.select(520, 380, pointerType);
+    assert.equal(h.state().status, 'idle');
+    assert.deepEqual(h.origins, [{ x: 100, y: 150 }]);
+    h.fire('pointerdown', { pointerType });
+    h.fire('pointermove', { clientX: 127, pointerType });
+    assert.equal(h.origins.length, 1, 'below 8 px remains a tap');
+    h.fire('pointermove', { clientX: 220, clientY: 280, pointerType });
+    h.fire('pointerup', { clientX: 520, clientY: 380, pointerType });
+    assert.equal(h.state().status, 'idle', 'release outside the original hole cannot select after center drag');
+    assert.deepEqual(h.origins.at(-1), { x: 500, y: 350 });
+    assert.deepEqual(h.map.pan, [0, 0], 'the map stays stationary');
+    assert.equal(h.fire('click', { clientX: 520, clientY: 380 }).defaultPrevented, true);
+    h.click({ clientX: 1000, clientY: 900, pointerType });
+    assert.equal(h.state().draft?.type, 'LineString');
+    assert.deepEqual(h.state().draft?.vertices, [[5, 3.5]]);
+  });
+}
+
+test('persistent center tap cancels; keyboard center movement and selection use the same placement', (t) => {
+  const h = setup(t, true, 'persistent-donut');
+  h.select();
+  h.click({ clientX: 127 });
+  assert.equal(h.origins.at(-1), null);
+  assert.equal(h.state().status, 'idle');
+  h.select();
+  h.interaction.movePersistentCenter(116, 214);
+  h.interaction.selectPersistentGeometry('Point');
+  assert.deepEqual(h.completed, [{ type: 'Point', coordinates: [1.16, 2.14] }]);
+  h.interaction.selectPersistentGeometry('Point');
+  assert.equal(h.completed.length, 1);
+});
+
+for (const originalFirst of [true, false]) {
+  test(`two-finger pans update placement under the fixed donut; original finger lifts ${originalFirst ? 'first' : 'last'}`, (t) => {
+    const h = setup(t, true, 'two-finger');
+    h.fire('pointerdown', { pointerType: 'touch' });
+    h.tick();
+    h.fire('pointerdown', { pointerType: 'touch', pointerId: 2, isPrimary: false, clientX: 220 });
+    h.fire('pointermove', { pointerType: 'touch', pointerId: 2, isPrimary: false, clientX: 260 });
+    h.fire('pointermove', { pointerType: 'touch', clientX: 160 });
+    assert.deepEqual(h.map.pan, [-40, 0], 'both fingers contribute half their motion');
+    assert.deepEqual(h.origins, [{ x: 100, y: 150 }], 'screen center remains fixed despite camera events');
+    assert.deepEqual([h.map.zoom, h.map.bearing, h.map.pitch], [9, 17, 30]);
+    assert.equal(h.state().status, 'idle');
+    const first = originalFirst ? 1 : 2;
+    h.fire('pointerup', { pointerType: 'touch', pointerId: first, clientX: 260 });
+    if (!originalFirst) h.fire('pointermove', { pointerType: 'touch', clientX: 520, clientY: 380 });
+    h.fire('pointerup', { pointerType: 'touch', pointerId: originalFirst ? 2 : 1, clientX: 520, clientY: 380 });
+    assert.equal(h.state().status, originalFirst ? 'idle' : 'drawing');
+    if (!originalFirst) assert.deepEqual(h.state().draft?.vertices, [[0.6, 1.5]]);
+    assert.equal(h.fire('click').defaultPrevented, true);
+    assert.equal(h.fire('touchstart').defaultPrevented, false, 'ordinary navigation is restored');
+  });
+}
+
+for (const variant of ['basic', 'persistent-donut', 'two-finger'] as const) {
+  test(`${variant}: crosshair Point and error-report release retain their variant-specific completion paths`, (t) => {
+    const h = setup(t, true, variant);
+    h.interaction.setHoldMode('error-report');
+    h.select();
+    assert.deepEqual(h.placed, [[1, 1.5]]);
+    assert.equal(h.origins.at(-1), null, 'error ring never persists');
+    h.interaction.setHoldMode('obstacle');
+    h.interaction.setCrosshairMode(true);
+    h.interaction.startAtCrosshair('Point');
+    h.interaction.appendAtCrosshair();
+    h.click();
+    assert.equal(h.state().draft?.vertices.length, 1);
+    assert.equal(h.completed.length, variant === 'basic' ? 0 : 1);
+    h.drawing.complete();
+    h.drawing.complete();
+    assert.equal(h.completed.length, 1);
+  });
+}
