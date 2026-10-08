@@ -123,6 +123,8 @@ export function createMapController(
     onHoldChange: options.onHoldChange,
     onHoldMove: options.onHoldMove,
     onErrorReportPlace: (center) => { errorCircleCenter = center; syncErrorReport(); },
+    isOnObstacle: (origin) => findObstacleInCircle(origin, registeredObstacles,
+      (obstacle) => project([obstacle.lng, obstacle.lat]), obstacleTouchRadius) !== null,
   });
   const obstacleDisplay = createObstacleDisplay(map);
   const correctionDisplay = createPositionCorrectionDisplay(map);
@@ -132,6 +134,8 @@ export function createMapController(
     onDragChange: (dragging) => options.onPositionDragChange?.(dragging),
   });
   let holdMode: HoldMode = 'obstacle';
+  // A press this close to an obstacle (marker radius 7 px + 24 px) opens the error report ring at once.
+  const obstacleTouchRadius = 7 + 24;
   let registeredObstacles: readonly RegisteredObstacle[] = [];
   // Anchored geographically so the circle follows the map while panning or zooming.
   let errorCircleCenter: GeographicVertex | null = null;

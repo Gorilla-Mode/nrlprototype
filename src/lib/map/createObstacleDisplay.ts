@@ -4,7 +4,8 @@ import { registeredObstacleAttribution, type RegisteredObstacle } from '../obsta
 
 export const registeredObstacleSourceId = 'registered-obstacles';
 const markerLayerId = 'registered-obstacles-markers';
-type ObstacleFeatures = FeatureCollection<Point, { id: string; selected: boolean }>;
+const selectedLayerId = 'registered-obstacles-selected';
+type ObstacleFeatures = FeatureCollection<Point, { id: string }>;
 
 interface ObstacleVisuals {
   fill: string;
@@ -55,17 +56,23 @@ export function createObstacleDisplay(map: Map) {
       type: 'FeatureCollection',
       features: (obstacles ?? []).map((obstacle) => ({
         type: 'Feature',
-        properties: { id: obstacle.id, selected: obstacle.id === selectedId },
+        properties: { id: obstacle.id },
         geometry: { type: 'Point', coordinates: [obstacle.lng, obstacle.lat] },
       })),
     };
   }
 
-  function render() {
+  // The selection is a filter on its own layer: changing it never resends hundreds of points.
+  function selectedFilter() {
+    return ['==', ['get', 'id'], selectedId ?? ''] as ['==', ['get', string], string];
+  }
+
+  function render(dataChanged = true) {
     if (destroyed) return;
     const source = map.getSource<GeoJSONSource>(registeredObstacleSourceId);
-    if (source) source.setData(features());
-    else {
+    if (source) {
+      if (dataChanged) source.setData(features());
+    } else {
       // isStyleLoaded() stays false while any tile loads; only the style itself must be ready.
       // Before that addSource throws, and the style.load listener renders again.
       try {
@@ -74,31 +81,47 @@ export function createObstacleDisplay(map: Map) {
     }
     if (!map.getLayer(markerLayerId)) map.addLayer({
       id: markerLayerId, type: 'circle', source: registeredObstacleSourceId,
-      layout: { 'circle-sort-key': ['case', ['get', 'selected'], 1, 0] },
       paint: {
-        'circle-color': ['case', ['get', 'selected'], visuals.selected, visuals.fill],
-        'circle-radius': ['case', ['get', 'selected'], visuals.selectedRadius, visuals.radius],
+        'circle-color': visuals.fill,
+        'circle-radius': visuals.radius,
         'circle-stroke-width': visuals.strokeWidth,
         'circle-stroke-color': visuals.outline,
       },
     });
+    // Above the other markers, so the selected obstacle is never hidden by a neighbour.
+    if (!map.getLayer(selectedLayerId)) map.addLayer({
+      id: selectedLayerId, type: 'circle', source: registeredObstacleSourceId,
+      filter: selectedFilter(),
+      paint: {
+        'circle-color': visuals.selected,
+        'circle-radius': visuals.selectedRadius,
+        'circle-stroke-width': visuals.strokeWidth,
+        'circle-stroke-color': visuals.outline,
+      },
+    });
+    else map.setFilter(selectedLayerId, selectedFilter());
   }
 
-  map.on('style.load', render);
+  const renderAll = () => render();
+  map.on('style.load', renderAll);
   render();
 
   return {
     /** `null` hides every marker. */
+    /** Called on every map move; only real changes reach MapLibre. */
     show(next: readonly RegisteredObstacle[] | null, nextSelectedId: string | null) {
       if (destroyed) return;
+      const dataChanged = next !== obstacles;
+      if (!dataChanged && nextSelectedId === selectedId) return;
       obstacles = next;
       selectedId = nextSelectedId;
-      render();
+      render(dataChanged);
     },
     destroy() {
       if (destroyed) return;
       destroyed = true;
-      map.off('style.load', render);
+      map.off('style.load', renderAll);
+      if (map.getLayer(selectedLayerId)) map.removeLayer(selectedLayerId);
       if (map.getLayer(markerLayerId)) map.removeLayer(markerLayerId);
       if (map.getSource(registeredObstacleSourceId)) map.removeSource(registeredObstacleSourceId);
     },

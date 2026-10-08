@@ -186,6 +186,19 @@ test('a suspended hold opens nothing and places nothing; resuming restores it', 
   assert.deepEqual(h.placed, [[1, 1.5]]);
 });
 
+test('error-report hold released in the centre, without a drag into the ring, places nothing', (t) => {
+  const h = setup(t);
+  h.interaction.setHoldMode('error-report');
+  h.fire('pointerdown');
+  h.tick();
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }], 'the ring shows while held');
+  h.fire('pointermove', { clientX: 130, clientY: 160 });
+  h.fire('pointerup', { clientX: 130, clientY: 160 });
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null], 'the ring closes on release');
+  assert.deepEqual(h.placed, []);
+  assert.equal(h.fire('click', { clientX: 130, clientY: 160 }).defaultPrevented, true, 'the release never reaches the map as a tap');
+});
+
 test('changing hold mode closes an open menu without selection', (t) => {
   const h = setup(t);
   h.fire('pointerdown');

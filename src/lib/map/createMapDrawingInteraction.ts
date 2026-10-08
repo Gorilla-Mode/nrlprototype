@@ -15,6 +15,8 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   onHoldMove: (x: number, y: number) => void;
   /** Error-report release: the original press coordinate becomes the circle centre. */
   onErrorReportPlace?: (center: GeographicVertex) => void;
+  /** Error-report mode: a press on an obstacle opens the ring at once instead of after the hold delay. */
+  isOnObstacle?: (origin: HoldOrigin) => boolean;
 }) {
   const canvas = map.getCanvas();
   const view = canvas.ownerDocument.defaultView!;
@@ -36,6 +38,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   // Register hold suppression first: its release click must never reach the drawing listener.
   const hold = createMapHoldController(canvas, {
     isEnabled: () => !holdSuspended && drawing.getState().status === 'idle',
+    holdDelayAt: (origin) => (holdMode === 'error-report' && options.isOnObstacle?.(origin) ? 0 : undefined),
     onPressStart: ({ x, y }) => { initialVertex = coordinate(x, y); },
     onActivate: () => map.stop(),
     onOpen: options.onHoldChange,
@@ -43,7 +46,9 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
     onMove: options.onHoldMove,
     onRelease: (x, y) => {
       if (holdMode === 'error-report') {
-        if (initialVertex) options.onErrorReportPlace?.(initialVertex);
+        // Same rule as the obstacle menu: only a drag out of the centre into the ring confirms.
+        const confirmed = getHoveredRadialSegment({ x, y }, 1, obstacleMenuInnerRadius) !== null;
+        if (confirmed && initialVertex) options.onErrorReportPlace?.(initialVertex);
         initialVertex = undefined;
         return;
       }
