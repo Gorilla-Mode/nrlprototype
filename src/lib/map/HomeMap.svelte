@@ -17,7 +17,7 @@
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
   import { obstacleGeometryChoices, type GeographicVertex, type Obstacle, type ObstacleGeometryType } from '../reporting/obstacle';
-  import { obstacleMenuInnerRadius, obstacleMenuOuterRadius } from './createMapDrawingInteraction';
+  import { obstacleMenuInnerRadius, obstacleMenuOuterRadius, idleCrosshairDrawingState, type CrosshairDrawingState } from './createMapDrawingInteraction';
   import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
 
   import type { PlacementEditingVariantId } from './placementEditing';
@@ -54,6 +54,7 @@
 
   let isLayerFadeOpen = $state(false);
   let crosshairMode = $state(false);
+  let crosshairState = $state.raw<CrosshairDrawingState>(idleCrosshairDrawingState);
   let crosshairSize = $state(0);
   let geometryType = $state<ObstacleGeometryType>('Point');
   let errorReportMode = $state(false);
@@ -250,6 +251,7 @@
   <MapCanvas
     visible={visible && !menuOpen && (!selectedObstacle || !!positionPick)}
     {placementEditing}
+    oncrosshairchange={(state) => { crosshairState = state; }}
     onvertexhandleschange={(handles) => { vertexHandles = handles; }}
     {crosshairMode}
     {crosshairSize}
@@ -293,6 +295,10 @@
     {menuOpen}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
     {drawing}
+    {crosshairState}
+    onedit={() => mapCanvas?.beginCrosshairEdit()}
+    onplace={() => mapCanvas?.placeCrosshairEdit()}
+    oncanceledit={() => mapCanvas?.cancelCrosshairEdit()}
     {crosshairMode}
     bind:geometryType
     showSelectionControls={!errorReportMode}

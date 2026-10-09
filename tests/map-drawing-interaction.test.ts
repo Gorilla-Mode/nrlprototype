@@ -31,6 +31,7 @@ function setup(t: TestContext, zoomEnabled = true, variant: PlacementEditingVari
     },
     getCanvas: () => canvas,
     unproject([x, y]: [number, number]) { return { lng: (x + this.pan[0]) * this.scale, lat: (y + this.pan[1]) * this.scale }; },
+    project([lng, lat]: [number, number]) { return { x: lng / this.scale - this.pan[0], y: lat / this.scale - this.pan[1] }; },
     stop() {},
     isMoving: () => map.pan.some((value) => value !== 0),
     on: events.addEventListener.bind(events),
@@ -44,10 +45,12 @@ function setup(t: TestContext, zoomEnabled = true, variant: PlacementEditingVari
   const completed: ObstacleGeometry[] = [];
   const origins: (HoldOrigin | null)[] = [];
   const moves: HoldOrigin[] = [];
+  const crosshairChanges: import('../src/lib/map/createMapDrawingInteraction.js').CrosshairDrawingState[] = [];
   const placed: (readonly [number, number])[] = [];
-  const drawing = createDrawingController({ vertexEditing: variant !== 'default', deferPointCompletion: variant === 'basic', onChange: (state) => interaction.sync(state), onComplete: (geometry) => completed.push(geometry) });
+  const drawing = createDrawingController({ vertexEditing: true, deferPointCompletion: variant === 'basic', onChange: (state) => interaction.sync(state), onComplete: (geometry) => completed.push(geometry) });
   const interaction = createMapDrawingInteraction(map as unknown as MapLibreMap, drawing, {
     variant,
+    onCrosshairChange: (state) => crosshairChanges.push(state),
     onHoldChange: (origin) => origins.push(origin),
     onHoldMove: (x, y) => moves.push({ x, y }),
     onErrorReportPlace: (center) => placed.push(center),
@@ -78,7 +81,7 @@ function setup(t: TestContext, zoomEnabled = true, variant: PlacementEditingVari
   function navigate() {
     events.dispatchEvent(Object.assign(new Event('movestart'), { originalEvent: new Event('wheel') }));
   }
-  return { map, viewport, drawing, interaction, fire, select, click, navigate, completed, origins, moves, placed,
+  return { map, events, crosshairChanges, viewport, drawing, interaction, fire, select, click, navigate, completed, origins, moves, placed,
     state: drawing.getState, tick: () => t.mock.timers.tick(200) };
 }
 
@@ -508,3 +511,174 @@ for (const variant of ['basic', 'persistent-donut', 'two-finger'] as const) {
     assert.equal(h.completed.length, 1);
   });
 }
+
+for (const variant of ['default', 'basic', 'persistent-donut', 'two-finger'] as const) {
+  test(`${variant}: crosshair edit locks the nearest vertex, samples fresh and records one Undo`, (t) => {
+    const h = setup(t, true, variant);
+    h.interaction.setCrosshairMode(true);
+    h.drawing.start('LineString', [1, 3]);
+    h.drawing.append([3, 3]);
+    assert.equal(h.interaction.getCrosshairState().targetIndex, 0, 'equal CSS distances favour vertex order');
+    h.map.pan[0] = 80;
+    h.events.dispatchEvent(new Event('move'));
+    assert.equal(h.interaction.getCrosshairState().targetIndex, 1);
+    h.map.stop = () => { h.map.pan[0] = -80; };
+    h.interaction.beginCrosshairEdit();
+    assert.equal(h.interaction.getCrosshairState().targetIndex, 0, 'stop then reselect');
+    const before = h.state().draft;
+    h.map.pan[0] = 3000;
+    h.navigate();
+    h.events.dispatchEvent(new Event('move'));
+    assert.equal(h.interaction.getCrosshairState().targetIndex, 0, 'target remains locked with no distance threshold');
+    assert.deepEqual(h.interaction.getCrosshairState().candidate, [32, 3]);
+    assert.equal(h.state().draft, before, 'camera movement must not mutate the committed geometry');
+    assert.equal(h.state().canComplete, false);
+    h.drawing.complete();
+    h.interaction.appendAtCrosshair();
+    assert.equal(h.state().draft, before);
+    h.map.stop = () => { h.map.pan[0] = 400; };
+    h.interaction.placeCrosshairEdit();
+    assert.deepEqual(h.state().draft?.vertices, [[6, 3], [3, 3]]);
+    assert.equal(h.interaction.getCrosshairState().editing, false);
+    h.drawing.undo();
+    assert.deepEqual(h.state().draft, before, 'one Undo restores the moved vertex');
+    h.drawing.undo();
+    assert.deepEqual(h.state().draft?.vertices, [[1, 3]], 'next Undo restores the previous addition');
+  });
+}
+
+test('crosshair resize updates candidate and keeps the locked target and draft', (t) => {
+  const h = setup(t);
+  h.interaction.setCrosshairMode(true);
+  h.drawing.start('Polygon', [2, 3]);
+  h.drawing.append([7, 6]);
+  h.interaction.beginCrosshairEdit();
+  const before = h.state().draft;
+  h.viewport.width = 1000;
+  h.viewport.height = 800;
+  h.events.dispatchEvent(new Event('resize'));
+  assert.deepEqual(h.interaction.getCrosshairState(), { candidate: [5, 4], targetIndex: 0, editing: true });
+  assert.equal(h.state().draft, before);
+});
+
+test('a zero-size viewport hides previews but retains the pending lock until it can be placed', (t) => {
+  const h = setup(t, true, 'basic');
+  h.interaction.setCrosshairMode(true);
+  h.interaction.startAtCrosshair('Point');
+  h.interaction.beginCrosshairEdit();
+  const before = h.state().draft;
+  h.viewport.width = 0;
+  h.events.dispatchEvent(new Event('resize'));
+  assert.deepEqual(h.interaction.getCrosshairState(), { candidate: null, targetIndex: 0, editing: true });
+  h.interaction.placeCrosshairEdit();
+  assert.equal(h.state().draft, before);
+  assert.equal(h.state().canComplete, false);
+  h.viewport.width = 400;
+  h.events.dispatchEvent(new Event('resize'));
+  assert.deepEqual(h.interaction.getCrosshairState(), { candidate: [2, 3], targetIndex: 0, editing: true });
+  h.interaction.cancelCrosshairEdit();
+  assert.equal(h.state().canUndo, false);
+});
+
+test('unchanged crosshair moves and cancellations add no Undo; Basic Point remains editable', (t) => {
+  const h = setup(t, true, 'basic');
+  h.interaction.setCrosshairMode(true);
+  h.interaction.startAtCrosshair('Point');
+  h.interaction.beginCrosshairEdit();
+  h.interaction.placeCrosshairEdit();
+  assert.equal(h.state().canUndo, false);
+  h.interaction.beginCrosshairEdit();
+  h.map.pan[0] = 100;
+  h.events.dispatchEvent(new Event('move'));
+  h.interaction.cancelCrosshairEdit();
+  assert.deepEqual(h.state().draft?.vertices, [[2, 3]]);
+  assert.equal(h.state().canUndo, false);
+  h.interaction.beginCrosshairEdit();
+  h.interaction.placeCrosshairEdit();
+  assert.deepEqual(h.state().draft?.vertices, [[3, 3]]);
+  assert.equal(h.state().canUndo, true);
+  h.drawing.undo();
+  assert.deepEqual(h.state().draft?.vertices, [[2, 3]]);
+  assert.equal(h.state().canUndo, false);
+  h.drawing.complete();
+  assert.equal(h.completed.length, 1);
+  assert.deepEqual(h.interaction.getCrosshairState(), { candidate: null, targetIndex: null, editing: false });
+});
+
+test('crosshair Place point accepts invalid intermediate geometry and validation blocks Complete', (t) => {
+  const h = setup(t);
+  h.interaction.setCrosshairMode(true);
+  h.drawing.start('Polygon', [2, 3]);
+  h.drawing.append([4, 3]);
+  h.drawing.append([4, 5]);
+  assert.equal(h.state().canComplete, true);
+  h.interaction.beginCrosshairEdit();
+  h.map.pan[0] = 200;
+  h.interaction.placeCrosshairEdit();
+  assert.deepEqual(h.state().draft?.vertices, [[4, 3], [4, 3], [4, 5]]);
+  assert.equal(h.state().canComplete, false);
+  assert.match(h.state().message, /must not repeat/);
+  h.drawing.undo();
+  assert.equal(h.state().canComplete, true);
+});
+
+for (const reason of ['cancel', 'escape', 'blur', 'mode', 'hidden', 'delete', 'teardown', 'hold-mode', 'suspended'] as const) {
+  test(`crosshair editing cancels on ${reason} and removes lifecycle listeners`, (t) => {
+    const h = setup(t);
+    h.interaction.setCrosshairMode(true);
+    h.drawing.start('LineString', [2, 3]);
+    h.interaction.beginCrosshairEdit();
+    h.map.pan[0] = 100;
+    h.events.dispatchEvent(new Event('move'));
+    const before = h.state().draft;
+    switch (reason) {
+      case 'cancel': h.interaction.cancelCrosshairEdit(); break;
+      case 'escape': assert.equal(h.fire('keydown', { key: 'Escape' }).defaultPrevented, true); break;
+      case 'blur': h.fire('blur'); break;
+      case 'mode': h.interaction.setCrosshairMode(false); break;
+      case 'hidden': h.interaction.setVisible(false); break;
+      case 'delete': h.drawing.delete(); break;
+      case 'teardown': h.interaction.destroy(); break;
+      case 'hold-mode': h.interaction.setHoldMode('error-report'); break;
+      case 'suspended': h.interaction.setHoldSuspended(true); break;
+    }
+    assert.equal(h.interaction.getCrosshairState().editing, false);
+    if (reason !== 'delete') assert.deepEqual(h.state().draft, before);
+    assert.equal(h.state().canUndo, false);
+    if (['mode', 'hidden', 'delete', 'teardown', 'hold-mode', 'suspended'].includes(reason)) {
+      assert.equal(h.interaction.getCrosshairState().candidate, null);
+    }
+    h.interaction.destroy();
+    const count = h.crosshairChanges.length;
+    h.events.dispatchEvent(new Event('move'));
+    h.events.dispatchEvent(new Event('resize'));
+    h.fire('keydown', { key: 'Escape' });
+    assert.equal(h.crosshairChanges.length, count);
+  });
+}
+
+test('nearest targeting uses projected CSS pixels rather than geographic distance or backing canvas pixels', (t) => {
+  const h = setup(t);
+  Object.assign(h.map.getCanvas(), { width: 800, height: 1200 });
+  h.map.project = ([lng]) => lng === 0 ? { x: 201, y: 300 } : { x: 400, y: 600 };
+  h.interaction.setCrosshairMode(true);
+  h.drawing.start('LineString', [0, 0]);
+  h.drawing.append([2, 3]);
+  assert.deepEqual(h.interaction.getCrosshairState().candidate, [2, 3]);
+  assert.equal(h.interaction.getCrosshairState().targetIndex, 0);
+});
+
+test('zoom refreshes the crosshair candidate without changing the locked target or draft', (t) => {
+  const h = setup(t);
+  h.interaction.setCrosshairMode(true);
+  h.drawing.start('LineString', [2, 3]);
+  h.drawing.append([4, 6]);
+  h.interaction.beginCrosshairEdit();
+  const before = h.state().draft;
+  h.map.scale = 0.02;
+  h.events.dispatchEvent(new Event('move'));
+  assert.deepEqual(h.interaction.getCrosshairState(), { candidate: [4, 6], targetIndex: 0, editing: true });
+  assert.equal(h.state().draft, before);
+  h.interaction.cancelCrosshairEdit();
+  assert.equal(h.interaction.getCrosshairState().targetIndex, 1);
+});

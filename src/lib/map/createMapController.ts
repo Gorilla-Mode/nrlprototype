@@ -14,7 +14,7 @@ import {
 import { createGeolocationController, type GeolocationState } from './createGeolocationController';
 import { createGeolocationDisplay } from './createGeolocationDisplay';
 import type { HoldOrigin } from './createMapHoldController';
-import { createMapDrawingInteraction, type HoldMode } from './createMapDrawingInteraction';
+import { createMapDrawingInteraction, type HoldMode, type CrosshairDrawingState } from './createMapDrawingInteraction';
 import { createDrawingController, type DrawingState } from '../reporting/createDrawingController';
 import type { GeographicVertex, Obstacle, ObstacleGeometryType } from '../reporting/obstacle';
 import { createReportController } from '../reporting/createReportController';
@@ -32,6 +32,7 @@ setWorkerUrl(mapWorkerUrl);
 
 interface MapControllerOptions {
   placementEditing?: PlacementEditingVariantId;
+  onCrosshairChange?: (state: CrosshairDrawingState) => void;
   onVertexHandlesChange?: (handles: readonly EditableVertexHandle[]) => void;
   initialOpacity: number;
   initialGrayscale: boolean;
@@ -87,6 +88,9 @@ export interface MapController {
   sampleErrorReportTarget: () => ErrorReportTarget;
   startAtCrosshair: (type: ObstacleGeometryType) => void;
   appendAtCrosshair: () => void;
+  beginCrosshairEdit: () => void;
+  placeCrosshairEdit: () => void;
+  cancelCrosshairEdit: () => void;
   focus: () => void;
   destroy: () => void;
 }
@@ -130,7 +134,7 @@ export function createMapController(
   let drawingStatus: DrawingState['status'] = 'idle';
   const variant = options.placementEditing ?? 'default';
   const drawing = createDrawingController({
-    vertexEditing: variant !== 'default',
+    vertexEditing: true,
     deferPointCompletion: variant === 'basic',
     onChange: (state) => {
       if (drawingStatus === 'idle' && state.status === 'drawing') reporting.start();
@@ -165,6 +169,10 @@ export function createMapController(
   });
   const drawingInteraction = createMapDrawingInteraction(map, drawing, {
     variant,
+    onCrosshairChange: (state) => {
+      drawingDisplay.showPreview(state);
+      options.onCrosshairChange?.(state);
+    },
     onHoldChange: options.onHoldChange,
     onHoldMove: options.onHoldMove,
     onErrorReportPlace: (center) => errorReporting.placeCircle(center),
@@ -193,7 +201,7 @@ export function createMapController(
     if (destroyed || mode === holdMode || (mode === 'error-report' && drawing.getState().status !== 'idle')) return;
     holdMode = mode;
     vertexEditing.cancel();
-    vertexEditing.setEnabled(visible && mode === 'obstacle');
+    vertexEditing.setEnabled(visible && mode === 'obstacle' && !crosshairMode);
     drawingInteraction.setHoldMode(mode);
     errorReporting.setHoldMode(mode);
   }
@@ -202,6 +210,7 @@ export function createMapController(
     if (destroyed || crosshairMode === enabled) return;
     crosshairMode = enabled;
     vertexEditing.cancel();
+    vertexEditing.setEnabled(visible && holdMode === 'obstacle' && !enabled);
     drawingInteraction.setCrosshairMode(enabled);
     errorReporting.setCrosshairMode(enabled);
   }
@@ -238,7 +247,6 @@ export function createMapController(
   }
 
   function handleResize() {
-    drawingInteraction.cancel();
     vertexEditing.cancel();
     map.resize();
   }
@@ -279,7 +287,7 @@ export function createMapController(
       if (destroyed || visible === value) return;
       visible = value;
       drawingInteraction.setVisible(value);
-      vertexEditing.setEnabled(value && holdMode === 'obstacle');
+      vertexEditing.setEnabled(value && holdMode === 'obstacle' && !crosshairMode);
     },
     vertexKeyDown: vertexEditing.keyDown,
     vertexKeyUp: vertexEditing.keyUp,
@@ -303,12 +311,15 @@ export function createMapController(
     zoomOut: () => { if (!destroyed) map.zoomOut(); },
     toggleGeolocation: geolocation.toggle,
     flyToLocation,
-    undoDrawing: () => { if (!destroyed) { vertexEditing.cancel(); drawing.undo(); } },
+    undoDrawing: () => { if (!destroyed && !drawingInteraction.getCrosshairState().editing) { vertexEditing.cancel(); drawing.undo(); } },
     deleteDrawing: () => { if (!destroyed) { drawingInteraction.cancel(); vertexEditing.cancel(); drawing.delete(); } },
     completeDrawing: () => { if (!destroyed) drawing.complete(); },
     setCrosshairMode,
     startAtCrosshair: drawingInteraction.startAtCrosshair,
     appendAtCrosshair: drawingInteraction.appendAtCrosshair,
+    beginCrosshairEdit: drawingInteraction.beginCrosshairEdit,
+    placeCrosshairEdit: drawingInteraction.placeCrosshairEdit,
+    cancelCrosshairEdit: drawingInteraction.cancelCrosshairEdit,
     destroy() {
       if (destroyed) return;
       destroyed = true;

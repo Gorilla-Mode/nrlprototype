@@ -95,7 +95,7 @@ unrelated parameters, deployment paths and hashes. Changes replace the URL and r
 selecting the current choice does nothing. The value passes through App → HomeMap →
 MapCanvas → createMapController and remains fixed for that map instance.
 
-Default placement retains hold/drag/release and immediate Point completion. All three
+Default pointer placement retains hold/drag/release and immediate Point completion. All three
 editing variants allow placed vertices to move while drawing, including crosshair
 geometry. Only Basic defers Point completion: its single vertex cannot be appended;
 Complete opens the existing report form once. Completing locks every geometry. Editing
@@ -105,6 +105,36 @@ The drawing controller replaces coordinates immutably, validates and measures du
 moves, and allows invalid intermediate geometry while disabling Complete. Each changed,
 committed move adds one Undo entry; additions and moves undo in chronological order.
 Cancelled or unchanged moves add none. Undo never removes the initial vertex.
+
+Crosshair editing is available in every placement variant while geometry is unfinished.
+`createMapDrawingInteraction` owns typed candidate/target/editing state and begin/place/cancel
+commands, forwarded through controller, canvas and toolbar. Nearest targeting compares projected
+CSS-pixel distances from the rendered canvas midpoint without a threshold; ties favour vertex
+order. Camera movement and resize refresh the candidate while an edit locks its target index.
+Begin and Place stop the camera and sample again. Begin opens a drawing move transaction;
+only Place updates its vertex and commits. Cancel, Escape, crosshair off, hidden maps, blur,
+Delete and teardown discard the transaction. Normal mode permits these controller transactions
+but keeps pointer vertex dragging disabled. Crosshair mode disables pointer and handle editing
+in every variant while preserving map navigation. Undo and Complete are unavailable during an
+edit, while invalid committed moves use ordinary validation. Basic Point uses the same workflow
+without Add point; other Point variants still complete immediately.
+
+`createDrawingDisplay` retains committed geometry in its original source and renders candidate
+points, dashed affected edges with white casing offset to each side of the path, target
+connector and ring in a separate source. Adding previews the last-to-candidate edge and
+polygon candidate-to-first
+closure once two vertices exist. Editing
+previews only adjacent vertices, deduplicating incomplete polygon neighbors. It adds no preview
+fill. During editing the locked-origin ring stays in place and a movement shaft and head
+replace the nearest connector. Projection/unprojection constructs the head in CSS pixels,
+ending at the candidate marker's outer edge and shrinking or hiding for short moves.
+Display move/resize listeners refresh this geometry even if candidate coordinates do not
+change, including camera zoom, rotation and pitch. Source/layer IDs live in `mapConfig.ts`,
+with paint and arrow dimensions resolved from semantic CSS tokens.
+Buffered geometry and previews retry on style data/render events until the style is ready;
+success stops retries so source updates cannot cause perpetual redraws. Style reloads restore
+both sources, and teardown removes layers, sources and listeners.
+
 `createVertexEditingInteraction` resolves nearest projected vertices within CSS-resolved
 semantic target diameters: 72 px for touch and 44 px for mouse/pen, with vertex-order ties.
 Basic and Persistent activate after 100 ms for touch or 200 ms for mouse/pen; movement

@@ -11,8 +11,17 @@ export const obstacleMenuOuterRadius = 112;
 /** What a released hold on the map does: start new geometry, or report an error on an existing obstacle. */
 export type HoldMode = 'obstacle' | 'error-report';
 
+export interface CrosshairDrawingState {
+  readonly candidate: GeographicVertex | null;
+  readonly targetIndex: number | null;
+  readonly editing: boolean;
+}
+
+export const idleCrosshairDrawingState: CrosshairDrawingState = { candidate: null, targetIndex: null, editing: false };
+
 export function createMapDrawingInteraction(map: Map, drawing: DrawingController, options: {
   variant?: PlacementEditingVariantId;
+  onCrosshairChange?: (state: CrosshairDrawingState) => void;
   onHoldChange: (origin: HoldOrigin | null) => void;
   onHoldMove: (x: number, y: number) => void;
   /** Error-report release: the original press coordinate becomes the circle centre. */
@@ -35,6 +44,8 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   let visible = true;
   let controllerPan = false;
   let menuCenter: HoldOrigin | undefined;
+  let editingIndex: number | null = null;
+  let crosshairState = idleCrosshairDrawingState;
 
   function coordinate(x: number, y: number): GeographicVertex {
     const { lng, lat } = map.unproject([x, y]);
@@ -115,7 +126,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
     drawing.append(coordinate(event.clientX - rect.left, event.clientY - rect.top));
   }
 
-  function cancel() {
+  function cancelGesture() {
     hold.cancel();
     cancelTap();
     initialVertex = undefined;
@@ -123,7 +134,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
 
   function handleMoveStart(event: MapLibreEvent) {
     // MapLibre emits movestart for a resize even when the camera stays still.
-    if (!controllerPan && (event.originalEvent || map.isMoving())) cancel();
+    if (!controllerPan && (event.originalEvent || map.isMoving())) cancelGesture();
   }
 
   function handleBlur(event: Event) { if (event.target === view) { pointers.clear(); cancel(); } }
@@ -142,6 +153,8 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
       cancelTap();
       lastTouch = undefined;
     }
+    if (state.status !== 'drawing') editingIndex = null;
+    refreshCrosshair();
   }
 
   const capture = { capture: true, signal: listeners.signal };
@@ -154,18 +167,55 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   view.addEventListener('blur', handleBlur, capture);
   canvas.addEventListener('lostpointercapture', handleLostCapture, capture);
   map.on('movestart', handleMoveStart);
-  map.on('resize', cancel);
+  map.on('resize', handleResize);
+  map.on('move', refreshCrosshair);
+  view.addEventListener('keydown', handleKeyDown, capture);
   sync(drawing.getState());
 
-  function crosshairVertex(): GeographicVertex | undefined {
-    if (destroyed || !crosshairMode || holdMode !== 'obstacle' || holdSuspended || canvas.closest('[inert]')) return;
-    cancel();
-    map.stop();
-    // CSS pixels match the visible crosshair, including on high-DPI screens.
-    // Unproject the visual midpoint rather than a camera center offset by padding.
+  function crosshairVertex(stop = false): GeographicVertex | undefined {
+    if (destroyed || !visible || !crosshairMode || holdMode !== 'obstacle' || holdSuspended || canvas.closest('[inert]')) return;
+    if (stop) { cancelGesture(); map.stop(); }
+    // The rendered crosshair uses the canvas midpoint in CSS pixels, not padded camera center.
     const { width, height } = canvas.getBoundingClientRect();
     if (width <= 0 || height <= 0) return;
     return coordinate(width / 2, height / 2);
+  }
+
+  function refreshCrosshair() {
+    const state = drawing.getState();
+    const candidate = state.status === 'drawing' ? crosshairVertex() : undefined;
+    let targetIndex = editingIndex;
+    if (candidate && state.draft && targetIndex === null) {
+      const { width, height } = canvas.getBoundingClientRect();
+      let nearest = Infinity;
+      state.draft.vertices.forEach((vertex, index) => {
+        const point = map.project([...vertex]);
+        const distance = Math.hypot(point.x - width / 2, point.y - height / 2);
+        if (distance < nearest) { nearest = distance; targetIndex = index; }
+      });
+    }
+    const next: CrosshairDrawingState = candidate
+      ? { candidate, targetIndex, editing: editingIndex !== null }
+      : editingIndex !== null
+        ? { candidate: null, targetIndex: editingIndex, editing: true }
+        : idleCrosshairDrawingState;
+    if (next.targetIndex === crosshairState.targetIndex && next.editing === crosshairState.editing &&
+      next.candidate?.[0] === crosshairState.candidate?.[0] && next.candidate?.[1] === crosshairState.candidate?.[1]) return;
+    crosshairState = next;
+    options.onCrosshairChange?.(next);
+  }
+
+  function cancelCrosshairEdit() {
+    if (editingIndex === null) return;
+    editingIndex = null;
+    drawing.cancelVertexMove();
+    refreshCrosshair();
+  }
+
+  function cancel() { cancelGesture(); cancelCrosshairEdit(); }
+  function handleResize() { cancelGesture(); refreshCrosshair(); }
+  function handleKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && editingIndex !== null) { event.preventDefault(); cancelCrosshairEdit(); }
   }
 
   /** Pauses the hold gesture entirely, e.g. while another gesture owns the map. */
@@ -187,7 +237,27 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
   return {
     cancel,
     sync,
-    setVisible(value: boolean) { visible = value; if (!value) cancel(); },
+    getCrosshairState: () => crosshairState,
+    beginCrosshairEdit() {
+      if (editingIndex !== null || drawing.getState().status !== 'drawing' || !crosshairVertex(true)) return;
+      refreshCrosshair();
+      const index = crosshairState.targetIndex;
+      if (index === null) return;
+      editingIndex = index;
+      if (!drawing.beginVertexMove(index)) editingIndex = null;
+      refreshCrosshair();
+    },
+    placeCrosshairEdit() {
+      if (editingIndex === null) return;
+      const vertex = crosshairVertex(true);
+      if (!vertex) return;
+      drawing.updateVertexMove(vertex);
+      editingIndex = null;
+      drawing.commitVertexMove();
+      refreshCrosshair();
+    },
+    cancelCrosshairEdit,
+    setVisible(value: boolean) { visible = value; if (!value) cancel(); refreshCrosshair(); },
     movePersistentCenter(x: number, y: number) { hold.moveCenter({ x, y }); },
     selectPersistentGeometry(type: ObstacleGeometryType) {
       if (options.variant !== 'persistent-donut' || !menuCenter || !initialVertex || !visible || holdMode !== 'obstacle') return;
@@ -203,22 +273,25 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
     },
     startAtCrosshair(type: ObstacleGeometryType) {
       if (drawing.getState().status !== 'idle') return;
-      const vertex = crosshairVertex();
+      const vertex = crosshairVertex(true);
       if (vertex) drawing.start(type, vertex);
     },
     appendAtCrosshair() {
-      if (drawing.getState().status !== 'drawing') return;
-      const vertex = crosshairVertex();
+      if (drawing.getState().status !== 'drawing' || editingIndex !== null) return;
+      const vertex = crosshairVertex(true);
       if (vertex) drawing.append(vertex);
     },
     setHoldMode,
     setHoldSuspended,
     destroy() {
       if (destroyed) return;
+      cancel();
       destroyed = true;
+      refreshCrosshair();
       listeners.abort();
       map.off('movestart', handleMoveStart);
-      map.off('resize', cancel);
+      map.off('resize', handleResize);
+      map.off('move', refreshCrosshair);
       hold.destroy();
       cancelTap();
       pointers.clear();

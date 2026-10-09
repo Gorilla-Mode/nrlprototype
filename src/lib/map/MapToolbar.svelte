@@ -5,12 +5,17 @@
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { LocationSuggestion } from './locationSearch';
   import type { ObstacleGeometryType } from '../reporting/obstacle';
+  import type { CrosshairDrawingState } from './createMapDrawingInteraction';
 
-  let { drawing, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), selectionControlsCovered = false, showSelectionControls = true, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, menuOpen }: {
+  let { drawing, crosshairState, onedit, onplace, oncanceledit, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), selectionControlsCovered = false, showSelectionControls = true, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, menuOpen }: {
     onmenu: () => void;
     onreports: () => void;
     menuOpen: boolean;
     drawing: DrawingState;
+    crosshairState?: CrosshairDrawingState;
+    onedit?: () => void;
+    onplace?: () => void;
+    oncanceledit?: () => void;
     crosshairMode: boolean;
     geometryType?: ObstacleGeometryType;
     selectionControlsCovered?: boolean;
@@ -45,7 +50,7 @@
 
 {#if showSelectionControls}
 <div class:covered={selectionControlsCovered} inert={selectionControlsCovered}>
-  <DrawingToolbar state={drawing} {crosshairMode} bind:geometryType {onstart} {onaddpoint}
+  <DrawingToolbar state={drawing} {crosshairState} {onedit} {onplace} {oncanceledit} {crosshairMode} bind:geometryType {onstart} {onaddpoint}
     {onundo} {ondelete} {oncomplete} {onresumedetails} />
 </div>
 {/if}

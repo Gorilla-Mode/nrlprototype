@@ -36,8 +36,25 @@ for Safari. Geometry starts through the established hold/radial interaction when
 crosshair mode is off. The right-side crosshair toggle starts off and retains its state
 for the map session. When on, a bottom geometry picker and Report obstacle button start
 a selection at the visible crosshair; Line and Polygon add vertices through Add point.
-Map taps and holds navigate without placing geometry in this mode. Switching modes
-keeps the current selection and restores the corresponding input method.
+Map taps and holds navigate without placing geometry in this mode. Every placement variant
+shows Edit beside Add point in a full-width footer row: Edit/Cancel keeps its natural width,
+and Add point/Place point fills the remainder. Edit identifies the nearest point in its
+accessible label. Editing announces “Editing point N”, focuses Place point, disables Undo
+and Complete, and preserves Delete. Cancel or Escape returns focus to Edit; confirmation
+returns to Add point (Complete for Basic Point). Basic Point has Edit without Add point.
+Lighter red candidate points and affected edges preview placement without replacing
+committed vertices, edges or fill. Preview segments match the placed black lines: 6 px
+long, 3 px thick, with a 1 px white outline, using shared size and thickness tokens.
+Foreground and casing segments share their positions along the path and their lengths. The white casing
+extends only sideways, perpendicular to the path, leaving black connector gaps visible.
+Before editing, a 2 px solid black connector with
+1 px white casing and a distinct target ring identify the nearest vertex. Render the
+connector below the dotted preview so overlapping paths alternate black and red. Editing retains
+the ring at the locked original vertex and replaces the connector with a movement arrow
+toward the candidate marker's outer edge. Its head is 10 × 10 CSS px, shrinking for short
+moves and hidden for overlapping endpoints. No new polygon fill is previewed. Preview
+paint stays independent of theme.
+Switching modes keeps the current selection and restores the corresponding input method.
 
 The independent debug Placement editing selector offers the unchanged default and three
 editing modes. Placed geometry keeps its existing map rendering. Editing targets use
