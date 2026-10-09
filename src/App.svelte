@@ -196,7 +196,7 @@
 
 <div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || reportOpen} aria-hidden={pageOpen || reportOpen}>
   <HomeMap bind:this={homeMap} bind:menuOpen bind:opacity bind:isGrayscale={grayscale}
-    {placementEditing}
+    {placementEditing} userTest
     bind:geolocationState={locationState} bind:locationMessage bind:accuracy
     onguide={() => openPage(reportingGuideRoute)} onfaq={() => openPage('#/FAQ')} onnotifications={() => openPage(notificationsRoute)} onreports={() => openPage(reportsRoute)}
     onsettings={(section) => openPage('#/Settings/' + section)} visible={!pageOpen && !reportOpen}
