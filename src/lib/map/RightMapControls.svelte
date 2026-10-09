@@ -17,6 +17,8 @@
     onzoomout?: () => void;
     geolocationState: GeolocationState;
     ongeolocationclick: () => void;
+    crosshairMode: boolean;
+    oncrosshairtoggle: () => void;
   }
 
   let {
@@ -30,6 +32,8 @@
     onzoomout,
     geolocationState,
     ongeolocationclick,
+    crosshairMode,
+    oncrosshairtoggle,
   }: Props = $props();
 </script>
 
@@ -61,6 +65,16 @@
   <div class:covered={open} inert={open}>
     <GrayscaleControl bind:enabled={grayscale} />
   </div>
+  <div class:covered={open} inert={open}>
+    <MapButton active={crosshairMode} aria-label="Toggle crosshair mode" aria-pressed={crosshairMode}
+      title="Toggle crosshair mode" onclick={oncrosshairtoggle}>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="7" />
+        <path d="M12 2v6M12 16v6M2 12h6M16 12h6" />
+        <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    </MapButton>
+  </div>
 </aside>
 
 <style>
@@ -78,5 +92,10 @@
     align-items: flex-end;
     gap: var(--map-control-gap);
     transform: translateY(-50%);
+  }
+
+  /* Leave room for bottom selection actions on short portrait viewports. */
+  @media (max-width: 60rem) and (max-height: 60rem) {
+    .right-map-controls { top: var(--map-controls-compact-position-block); }
   }
 </style>

@@ -1,6 +1,24 @@
 import type { Geometry } from 'geojson';
 import type { Map, MapOptions, RasterSourceSpecification, StyleSpecification } from 'maplibre-gl';
 
+export const drawingSourceId = 'obstacle-drawing';
+export const drawingLayerIds = {
+  fill: 'obstacle-drawing-fill',
+  casing: 'obstacle-drawing-line-casing',
+  line: 'obstacle-drawing-line',
+  vertices: 'obstacle-drawing-vertices',
+} as const;
+export const drawingPreviewSourceId = 'obstacle-drawing-preview';
+export const drawingPreviewLayerIds = {
+  connectorCasing: 'obstacle-drawing-target-casing',
+  connector: 'obstacle-drawing-target-connector',
+  edgesCasing: 'obstacle-drawing-preview-edges-casing',
+  edgesCasingRight: 'obstacle-drawing-preview-edges-casing-right',
+  edges: 'obstacle-drawing-preview-edges',
+  target: 'obstacle-drawing-target-ring',
+  candidate: 'obstacle-drawing-candidate',
+} as const;
+
 export const SATELLITE_LAYER_ID = 'satellite-layer';
 export const RASTER_LAYER_IDS = ['base-layer', 'n100-layer', SATELLITE_LAYER_ID] as const;
 

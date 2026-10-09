@@ -3,7 +3,7 @@
   import { slide } from 'svelte/transition';
   import { filterFaq } from './faq.js';
 
-  let { onback }: { onback: () => void } = $props();
+  let { onback, onguide }: { onback: () => void; onguide: () => void } = $props();
   let query = $state('');
   let expanded = $state<string | null>(null);
   let reducedMotion = $state(false);
@@ -40,7 +40,7 @@
       {label}
       {#if !primary}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>{/if}
     </button>
-    <p id={id} class="faq-availability">{label === 'View drawing instructions' ? 'Drawing instructions belong to How to Report an Obstacle, which is not available in this prototype.' : 'Not available in this prototype.'}</p>
+    <p id={id} class="faq-availability">Not available in this prototype.</p>
   </div>
 {/snippet}
 
@@ -93,7 +93,9 @@
                     <div class="faq-answer">
                       <p>{question.answer}</p>
                       {#if question.note}<div class="faq-note">{@render infoIcon()}<p>{question.note}</p></div>{/if}
-                      {#if question.link}{@render unavailableAction(question.link, `faq-unavailable-${question.id}`)}{/if}
+                      {#if question.link === 'View drawing instructions'}
+                        <button type="button" class="faq-link" onclick={onguide}>View drawing instructions</button>
+                      {:else if question.link}{@render unavailableAction(question.link, `faq-unavailable-${question.id}`)}{/if}
                     </div>
                   </div>
                 {/if}

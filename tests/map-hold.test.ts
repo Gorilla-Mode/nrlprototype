@@ -32,7 +32,7 @@ function setup(t: TestContext) {
   function fire(type: string, init: Record<string, unknown> = {}) {
     const event = new Event(type, { cancelable: true });
     const properties = {
-      target: canvas, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+      target: type === 'blur' ? view : canvas, pointerId: 1, pointerType: 'mouse', isPrimary: true,
       button: 0, buttons: 1, clientX: 120, clientY: 180, detail: 1, ...init,
     };
     for (const [key, value] of Object.entries(properties)) {
@@ -215,7 +215,7 @@ test('a per-press delay of 0 opens during pointerdown; other presses keep the ho
   t.after(() => controller.destroy());
   const fire = (type: string, clientX: number) => {
     const event = new Event(type, { cancelable: true });
-    for (const [key, value] of Object.entries({ target: canvas, pointerId: 1, isPrimary: true, button: 0, buttons: 1, clientX, clientY: 10 })) {
+    for (const [key, value] of Object.entries({ target: type === 'blur' ? view : canvas, pointerId: 1, isPrimary: true, button: 0, buttons: 1, clientX, clientY: 10 })) {
       Object.defineProperty(event, key, { value });
     }
     view.dispatchEvent(event);

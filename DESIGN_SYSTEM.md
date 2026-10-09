@@ -32,8 +32,68 @@ raster basemaps only. Keep boundaries and editing vertices visible on varied ima
 
 Preserve the radial selector's choice arrangement, original press coordinate, central
 cancellation zone and generous sectors. Expanded SVG paths must stay inside the viewport
-for Safari. Geometry starts through the established hold/radial interaction unless a
-feature explicitly replaces it.
+for Safari. Geometry starts through the established hold/radial interaction when
+crosshair mode is off. The right-side crosshair toggle starts off and retains its state
+for the map session. When on, a bottom geometry picker and Report obstacle button start
+a selection at the visible crosshair; Line and Polygon add vertices through Add point.
+Map taps and holds navigate without placing geometry in this mode. Every placement variant
+shows Edit beside Add point in a full-width footer row: Edit/Cancel keeps its natural width,
+and Add point/Place point fills the remainder. Edit identifies the nearest point in its
+accessible label. Editing announces “Editing point N”, focuses Place point, disables Undo
+and Complete, and preserves Delete. Cancel or Escape returns focus to Edit; confirmation
+returns to Add point (Complete for Basic Point). Basic Point has Edit without Add point.
+Lighter red candidate points and affected edges preview placement without replacing
+committed vertices, edges or fill. Preview segments match the placed black lines: 6 px
+long, 3 px thick, with a 1 px white outline, using shared size and thickness tokens.
+Foreground and casing segments share their positions along the path and their lengths. The white casing
+extends only sideways, perpendicular to the path, leaving black connector gaps visible.
+Before editing, a 2 px solid black connector with
+1 px white casing and a distinct target ring identify the nearest vertex. Render the
+connector below the dotted preview so overlapping paths alternate black and red. Editing retains
+the ring at the locked original vertex and replaces the connector with a movement arrow
+toward the candidate marker's outer edge. Its head is 10 × 10 CSS px, shrinking for short
+moves and hidden for overlapping endpoints. No new polygon fill is previewed. Preview
+paint stays independent of theme.
+Switching modes keeps the current selection and restores the corresponding input method.
+
+The independent debug Placement editing selector offers the unchanged default and three
+editing modes. Placed geometry keeps its existing map rendering. Editing targets use
+semantic diameters of 72 px for touch and 44 px for mouse/pen, resolved to CSS pixels for
+hit testing. They are keyboard focusable and labeled by point order; their opaque numbered
+handle appears on focus. Arrow keys move by 16 CSS px, Shift multiplies movement by four, and
+Escape cancels an unfinished move. Basic and Persistent use hold-then-drag after 100 ms
+for touch or 200 ms for mouse/pen; Two-finger uses immediate dragging. Complete locks
+placement, with Point confirmation exposed only in Basic. Add point is unavailable for
+its single Point vertex. Undo follows additions and moves, including moves of the initial vertex.
+
+Persistent donut allows sector hover and geometry selection on the opening hold's release.
+Releasing within the 96 px center radius, including its boundary, keeps it open. Later
+center drags beyond 8 px pan the map beneath the fixed donut; drag releases keep it open
+without selecting geometry. Later center taps cancel, and sector/outside taps choose by
+angle. Its wrapper is keyboard focusable and shows focus only for keyboard input: arrows
+pan map content in the arrow direction by 16 CSS px (64 with Shift), 1/2/3 select geometry,
+and Escape cancels. Placement uses the updated geographic coordinate beneath the donut.
+No separate center button or tutorial panel is displayed.
+Guidance lives in the public How to Report an Obstacle page, including the active placement
+variant, crosshair placement, editing and session-only draft/report behavior.
+Drawing footers retain labels, counts, measurements, completion and validation feedback.
+The crosshair geometry picker uses one equal-width three-column row with icons above
+labels and native radios. Report obstacle has its own row on phones and portrait tablets.
+Drawing and error-report footers share the attribution/scale safe-area inset plus 40 px
+clearance, with no Help-specific offset, height cap or internal scrolling. Position correction
+stays bottom-anchored and retains coordinates, distances and validation without prompts.
+
+Error reporting also supports crosshair input: its toolbar replaces geometry choices
+with Report error, enabled for the nearest registered obstacle within half the measured
+crosshair width. Its toolbar width stays stable as obstacle guidance changes, using the
+form-width token within the map gutters. The selected obstacle is highlighted.
+Wrong-position correction uses the visible midpoint when crosshair mode is on and the
+draggable circle when it is off; switching input methods preserves the geographic
+candidate and form answers.
+Outside correction, turning crosshair off clears targeting, including any previously
+placed circle, and returns to a no-selection status with selection disabled. After
+correction has switched from crosshair to circle input, ending it also requires a new
+hold for ordinary targeting. Circle-only correction cancellation restores its prior circle.
 
 Expanding map controls overlay rather than reflow neighbouring buttons. Covered controls
 become hidden and inert; dismissal restores focus. Preserve ordinary MapLibre keyboard

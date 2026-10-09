@@ -6,7 +6,6 @@
   import MapCanvas from './MapCanvas.svelte';
   import type { CameraTarget } from './createMapController';
   import MapToolbar from './MapToolbar.svelte';
-  import TutorialDialog from './TutorialDialog.svelte';
   import RightMapControls from './RightMapControls.svelte';
   import ErrorReportCircle from './ErrorReportCircle.svelte';
   import ErrorReportToolbar from './ErrorReportToolbar.svelte';
@@ -18,16 +17,20 @@
   import type { HoldOrigin } from './createMapHoldController';
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
-  import { obstacleGeometryChoices, type GeographicVertex, type Obstacle } from '../reporting/obstacle';
-  import { obstacleMenuInnerRadius, obstacleMenuOuterRadius } from './createMapDrawingInteraction';
+  import { obstacleGeometryChoices, type GeographicVertex, type Obstacle, type ObstacleGeometryType } from '../reporting/obstacle';
+  import { idleCrosshairDrawingState, type CrosshairDrawingState } from './createMapDrawingInteraction';
   import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
 
-  let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, showHelp = false, onfaq, onnotifications, onreports, onsettings,
+  import type { PlacementEditingVariantId } from './placementEditing';
+  import type { EditableVertexHandle } from './createVertexEditingInteraction';
+
+  let { placementEditing = 'default', oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, onguide, onfaq, onnotifications, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
     selectedObstacle = $bindable<RegisteredObstacle | null>(null),
   }: {
+    placementEditing?: PlacementEditingVariantId;
     oncomplete?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
     onreportstart?: () => void;
     debugContent?: Snippet;
@@ -35,7 +38,7 @@
     onselectiondelete?: () => void;
     menuOpen?: boolean;
     visible?: boolean;
-    showHelp?: boolean;
+    onguide: () => void;
     onfaq: () => void;
     onnotifications: () => void;
     onreports: () => void;
@@ -51,6 +54,10 @@
   let mapWrapper: HTMLElement;
 
   let isLayerFadeOpen = $state(false);
+  let crosshairMode = $state(false);
+  let crosshairState = $state.raw<CrosshairDrawingState>(idleCrosshairDrawingState);
+  let crosshairSize = $state(0);
+  let geometryType = $state<ObstacleGeometryType>('Point');
   let errorReportMode = $state(false);
   let registeredObstacles = $state.raw<RegisteredObstacle[]>([]);
   let errorCircle = $state<ScreenPoint | null>(null);
@@ -79,9 +86,9 @@
 
   // The mode stays active behind the form, so Cancel returns to the placed circle.
   function selectErrorObstacle() {
-    if (!errorMatch) return;
-    selectedObstacle = errorMatch;
-    console.log('Selected obstacle for error report:', errorMatch);
+    const target = mapCanvas?.sampleErrorReportTarget();
+    if (!target?.match) return;
+    selectedObstacle = target.match;
   }
 
   // The toggle stays reachable while picking; turning the mode off abandons the whole report.
@@ -97,7 +104,31 @@
     positionPick = { editing: selected };
     mapCanvas?.startPositionCorrection(origin, position ? [position.lng, position.lat] : origin);
     await tick();
-    mapWrapper.querySelector<HTMLElement>('.error-report-circle')?.focus({ preventScroll: true });
+    focusPositionInput();
+  }
+
+  function focusPositionInput() {
+    if (crosshairMode) mapCanvas?.focus();
+    else mapWrapper.querySelector<HTMLElement>('.error-report-circle')?.focus({ preventScroll: true });
+  }
+
+  async function toggleCrosshairMode() {
+    crosshairMode = !crosshairMode;
+    await tick();
+    if (positionPick) focusPositionInput();
+  }
+
+  function confirmPositionPick() {
+    const position = mapCanvas?.sampleErrorReportTarget()?.position;
+    if (!position || !selectedObstacle) return;
+    const candidate = { lng: position[0], lat: position[1] };
+    if (distanceM(selectedObstacle, candidate) >= minimumMoveM) finishPositionPick({ kind: 'set', position: candidate });
+  }
+
+  async function dismissErrorForm() {
+    selectedObstacle = null;
+    await tick();
+    mapWrapper.querySelector<HTMLElement>('[data-report-error]')?.focus({ preventScroll: true });
   }
 
   function finishPositionPick(choice: PositionChoice) {
@@ -115,17 +146,8 @@
     clearTimeout(reportSentTimer);
     reportSentTimer = setTimeout(() => { reportSent = false; }, 4000);
   }
-  let helpOpen = $state(false);
-  $effect(() => {
-    if (!visible || !showHelp) helpOpen = false;
-  });
-
-  async function dismissHelp() {
-    helpOpen = false;
-    await tick();
-    if (visible && showHelp) mapWrapper.querySelector<HTMLButtonElement>('.map-help')?.focus({ preventScroll: true });
-  }
   let mapCanvas: MapCanvas;
+  let vertexHandles = $state.raw<readonly EditableVertexHandle[]>([]);
   let holdOrigin = $state<HoldOrigin | null>(null);
   let holdPointer = $state<{ x: number; y: number } | null>(null);
   export function toggleGeolocation() { mapCanvas?.toggleGeolocation(); }
@@ -148,6 +170,36 @@
   function handleDrawingChange(state: DrawingState) {
     if (drawing.status === 'idle' && state.status === 'drawing') onreportstart?.();
     drawing = state;
+  }
+
+  function handlePersistentKeyDown(event: KeyboardEvent) {
+    if (!holdOrigin || placementEditing !== 'persistent-donut' || errorReportMode) return;
+    const choice = obstacleGeometryChoices[Number(event.key) - 1];
+    if (choice && ['1', '2', '3'].includes(event.key)) {
+      event.preventDefault();
+      mapCanvas?.selectPersistentGeometry(choice.type);
+      void tick().then(() => focusDetails());
+      return;
+    }
+    if (event.key === 'Escape') { event.preventDefault(); mapCanvas?.cancelPlacement(); return; }
+    const step = event.shiftKey ? 64 : 16;
+    const offsets: Record<string, [number, number]> = {
+      ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0],
+    };
+    const offset = offsets[event.key];
+    if (!offset) return;
+    event.preventDefault();
+    mapCanvas?.panPersistentMap(offset[0], offset[1]);
+  }
+
+  function handleHoldChange(origin: HoldOrigin | null) {
+    const restoreFocus = !origin && mapWrapper?.contains(document.activeElement) &&
+      document.activeElement?.classList.contains('hold-menu');
+    holdOrigin = origin;
+    holdPointer = null;
+    if (restoreFocus) void tick().then(() => {
+      if (visible && !menuOpen && !mapWrapper.closest('[inert]')) focusDetails();
+    });
   }
 
   function handleMapClick() {
@@ -174,11 +226,9 @@
 
 <main bind:this={mapWrapper} class="map-wrapper" aria-label="Home map">
   <!-- Before the controls: same overlay layer, so map controls stay on top of the circle. -->
-  {#if errorReportMode && errorCircle && !holdOrigin}
+  {#if errorReportMode && !crosshairMode && errorCircle && !holdOrigin}
     <ErrorReportCircle
       center={errorCircle}
-      innerRadius={obstacleMenuInnerRadius}
-      outerRadius={obstacleMenuOuterRadius}
       icon={errorReportIcon}
       handle={positionPick ? { dragging: positionDragging } : null}
       onmove={(x, y) => mapCanvas?.moveErrorCircle(x, y)}
@@ -194,10 +244,17 @@
     onzoomin={() => mapCanvas?.zoomIn()}
     onzoomout={() => mapCanvas?.zoomOut()}
     {geolocationState}
+    {crosshairMode}
+    oncrosshairtoggle={toggleCrosshairMode}
     ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
   />
   <MapCanvas
-    {visible}
+    visible={visible && !menuOpen && (!selectedObstacle || !!positionPick)}
+    {placementEditing}
+    oncrosshairchange={(state) => { crosshairState = state; }}
+    onvertexhandleschange={(handles) => { vertexHandles = handles; }}
+    {crosshairMode}
+    {crosshairSize}
     bind:this={mapCanvas}
     {opacity}
     grayscale={isGrayscale}
@@ -209,30 +266,45 @@
     onmapclick={handleMapClick}
     ongeolocationstatechange={handleGeolocationStateChange}
     onaccuracychange={(value) => { accuracy = value; }}
-    onholdchange={(origin) => { holdOrigin = origin; holdPointer = null; }}
+    onholdchange={handleHoldChange}
     onholdmove={(x, y) => { holdPointer = { x, y }; }}
     ondrawingchange={handleDrawingChange}
     onobstacleregistered={oncomplete}
   />
-  <div class="map-center-crosshair" aria-hidden="true">
+  {#each vertexHandles as handle (handle.index)}
+    <button type="button" class="vertex-handle" style:--hold-x={`${handle.x}px`} style:--hold-y={`${handle.y}px`}
+      aria-label={`Move point ${handle.index + 1}. Use arrow keys; Shift moves faster; Escape cancels`}
+      onkeydown={(event) => mapCanvas?.vertexKeyDown(handle.index, event)}
+      onkeyup={(event) => mapCanvas?.vertexKeyUp(event)} onblur={() => mapCanvas?.finishKeyboardMove()}>
+      <span aria-hidden="true">{handle.index + 1}</span>
+    </button>
+  {/each}
+  {#if crosshairMode}
+  <div class="map-center-crosshair" bind:clientWidth={crosshairSize} aria-hidden="true">
     <svg viewBox="0 0 24 24">
       <g class="halo">
-        <path d="M12 1v8M12 15v8M1 12h8M15 12h8" />
-        <circle cx="12" cy="12" r="2" fill="var(--palette-neutral-0)" stroke="none" />
+        <path d="M12 1V23M1 12H23" />
       </g>
       <g class="mark">
-        <path d="M12 1v8M12 15v8M1 12h8M15 12h8" />
-        <circle cx="12" cy="12" r="1.6" fill="var(--palette-black)" stroke="none" />
+        <path d="M12 1V23M1 12H23" />
       </g>
     </svg>
   </div>
+  {/if}
   <MapToolbar
     {menuOpen}
-    {showHelp}
-    {helpOpen}
-    onhelp={() => { isLayerFadeOpen = false; helpOpen = true; }}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
     {drawing}
+    {crosshairState}
+    onedit={() => mapCanvas?.beginCrosshairEdit()}
+    onplace={() => mapCanvas?.placeCrosshairEdit()}
+    oncanceledit={() => mapCanvas?.cancelCrosshairEdit()}
+    {crosshairMode}
+    bind:geometryType
+    showSelectionControls={!errorReportMode}
+    selectionControlsCovered={isLayerFadeOpen}
+    onstart={(type) => mapCanvas?.startAtCrosshair(type)}
+    onaddpoint={() => mapCanvas?.appendAtCrosshair()}
     onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}
     onundo={() => mapCanvas?.undoDrawing()}
     ondelete={deleteSelection}
@@ -241,52 +313,56 @@
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
   />
 
+  <div class:covered={isLayerFadeOpen} inert={isLayerFadeOpen}>
   {#if errorReportMode && positionPick && selectedObstacle}
     <PositionCorrectionToolbar
       bind:height={positionPanelHeight}
+      {crosshairMode}
       newPosition={pickedPosition}
       registered={selectedObstacle}
       move={pickedPosition ? moveParts(selectedObstacle, pickedPosition) : null}
       canConfirm={pickedDistanceM >= minimumMoveM}
       editing={positionPick.editing}
       oncancel={() => finishPositionPick({ kind: 'cancel' })}
-      onconfirm={() => { if (pickedPosition) finishPositionPick({ kind: 'set', position: pickedPosition }); }}
+      onconfirm={confirmPositionPick}
       onunknown={() => finishPositionPick({ kind: 'unknown' })}
       onremove={() => finishPositionPick({ kind: 'remove' })}
     />
   {:else if errorReportMode}
-    <ErrorReportToolbar placed={!!errorCircle} match={errorMatch} oncancel={endErrorReport} onselect={selectErrorObstacle} />
+    <ErrorReportToolbar {crosshairMode} placed={!!errorCircle} match={errorMatch} oncancel={endErrorReport} onselect={selectErrorObstacle} />
   {/if}
+
+  </div>
 
   {#if selectedObstacle}
     {#key selectedObstacle.id}
       <ErrorReportPanel bind:this={errorPanel} obstacle={selectedObstacle} hidden={!!positionPick}
-        ondismiss={() => { selectedObstacle = null; }} onfinish={finishErrorReport} onpickposition={pickPosition} />
+        ondismiss={dismissErrorForm} onfinish={finishErrorReport} onpickposition={pickPosition} />
     {/key}
   {/if}
 
-  {#if helpOpen && visible && showHelp}
-    <TutorialDialog ondismiss={dismissHelp} />
-  {/if}
-
-  <MenuDrawer bind:open={menuOpen} {onfaq} {onnotifications} {onsettings} {debugContent}
+  <MenuDrawer bind:open={menuOpen} {onguide} {onfaq} {onnotifications} {onsettings} {debugContent}
     ondismiss={() => mapWrapper.querySelector<HTMLButtonElement>('[aria-label="Menu"]')?.focus({ preventScroll: true })} />
 
   {#if holdOrigin}
     {@const geometryIcons = { point: pointIcon, line: lineIcon, polygon: polygonIcon }}
-    <div class="hold-menu" style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}>
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div class="hold-menu" role="group"
+      tabindex={!errorReportMode && placementEditing === 'persistent-donut' ? 0 : undefined}
+      aria-label={!errorReportMode && placementEditing === 'persistent-donut'
+        ? 'Obstacle placement. Release the opening hold in a sector to choose geometry, or in the center to keep open. Drag the center or use arrow keys to pan the map beneath the fixed donut; Shift pans faster. Tap the center or press Escape to cancel; 1 Point, 2 Line, 3 Polygon'
+        : 'Obstacle placement'}
+      onkeydown={handlePersistentKeyDown} style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}>
       {#if errorReportMode}
         <RadialMenu
           pointer={holdPointer}
-          innerRadius={obstacleMenuInnerRadius}
-          outerRadius={obstacleMenuOuterRadius}
           label="Choose obstacle to report"
           items={[{ id: 'error-report', label: 'Report an error', color: 'var(--color-map-error-report)', icon: errorReportIcon }]}
         />
       {:else}
         <RadialMenu
           pointer={holdPointer}
-          innerRadius={obstacleMenuInnerRadius}
           label="Choose obstacle geometry"
           items={obstacleGeometryChoices.map((choice) => ({
             id: choice.id, label: choice.label, color: `var(${choice.colorToken})`,
@@ -310,6 +386,32 @@
 </main>
 
 <style>
+  .vertex-handle {
+    position: absolute;
+    z-index: var(--layer-map-overlay);
+    left: var(--hold-x);
+    top: var(--hold-y);
+    transform: translate(-50%, -50%);
+    width: var(--map-vertex-target-size);
+    height: var(--map-vertex-target-size);
+    padding: 0;
+    border: var(--border-strong);
+    border-radius: var(--radius-round);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-body-small);
+    box-shadow: var(--shadow-control);
+    pointer-events: none;
+  }
+  .vertex-handle { background: transparent; border-color: transparent; box-shadow: none; }
+  .vertex-handle span { visibility: hidden; }
+  .vertex-handle:focus-visible { background: var(--color-background-raised); border: var(--border-strong); }
+  .vertex-handle:focus-visible span { visibility: visible; }
+  @media (pointer: coarse) {
+    .vertex-handle { width: var(--map-vertex-touch-target-size); height: var(--map-vertex-touch-target-size); }
+  }
+  .covered { visibility: hidden; }
+
   .map-wrapper {
     position: relative;
     width: 100%;
@@ -369,6 +471,8 @@
     pointer-events: none;
   }
 
+  .hold-menu:focus-visible { border-radius: var(--radius-round); }
+
   .map-center-crosshair {
     position: absolute;
     z-index: var(--layer-map-overlay);
@@ -380,7 +484,7 @@
     pointer-events: none;
   }
   .map-center-crosshair svg { display: block; width: 100%; height: 100%; fill: none; stroke-linecap: round; }
-  .map-center-crosshair .halo { stroke: var(--palette-neutral-0); stroke-width: calc(var(--icon-stroke-width) * 1.3); }
-  .map-center-crosshair .mark { stroke: var(--palette-black); stroke-width: calc(var(--icon-stroke-width) * 0.8); }
+  .map-center-crosshair .halo { stroke: var(--color-map-crosshair-halo); stroke-width: var(--map-crosshair-halo-stroke-width); }
+  .map-center-crosshair .mark { stroke: var(--color-map-crosshair-mark); stroke-width: var(--map-crosshair-mark-stroke-width); }
 
 </style>

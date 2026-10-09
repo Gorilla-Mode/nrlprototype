@@ -132,6 +132,9 @@
   --color-map-line: var(--palette-blue-600);
   --color-map-area: var(--palette-teal-600);
   /* Geographic paint keeps contrast independent of the surrounding UI theme. */
+  --color-drawing-preview: var(--palette-red-400);
+  --color-drawing-target: var(--palette-black);
+  --color-drawing-preview-casing: var(--palette-neutral-0);
   --color-drawing-point: var(--palette-red-700);
   --color-drawing-outline: var(--palette-charcoal-900);
   --color-drawing-casing: var(--palette-neutral-0);
@@ -496,6 +499,7 @@
   --map-control-border: var(--border-default);
   --map-control-radius: var(--radius-round);
   --map-controls-position-block: 50%;
+  --map-controls-compact-position-block: calc(var(--map-controls-position-block) - var(--map-control-size) - 2 * var(--map-control-gap));
   --map-toolbar-gap: var(--space-2);
   --map-search-padding-inline: var(--space-2);
   --map-search-max: 38rem;
@@ -513,10 +517,14 @@
   --map-slider-position: 0%;
   --map-search-results-max: 30rem;
   --map-crosshair-size: 4rem;
-  --map-help-size: calc(2 * var(--map-control-size));
-  --map-help-inset-bottom: calc(var(--map-control-inset-bottom) + var(--space-12));
-  --map-bottom-toolbar-inset: calc(var(--map-control-inset-bottom) + var(--space-16) + var(--space-4));
-  --map-bottom-toolbar-help-inset: calc(var(--map-help-inset-bottom) + var(--map-help-size) + var(--space-4));
+  --map-crosshair-halo-stroke-width: 1.75;
+  --map-crosshair-mark-stroke-width: 1;
+  --color-map-crosshair-halo: var(--palette-neutral-0);
+  --color-map-crosshair-mark: var(--palette-black);
+  --map-bottom-toolbar-clearance: 40px;
+  --map-bottom-toolbar-inset: calc(var(--map-footer-inset-bottom) + var(--map-bottom-toolbar-clearance));
+  --map-vertex-target-size: var(--target-size-min);
+  --map-vertex-touch-target-size: 72px;
   --map-drawing-fill-opacity: 0.35;
   --map-drawing-line-width: 3px;
   --map-drawing-casing-thickness: 1px;
@@ -524,6 +532,14 @@
   --map-drawing-vertex-radius: 6px;
   --map-drawing-stroke-width: 2px;
   --map-drawing-dash-length: 2;
+  --map-drawing-preview-edge-width: var(--map-drawing-line-width);
+  --map-drawing-preview-casing-thickness: var(--map-drawing-casing-thickness);
+  --map-drawing-preview-dash-length: var(--map-drawing-dash-length);
+  --map-drawing-movement-arrow-length: 10px;
+  --map-drawing-movement-arrow-width: 10px;
+  --map-drawing-target-line-width: 2px;
+  --map-drawing-target-casing-thickness: 1px;
+  --map-drawing-target-radius: 10px;
   --map-registered-obstacle-radius: 7px;
   --map-registered-obstacle-selected-radius: 11px;
   --map-registered-obstacle-stroke-width: 2px;

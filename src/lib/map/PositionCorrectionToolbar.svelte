@@ -2,8 +2,9 @@
   import { formatCoordinates } from '../obstacles/errorReport';
   import type { GeoPosition } from '../obstacles/position';
 
-  let { newPosition, registered, move, canConfirm, editing, height = $bindable(0), oncancel, onconfirm, onunknown, onremove }: {
-    /** The circle centre; null until the map reports it. */
+  let { crosshairMode = false, newPosition, registered, move, canConfirm, editing, height = $bindable(0), oncancel, onconfirm, onunknown, onremove }: {
+    crosshairMode?: boolean;
+    /** The selection centre; null until the map reports it. */
     newPosition: GeoPosition | null;
     registered: GeoPosition;
     /** Distance and direction from the registered position; null before the circle has moved. */
@@ -20,22 +21,20 @@
   } = $props();
 </script>
 
-<section class="position-panel" aria-labelledby="position-panel-heading" bind:clientHeight={height}>
+<section class="position-panel" class:crosshair-mode={crosshairMode} aria-labelledby="position-panel-heading" bind:clientHeight={height}>
   <div class="details">
-    <h2 id="position-panel-heading">Move the circle to the correct position</h2>
+    <h2 id="position-panel-heading">Correct obstacle position</h2>
     <dl>
       <dt>New position</dt>
       <dd class="new-position">{newPosition ? formatCoordinates(newPosition) : '—'}</dd>
       <dt>Registered</dt>
       <dd>{formatCoordinates(registered)}</dd>
     </dl>
-    <p class="move" role="status">
-      {#if move}
+    {#if move}
+      <p class="move" role="status">
         Moved <span class="accent">{move.distance} {move.direction}</span> from registered position
-      {:else}
-        Drag the circle to where the obstacle actually is
-      {/if}
-    </p>
+      </p>
+    {/if}
   </div>
 
   <div class="actions">
@@ -68,6 +67,11 @@
     background: var(--color-background-raised);
     box-shadow: var(--shadow-control);
     color: var(--color-text-primary);
+  }
+
+  .position-panel.crosshair-mode {
+    max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--space-4)));
+    overflow-y: auto;
   }
 
   .details { flex: 1 1 20rem; min-width: 0; text-align: start; }

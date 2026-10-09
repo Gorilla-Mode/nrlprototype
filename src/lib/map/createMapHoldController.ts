@@ -1,3 +1,5 @@
+import { defaultRadialMenuRadii } from '../radial-menu/radialMenu.js';
+
 export interface HoldOrigin {
   x: number;
   y: number;
@@ -15,6 +17,11 @@ interface MapHoldOptions {
   onMove?: (x: number, y: number) => void;
   /** Final offset from the initial press. Cancellation never calls this. */
   onRelease?: (x: number, y: number) => void;
+  /** Opt-in obstacle placement variants; error-report callers leave these off. */
+  persistent?: () => boolean;
+  twoFinger?: () => boolean;
+  /** Map content displacement in CSS pixels beneath the fixed menu. */
+  onMapPan?: (dx: number, dy: number) => void;
   holdDelay?: number;
   /** Per-press delay, e.g. 0 to open at once on a target; falls back to `holdDelay`. */
   holdDelayAt?: (origin: HoldOrigin) => number | undefined;
@@ -30,6 +37,9 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
   onClose,
   onMove,
   onRelease,
+  persistent = () => false,
+  twoFinger = () => false,
+  onMapPan,
   holdDelay = 200,
   holdDelayAt,
   movementTolerance = 8,
@@ -38,6 +48,13 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
   const listeners = new AbortController();
   const pointers = new Set<number>();
   let press: { id: number; clientX: number; clientY: number; origin: HoldOrigin } | undefined;
+  let center: HoldOrigin | undefined;
+  let opening = false;
+  let centerPress = false;
+  let centerDragged = false;
+  let panOffset: HoldOrigin = { x: 0, y: 0 };
+  const touches = new Map<number, HoldOrigin>();
+  let centroid: HoldOrigin | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let open = false;
   let suppressClick = false;
@@ -48,6 +65,8 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
     timer = undefined;
     const pointerId = press?.id;
     press = undefined;
+    centroid = undefined;
+    center = undefined;
     if (open) {
       open = false;
       onClose();
@@ -59,6 +78,12 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
 
   function handlePointerDown(event: PointerEvent) {
     pointers.add(event.pointerId);
+    if (event.pointerType === 'touch') touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (open && press && twoFinger() && touches.size === 2 && touches.has(press.id)) {
+      centroid = touchCentroid();
+      onMove?.(0, 0);
+      return;
+    }
     if (press) {
       if (event.pointerId !== press.id) cancel();
       return;
@@ -69,12 +94,21 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
       event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
 
     const rect = canvas.getBoundingClientRect();
+    opening = !open;
+    centerDragged = false;
+    panOffset = { x: 0, y: 0 };
+    centerPress = open && !!center && Math.hypot(event.clientX - rect.left - center.x, event.clientY - rect.top - center.y) <= defaultRadialMenuRadii.innerRadius;
     press = {
       id: event.pointerId,
       clientX: event.clientX,
       clientY: event.clientY,
-      origin: { x: event.clientX - rect.left, y: event.clientY - rect.top },
+      origin: open && center ? { ...center } : { x: event.clientX - rect.left, y: event.clientY - rect.top },
     };
+    if (open) {
+      suppressClick = true;
+      canvas.setPointerCapture(press.id);
+      return;
+    }
     onPressStart?.(press.origin);
     const delay = holdDelayAt?.(press.origin) ?? holdDelay;
     // Opening during pointerdown also blocks the map's own mousedown/touchstart for this press.
@@ -89,16 +123,48 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
     suppressClick = true;
     canvas.setPointerCapture(press.id);
     const origin = press.origin;
+    center = { ...origin };
     onActivate();
     if (open) onOpen(origin);
   }
 
+  function touchCentroid(): HoldOrigin {
+    const values = [...touches.values()];
+    return { x: values.reduce((sum, value) => sum + value.x, 0) / values.length,
+      y: values.reduce((sum, value) => sum + value.y, 0) / values.length };
+  }
+
+  function panFromCenter(clientX: number, clientY: number) {
+    if (!press) return;
+    const x = clientX - press.clientX;
+    const y = clientY - press.clientY;
+    if (Math.hypot(x, y) > movementTolerance) centerDragged = true;
+    if (!centerDragged) return;
+    const dx = x - panOffset.x;
+    const dy = y - panOffset.y;
+    panOffset = { x, y };
+    if (dx !== 0 || dy !== 0) onMapPan?.(dx, dy);
+  }
+
   function handlePointerMove(event: PointerEvent) {
+    if (touches.has(event.pointerId)) touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (centroid) {
+      if (event.buttons === 0) { cancel(); return; }
+      const next = touchCentroid();
+      onMapPan?.(next.x - centroid.x, next.y - centroid.y);
+      centroid = next;
+      return;
+    }
     if (!press || event.pointerId !== press.id) return;
     if (event.buttons === 0) {
       cancel();
     } else if (open) {
-      onMove?.(event.clientX - press.clientX, event.clientY - press.clientY);
+      if (persistent() && !opening && centerPress) {
+        panFromCenter(event.clientX, event.clientY);
+      } else {
+        const rect = canvas.getBoundingClientRect();
+        onMove?.(event.clientX - rect.left - press.origin.x, event.clientY - rect.top - press.origin.y);
+      }
     } else if (Math.hypot(event.clientX - press.clientX, event.clientY - press.clientY) > movementTolerance) {
       cancel();
     }
@@ -106,12 +172,35 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
 
   function handlePointerEnd(event: PointerEvent) {
     pointers.delete(event.pointerId);
+    touches.delete(event.pointerId);
+    if (centroid) {
+      if (event.type === 'pointercancel' || event.pointerId === press?.id) { cancel(); return; }
+      centroid = undefined;
+      const original = press && touches.get(press.id);
+      if (original && center) {
+        const rect = canvas.getBoundingClientRect();
+        onMove?.(original.x - rect.left - center.x, original.y - rect.top - center.y);
+      }
+      return;
+    }
     if (event.pointerId !== press?.id) return;
     const release = open && event.type === 'pointerup' && isEnabled();
-    const x = event.clientX - press.clientX;
-    const y = event.clientY - press.clientY;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left - press.origin.x;
+    const y = event.clientY - rect.top - press.origin.y;
+    if (release && persistent() && !opening && centerPress) {
+      panFromCenter(event.clientX, event.clientY);
+    }
+    if (release && persistent() && ((opening && Math.hypot(x, y) <= defaultRadialMenuRadii.innerRadius) || (!opening && centerPress && centerDragged))) {
+      const id = press.id;
+      press = undefined;
+      if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
+      onMove?.(0, 0);
+      return;
+    }
+    const centerTap = persistent() && !opening && centerPress;
     cancel();
-    if (release) onRelease?.(x, y);
+    if (release && !centerTap) onRelease?.(x, y);
   }
 
   function handleLostCapture(event: PointerEvent) {
@@ -124,23 +213,25 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
   }
 
   function handleKeyDown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && press) {
+    if (event.key === 'Escape' && (press || open)) {
       block(event);
       cancel();
-    } else if (open) {
+    } else if (open && !persistent()) {
       block(event);
     }
   }
 
-  function handleBlur() {
+  function handleBlur(event: Event) {
+    if (event.target !== view) return;
     pointers.clear();
+    touches.clear();
     cancel();
   }
 
   // MapLibre listens to mouse/touch events, including document-level mousemove.
   // Gate those at window capture while open, preserving handler settings and touch-action.
   function handleNavigation(event: Event) {
-    if (open) block(event);
+    if (open && (press || event.target === canvas)) block(event);
   }
 
   function handleClick(event: MouseEvent) {
@@ -168,6 +259,10 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
 
   return {
     cancel,
+    panMap(dx: number, dy: number) {
+      if (!open || !persistent() || press) return;
+      onMapPan?.(dx, dy);
+    },
     destroy() {
       if (destroyed) return;
       destroyed = true;

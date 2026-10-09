@@ -1,7 +1,7 @@
 import type { Map } from 'maplibre-gl';
 import type { ScreenPoint } from '../obstacles/registeredObstacles.js';
 
-/** Grab radius around the circle centre; larger than the ring's hole for easy touch targets. */
+/** Separate 56 px grab radius within the ring's hole; touches outside it navigate the map. */
 export const positionHandleRadius = 56;
 
 /**
