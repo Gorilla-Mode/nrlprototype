@@ -9,6 +9,7 @@
   import { isReportsHash, reportsRoute } from './lib/reports/reports';
   import { isNotificationsHash, markAllRead, notificationsRoute, sampleNotifications, type ReportStatusNotification } from './lib/notifications/notifications';
   import type { GeolocationState } from './lib/map/createGeolocationController';
+  import type { CameraTarget } from './lib/map/createMapController';
   import { isTutorialEnabled } from './lib/map/tutorial';
   import { createDetailsController, initialDetailsState, type DetailsHooks, type DetailsState } from './lib/reporting/createDetailsController';
   import { reportingSettings, reportingVariantUrl, resolveReportingRoute, summaryRoute } from './lib/reporting/reporting';
@@ -50,6 +51,9 @@
   let locationMessage = $state('');
   let accuracy = $state<number | null>(null);
   let homeMap: HomeMap;
+  // Camera requested from a full-screen page; applied once that page has closed so an
+  // inert, hidden map is never moved.
+  let pendingCamera: CameraTarget | null = null;
 
   function restoreMapFocus() {
     void tick().then(() => {
@@ -84,6 +88,11 @@
       menuOpen = false;
     } else if (wasPageOpen) menuOpen = menuWasOpen;
     if (wasReportOpen && !reportOpen) restoreMapFocus();
+    if (pendingCamera && !pageOpen) {
+      const target = pendingCamera;
+      pendingCamera = null;
+      void tick().then(() => homeMap?.flyToLocation(target));
+    }
   }
 
   function selectReportingVariant(id: string) {
@@ -157,6 +166,11 @@
     syncRoute();
   }
 
+  function showOnMap(target: CameraTarget) {
+    pendingCamera = target;
+    backToMap();
+  }
+
   function backToMap() {
     if (history.state?.nrlPageEntry || history.state?.nrlFaqEntry) history.back();
     else {
@@ -211,7 +225,7 @@
   <p class="details-error" role="alert">{details.error}</p>
 {/if}
 {#if faqOpen}<FaqPage onback={backToMap} />{/if}
-{#if reportsOpen}<ReportsPage onback={backToMap} />{/if}
+{#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} />{/if}
 {#if notificationsOpen}
   <NotificationsPage {notifications} onback={backToMap} onmarkallread={() => { notifications = markAllRead(notifications); }} />
 {/if}

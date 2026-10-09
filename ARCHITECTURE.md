@@ -11,7 +11,11 @@ backend, database, authentication or submission endpoint.
 - App owns hash navigation, page/drawer state and settings shared with the map. HomeMap
   stays mounted behind full-screen pages so its camera and transient work survive.
 - MapCanvas alone owns the MapLibre instance. UI controls send typed commands through
-  createMapController; map sources and layers belong in `mapConfig.ts`.
+  createMapController; map sources and layers belong in `mapConfig.ts`. The one
+  exception is report location maps, which never control the main map: MiniMap builds a
+  short-lived, non-interactive instance from `createPreviewStyle`, keeps a still image
+  and removes it; MapLightbox owns one interactive instance (zoom and pan, no rotation)
+  that exists only while its dialog is open. "Show on map" goes through App → HomeMap.
 - Drawing and reporting controllers own geometry state, validation, Turf measurements
   and report assembly. Components present state and issue commands; display adapters
   translate state into MapLibre layers and CSS-derived paint values.

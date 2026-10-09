@@ -1,6 +1,7 @@
 <script lang="ts">
   import StatusBadge from './StatusBadge.svelte';
   import { reportActionLabel, reportSecondaryLine, type Report } from './reportsData';
+  import { obstacleTypeLabel } from '../reporting/obstacle';
 
   let { report, onopen, selectMode = false, selected = false, ontoggleselect }: {
     report: Report;
@@ -40,7 +41,7 @@
   </div>
 
   <div class="reports-card-info">
-    <span class="reports-card-type">{report.obstacleType}</span>
+    <span class="reports-card-type">{obstacleTypeLabel(report.obstacleType)}</span>
     <span class="reports-card-dot" aria-hidden="true">·</span>
     <span>{report.heightFeet} ft ({report.heightMeters} m)</span>
   </div>

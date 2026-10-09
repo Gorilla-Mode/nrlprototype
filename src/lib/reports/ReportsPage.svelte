@@ -9,10 +9,12 @@
   import DraftDetailPage from '../drafts/DraftDetailPage.svelte';
   import { drafts } from '../drafts/mockData';
   import type { Draft } from '../drafts/types';
-  import { formatToday, geometryTypeFor, heightInMeters } from '../drafts/types';
+  import { formatToday, heightInMeters } from '../drafts/types';
+  import { geometryKind, type GeometryCameraTarget } from './reportGeometry';
+  import { obstacleTypeLabel } from '../reporting/obstacle';
   import { matchesGeometryFilter, matchesHeightFilter, type GeometryKey, type HeightFilterKey } from './filtering';
 
-  let { onback }: { onback: () => void } = $props();
+  let { onback, onshowonmap }: { onback: () => void; onshowonmap?: (target: GeometryCameraTarget) => void } = $props();
 
   let statusFilter = $state<StatusTabKey>('all');
   let query = $state('');
@@ -106,19 +108,24 @@
   }
 
   function closeOnEscape(event: KeyboardEvent) {
-    if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); onback(); }
+    if (event.key !== 'Escape' || event.defaultPrevented) return;
+    event.preventDefault();
+    // This window listener runs before the Filter panel's own, so close the panel here
+    // instead of leaving the page.
+    if (filterPanelOpen) dismissFilterPanel();
+    else onback();
   }
 
   function matchesReportQuery(report: Report, q: string): boolean {
     const needle = q.trim().toLowerCase();
     if (!needle) return true;
-    return report.name.toLowerCase().includes(needle) || report.obstacleType.toLowerCase().includes(needle);
+    return report.name.toLowerCase().includes(needle) || obstacleTypeLabel(report.obstacleType).toLowerCase().includes(needle);
   }
 
   function matchesDraftQuery(draft: Draft, q: string): boolean {
     const needle = q.trim().toLowerCase();
     if (!needle) return true;
-    return draft.title.toLowerCase().includes(needle) || draft.category.toLowerCase().includes(needle);
+    return draft.title.toLowerCase().includes(needle) || obstacleTypeLabel(draft.category).toLowerCase().includes(needle);
   }
 
   function matchesStatus(report: Report, key: StatusTabKey): boolean {
@@ -145,7 +152,7 @@
       for (const report of reports) {
         if (!matchesReportQuery(report, q)) continue;
         if (key !== 'all' && !matchesStatus(report, key)) continue;
-        if (!matchesGeometryFilter(geometryTypeFor(report.obstacleType), geometries)) continue;
+        if (!matchesGeometryFilter(geometryKind(report.geometry), geometries)) continue;
         if (!matchesHeightFilter(report.heightMeters, heightFilter)) continue;
         items.push({ kind: 'report', id: report.id, report, sort: dateSortValue(report.secondaryDate ?? report.createdDate) });
       }
@@ -154,7 +161,7 @@
     if (key === 'draft' || key === 'all') {
       for (const draft of drafts) {
         if (!matchesDraftQuery(draft, q)) continue;
-        if (!matchesGeometryFilter(geometryTypeFor(draft.category), geometries)) continue;
+        if (!matchesGeometryFilter(geometryKind(draft.geometry), geometries)) continue;
         if (!matchesHeightFilter(heightInMeters(draft.heightAboveGround), heightFilter)) continue;
         items.push({ kind: 'draft', id: draft.id, draft, sort: dateSortValue(draft.editedDate) });
       }
@@ -172,19 +179,22 @@
   let pendingResultCount = $derived.by(() => { refreshTick; return buildItems(statusFilter, query, pendingGeometries, pendingHeightFilter).length; });
   let filterActive = $derived(appliedGeometries.size > 0 || appliedHeightFilter !== 'any');
   let noun = $derived(statusFilter === 'draft' ? 'drafts' : statusFilter === 'all' ? 'items' : 'reports');
+  let subtitle = $derived.by(() => {
+    const kind = statusFilter === 'draft' ? 'draft' : 'report';
+    return `${items.length} ${items.length === 1 ? kind : kind + 's'} · sorted by last edited`;
+  });
 </script>
 
 <svelte:window onkeydown={closeOnEscape} />
 
 {#if view === 'report-detail' && selectedReport}
-  <ReportDetailPage report={selectedReport} onback={backToList} />
+  <ReportDetailPage report={selectedReport} onback={backToList} {onshowonmap} />
 {:else if view === 'draft-detail' && selectedDraft}
-  <DraftDetailPage draft={selectedDraft} onBack={backToList} onSend={draftSent} />
+  <DraftDetailPage draft={selectedDraft} onBack={backToList} onSend={draftSent} onShowOnMap={onshowonmap} />
 {:else}
   {#key refreshTick}
     <main class="reports-page" aria-label="Reports">
-      <header class="reports-header">
-        <ReportsHeader {onback} />
+      <ReportsHeader {onback} {subtitle}>
         <ReportsToolbar
           bind:query
           {selectMode} selectedCount={selectedIds.size} ontoggleselect={toggleSelectMode} onsend={sendSelected}
@@ -193,18 +203,13 @@
           onopenfilter={openFilterPanel} onresetfilter={resetPendingFilters} onapplyfilter={applyFilters} ondismissfilter={dismissFilterPanel}
         />
         <StatusTabs {reports} {draftsCount} active={statusFilter} onselect={(key) => statusFilter = key} />
-      </header>
+      </ReportsHeader>
 
       <div class="reports-content">
-        <div class="reports-list-meta">
-          <p class="reports-list-count">{items.length} {noun}</p>
-          <p class="reports-list-sort">Sorted by last edited</p>
-        </div>
-
         {#if items.length === 0}
           <p class="reports-empty">No {noun} match your search.</p>
         {:else}
-          <div class="reports-card-grid" class:drafts-grid={statusFilter === 'draft'}>
+          <div class="reports-card-grid">
             {#each items as item (item.kind + '-' + item.id)}
               {#if item.kind === 'report'}
                 <ReportCard report={item.report} onopen={openReport} {selectMode} selected={selectedIds.has(item.report.id)} ontoggleselect={toggleSelected} />
@@ -220,10 +225,6 @@
 {/if}
 
 <style>
-  .drafts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .reports-empty { color: var(--color-text-secondary); font-size: var(--font-size-body); padding: var(--space-8) 0; text-align: center; }
 
-  @media (max-width: 800px) {
-    .drafts-grid { grid-template-columns: 1fr; }
-  }
 </style>

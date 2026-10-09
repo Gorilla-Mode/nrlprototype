@@ -820,6 +820,10 @@ button {
   /* Matches --faq-title-size/--settings-title-size: the same sticky
      title + back/close icon-button pattern used on all three pages. */
   --reports-title-size: 1.625rem;
+  /* Back chevron drawn at the text's cap height, with a stroke matching medium-weight text. */
+  --reports-back-icon-height: 0.72em;
+  --reports-back-stroke-width: 2.25;
+  --reports-mini-map-height: 10rem;
 }
 
 .menu-drawer {
@@ -851,7 +855,7 @@ button {
   width: var(--target-size-min); min-height: var(--target-size-min); padding: 0;
   border: 0; border-radius: var(--radius-round); background: var(--color-background-subtle); color: var(--color-text-primary); cursor: pointer;
 }
-.menu-drawer svg, .faq-page svg, .reports-page svg, .notifications-page svg, .settings-page svg { flex: none; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+.menu-drawer svg, .faq-page svg, .reports-page svg, .reports-topbar svg, .notifications-page svg, .settings-page svg { flex: none; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 .menu-close svg, .faq-icon-button svg, .reports-icon-button svg, .notifications-icon-button svg { width: var(--icon-size-large); height: var(--icon-size-large); }
 .menu-scroll {
   display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
@@ -1010,24 +1014,44 @@ button {
    light and dark. The header and list share the app's own layout width and gutter
    (--layout-content-max, ~1200px, and --layout-gutter-inline via the safe-area-aware
    --map-control-inset-* aliases) instead of the narrower FAQ/Settings page tokens. */
-.reports-header { padding-bottom: var(--space-5); }
 .reports-header-row {
   max-width: var(--layout-content-max);
   margin-inline: auto;
   padding-inline: var(--map-control-inset-left) var(--map-control-inset-right);
 }
-.reports-header-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); flex-wrap: wrap; min-height: var(--faq-header-height); padding-top: var(--space-2); }
-.reports-header-title { display: flex; align-items: center; gap: var(--space-2); }
-.reports-title { font-size: var(--reports-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); }
+/* Top bar shared by the reports list and the report/draft detail pages, after the
+   iPadOS navigation bar: a blue back button naming the destination, and on the list a
+   small title that appears once the large title has scrolled under the bar. */
+.reports-topbar { border-bottom: var(--border-default); }
+.reports-header .reports-topbar { border-bottom: 0; }
+.reports-topbar-content { position: relative; display: flex; align-items: center; gap: var(--space-2); min-height: var(--faq-header-height); }
+.reports-topbar-collapsed-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: var(--faq-header-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-header-tracking); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity var(--duration-default) var(--ease-standard); }
+.reports-topbar-collapsed-title.visible { opacity: 1; }
+/* Chevron and destination read as one button. The padding gives a 44 × 44px target and
+   the matching negative margin keeps the chevron's left edge on the title's left edge. */
+.reports-back { display: inline-flex; align-items: center; gap: calc(var(--space-1) + var(--border-width-default)); min-width: var(--target-size-min); min-height: var(--target-size-min); margin-inline-start: calc(-1 * var(--space-2)); padding: 0 var(--space-2); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-action-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: var(--line-height-tight); cursor: pointer; }
+.reports-back svg { flex: none; width: calc(var(--reports-back-icon-height) * 8 / 14); height: var(--reports-back-icon-height); overflow: visible; }
+.reports-back svg path { stroke-width: var(--reports-back-stroke-width); stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.reports-back:hover { background: var(--color-map-control-hover); color: var(--color-action-secondary-hover); }
+.reports-back:active { opacity: var(--opacity-subdued); }
+.reports-topbar-content > .reports-status-badge { margin-left: auto; }
 .reports-segmented { display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-control); background: var(--color-background-subtle); }
 .reports-segment { min-height: var(--control-height-default); padding-inline: var(--space-6); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); cursor: pointer; }
 .reports-segment[aria-pressed='true'] { background: var(--color-background-raised); color: var(--color-text-primary); font-weight: var(--font-weight-semibold); box-shadow: var(--shadow-surface); }
 .reports-segment:hover { background: var(--color-map-control-hover); }
 .reports-segment[aria-pressed='true']:hover { background: var(--color-background-raised); }
 
-.reports-toolbar { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-5); flex-wrap: wrap; }
-.reports-search { flex: 1; min-width: 12rem; }
-.reports-tool-button { flex: none; min-height: var(--control-height-large); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+/* iPadOS large title: scrolls with the content under the sticky top bar. */
+.reports-intro { padding-block: var(--space-4) var(--space-5); border-bottom: var(--border-default); background: var(--color-background-raised); }
+.reports-large-title { font-size: var(--font-size-display); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); line-height: var(--line-height-tight); }
+.reports-subtitle { margin-top: var(--space-1); color: var(--color-text-secondary); font-size: var(--font-size-body); }
+
+/* Search, Filter and Select share one control height so they line up. Filter and Select
+   are secondary: raised surface, thin border, smaller text. */
+.reports-toolbar { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-5); flex-wrap: wrap; }
+.reports-search { flex: 1; min-width: 12rem; min-height: var(--control-height-default); }
+.reports-tool-button { flex: none; min-height: var(--control-height-default); font-size: var(--font-size-body-small); font-weight: var(--font-weight-medium); }
+.reports-tool-button:not(.button--primary) { background: var(--color-background-raised); }
 .reports-tool-button svg { flex: none; width: var(--icon-size-default); height: var(--icon-size-default); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 
 .reports-status-tabs { display: flex; gap: var(--space-3); margin-top: var(--space-4); flex-wrap: wrap; }
@@ -1038,9 +1062,6 @@ button {
 .reports-status-tab-count { font-weight: var(--font-weight-medium); opacity: var(--opacity-subdued); }
 
 .reports-content { width: 100%; max-width: var(--layout-content-max); margin-inline: auto; padding: var(--faq-content-top) var(--map-control-inset-right) max(var(--faq-content-bottom), var(--safe-area-bottom)) var(--map-control-inset-left); overflow-wrap: anywhere; }
-.reports-list-meta { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-5); flex-wrap: wrap; }
-.reports-list-count { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-section-tracking); text-transform: uppercase; color: var(--color-text-secondary); }
-.reports-list-sort { font-size: var(--font-size-body); color: var(--color-text-secondary); }
 
 /* One column by default (mobile); two from 600px, three from 1100px. */
 .reports-card-grid { display: grid; grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: var(--space-5); }
@@ -1070,8 +1091,10 @@ button {
 .reports-card-info { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-body); color: var(--color-text-primary); }
 .reports-card-type { font-weight: var(--font-weight-semibold); }
 .reports-card-dot { color: var(--color-border-default); }
-.reports-card-bottom { margin-top: auto; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-4); }
-.reports-card-dates { display: flex; flex-direction: column; gap: var(--space-1); white-space: nowrap; font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
+/* The CTA keeps the bottom-right corner in every card: the date column shrinks and
+   wraps its own text rather than pushing the CTA onto a line of its own. */
+.reports-card-bottom { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); }
+.reports-card-dates { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
 .reports-card-declined { color: var(--color-status-error); }
 /* Shared "button with arrow" pattern: a text action paired with a trailing
    chevron (report/draft card CTAs). The icon is sized in em so it always
@@ -1086,6 +1109,7 @@ button {
 .reports-status-badge[data-status='pending'] { background: var(--color-status-warning-surface); color: var(--color-status-warning); }
 .reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
 .reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
+.reports-status-badge[data-status='draft'] { background: var(--color-background-subtle); color: var(--color-text-secondary); }
 
 /* Notifications: report-status updates in a single reading column sized from the
    portrait-iPad mockup. Status dots repeat the status text colour and never stand
