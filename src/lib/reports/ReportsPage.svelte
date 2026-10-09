@@ -5,6 +5,8 @@
   import ReportCard from './ReportCard.svelte';
   import ReportDetailPage from './ReportDetailPage.svelte';
   import ReportSentDialog from './ReportSentDialog.svelte';
+  import BulkSendDialog from './BulkSendDialog.svelte';
+  import { markSent, sendToKartverket, type ReportSender } from './bulkSend';
   import { isSent, reports, type Report, type StatusTabKey } from './reportsData';
   import DraftCard from '../drafts/DraftCard.svelte';
   import DraftDetailPage from '../drafts/DraftDetailPage.svelte';
@@ -15,7 +17,12 @@
   import { obstacleTypeLabel } from '../reporting/obstacle';
   import { matchesGeometryFilter, matchesHeightFilter, type GeometryKey, type HeightFilterKey } from './filtering';
 
-  let { onback, onshowonmap }: { onback: () => void; onshowonmap?: (target: GeometryCameraTarget) => void } = $props();
+  let { onback, onshowonmap, sendreport = sendToKartverket }: {
+    onback: () => void;
+    onshowonmap?: (target: GeometryCameraTarget) => void;
+    /** Delivers one selected report; the prototype default always succeeds. */
+    sendreport?: ReportSender;
+  } = $props();
 
   let statusFilter = $state<StatusTabKey>('all');
   let query = $state('');
@@ -80,18 +87,46 @@
     selectedIds = next;
   }
 
+  // Bulk send: the selected Ready reports while the dialog is open, and which were sent.
+  let bulkReports = $state.raw<Report[] | null>(null);
+  let bulkSentIds = new Set<string>();
+  let justSentIds = $state<Set<string>>(new Set());
+  let justSentTimer: ReturnType<typeof setTimeout> | undefined;
+  let readySelectedCount = $derived(reports.filter((report) => selectedIds.has(report.id) && report.status === 'ready').length);
+
   function sendSelected() {
+    bulkSentIds = new Set();
+    bulkReports = reports.filter((report) => selectedIds.has(report.id) && report.status === 'ready');
+  }
+
+  // Delivered reports change status at once, so the data stays true even if the page
+  // closes; the list behind the modal only re-reads it when the dialog closes.
+  function bulkSent(sent: readonly Report[]) {
     const today = formatToday();
-    for (const report of reports) {
-      if (selectedIds.has(report.id) && report.status === 'ready') {
-        report.status = 'pending';
-        report.secondaryDate = today;
-      }
+    for (const report of sent) {
+      markSent(report, today);
+      bulkSentIds.add(report.id);
     }
-    selectedIds = new Set();
+  }
+
+  function closeBulkSend(attempted: boolean) {
+    bulkReports = null;
+    if (!attempted) return;
     selectMode = false;
+    selectedIds = new Set();
+    justSentIds = new Set(bulkSentIds);
+    clearTimeout(justSentTimer);
+    const duration = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--report-sent-highlight-duration')) * 1000;
+    justSentTimer = setTimeout(() => { justSentIds = new Set(); }, Number.isFinite(duration) ? duration : 0);
     refreshTick++;
   }
+
+  function viewSentReports() {
+    statusFilter = 'sent';
+    closeBulkSend(true);
+  }
+
+  $effect(() => () => clearTimeout(justSentTimer));
 
   function openFilterPanel() {
     pendingGeometries = new Set(appliedGeometries);
@@ -200,11 +235,11 @@
   <DraftDetailPage draft={selectedDraft} onBack={backToList} onSend={draftSent} onShowOnMap={onshowonmap} />
 {:else}
   {#key refreshTick}
-    <main class="reports-page" aria-label="Reports">
+    <main class="reports-page" class:reports-select-active={selectMode} aria-label="Reports">
       <ReportsHeader {onback} {subtitle}>
         <ReportsToolbar
           bind:query
-          {selectMode} selectedCount={selectedIds.size} ontoggleselect={toggleSelectMode} onsend={sendSelected}
+          {selectMode} ontoggleselect={toggleSelectMode}
           filterOpen={filterPanelOpen} {filterActive}
           bind:pendingGeometries bind:pendingHeightFilter {pendingResultCount}
           onopenfilter={openFilterPanel} onresetfilter={resetPendingFilters} onapplyfilter={applyFilters} ondismissfilter={dismissFilterPanel}
@@ -219,16 +254,32 @@
           <div class="reports-card-grid">
             {#each items as item (item.kind + '-' + item.id)}
               {#if item.kind === 'report'}
-                <ReportCard report={item.report} onopen={openReport} {selectMode} selected={selectedIds.has(item.report.id)} ontoggleselect={toggleSelected} />
+                <ReportCard report={item.report} onopen={openReport} {selectMode} selected={selectedIds.has(item.report.id)} ontoggleselect={toggleSelected}
+                  justSent={justSentIds.has(item.report.id)} unavailableHint="reports-select-hint" />
               {:else}
-                <DraftCard draft={item.draft} onEdit={openDraft} />
+                <DraftCard draft={item.draft} onEdit={openDraft} {selectMode} unavailableHint="reports-select-hint" />
               {/if}
             {/each}
           </div>
         {/if}
       </div>
+
+      {#if selectMode}
+        <p id="reports-select-hint" class="sr-only">Only reports that are Ready to send can be selected.</p>
+        <div class="reports-select-bar" role="region" aria-label="Selection">
+          <div class="reports-select-bar-content">
+            <span class="reports-select-count" aria-live="polite">{readySelectedCount} selected</span>
+            <button type="button" class="button button--primary reports-select-send" disabled={readySelectedCount === 0} onclick={sendSelected}>
+              Send ({readySelectedCount})
+            </button>
+          </div>
+        </div>
+      {/if}
     </main>
   {/key}
+  {#if bulkReports}
+    <BulkSendDialog reports={bulkReports} send={sendreport} onsent={bulkSent} onclose={closeBulkSend} onviewsent={viewSentReports} />
+  {/if}
   {#if sentConfirmation}
     <ReportSentDialog report={sentConfirmation.report} sentAt={sentConfirmation.at}
       onbacktoreports={() => (sentConfirmation = null)} onclose={() => (sentConfirmation = null)} />

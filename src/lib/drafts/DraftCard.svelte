@@ -5,11 +5,16 @@
 
   export let draft: Draft;
   export let onEdit: (draft: Draft) => void = () => {};
+  /** Drafts cannot be sent from select mode, so they are dimmed and do nothing there. */
+  export let selectMode = false;
+  /** Id of the page's text explaining why a card cannot be selected. */
+  export let unavailableHint: string | undefined = undefined;
 
-  const open = () => onEdit(draft);
+  const open = () => { if (!selectMode) onEdit(draft); };
 </script>
 
-<button type="button" class="reports-card" on:click={open}>
+<button type="button" class="reports-card" class:reports-card-dimmed={selectMode} on:click={open}
+  aria-disabled={selectMode ? true : undefined} aria-describedby={selectMode ? unavailableHint : undefined}>
   <div class="reports-card-main">
     <div class="reports-card-top">
       <span class="reports-card-name">{draft.title}</span>
@@ -28,9 +33,11 @@
     <span class="reports-card-meta">
       <time datetime={isoDate(draft.editedDate)} title={draft.editedDate}>Edited {relativeDate(draft.editedDate)}</time>
     </span>
-    <span class="reports-card-cta card-cta-link">
-      Edit draft
-      <svg viewBox="0 0 9 16" fill="none" aria-hidden="true"><path d="M1.5 1.5 7.5 8l-6 6.5" /></svg>
-    </span>
+    {#if !selectMode}
+      <span class="reports-card-cta card-cta-link">
+        Edit draft
+        <svg viewBox="0 0 9 16" fill="none" aria-hidden="true"><path d="M1.5 1.5 7.5 8l-6 6.5" /></svg>
+      </span>
+    {/if}
   </div>
 </button>

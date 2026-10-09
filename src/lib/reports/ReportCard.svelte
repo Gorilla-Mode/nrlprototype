@@ -3,21 +3,26 @@
   import { isoDate, reportActionLabel, reportActivity, reportProgressLine, type Report } from './reportsData';
   import { obstacleTypeLabel } from '../reporting/obstacle';
 
-  let { report, onopen, selectMode = false, selected = false, ontoggleselect }: {
+  let { report, onopen, selectMode = false, selected = false, ontoggleselect, justSent = false, unavailableHint }: {
     report: Report;
     onopen: (report: Report) => void;
     selectMode?: boolean;
     selected?: boolean;
     ontoggleselect?: (report: Report) => void;
+    /** Briefly tints the card after it was sent from select mode. */
+    justSent?: boolean;
+    /** Id of the page's text explaining why a card cannot be selected. */
+    unavailableHint?: string;
   } = $props();
 
   // Only ready reports can be sent to the registrar, so only those are selectable.
   let selectable = $derived(report.status === 'ready');
   let activity = $derived(reportActivity(report));
 
+  // In select mode a card only selects; cards that cannot be selected do nothing.
   function handleClick() {
-    if (selectMode && selectable) ontoggleselect?.(report);
-    else onopen(report);
+    if (!selectMode) onopen(report);
+    else if (selectable) ontoggleselect?.(report);
   }
 </script>
 
@@ -26,7 +31,10 @@
   class="reports-card"
   class:reports-card-selected={selectMode && selectable && selected}
   class:reports-card-dimmed={selectMode && !selectable}
+  class:reports-card-just-sent={justSent}
   aria-pressed={selectMode && selectable ? selected : undefined}
+  aria-disabled={selectMode && !selectable ? true : undefined}
+  aria-describedby={selectMode && !selectable ? unavailableHint : undefined}
   onclick={handleClick}
 >
   <div class="reports-card-main">
@@ -83,5 +91,4 @@
   .reports-card-checkbox svg { width: var(--space-4); height: var(--space-4); }
 
   .reports-card-selected { border-color: var(--color-action-secondary); background: var(--color-action-selected); }
-  .reports-card-dimmed { opacity: var(--opacity-subdued); }
 </style>

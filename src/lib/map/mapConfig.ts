@@ -87,6 +87,15 @@ export function createPreviewStyle(geometry: Geometry, visuals: PreviewVisuals):
   };
 }
 
+/** Kartverket topographic basemap alone, for the reporting guide's example map. */
+export function createTopoStyle(): StyleSpecification {
+  return {
+    version: 8,
+    sources: { n100: kartverketTopoSource },
+    layers: [{ id: 'n100-layer', type: 'raster', source: 'n100' }],
+  };
+}
+
 /* Future regional basemap APIs:
  * Svalbard: https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_Svalbard_WMTS_3857/MapServer/WMTS/tile/1.0.0/Basisdata_NP_Basiskart_Svalbard_WMTS_3857/default/default028mm/{z}/{y}/{x}
  * Jan Mayen: https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_JanMayen_WMTS_3857/MapServer/WMTS/tile/1.0.0/Basisdata_NP_Basiskart_JanMayen_WMTS_3857/default/default028mm/{z}/{y}/{x}

@@ -236,7 +236,7 @@
 {:else if !details.open && details.error}
   <p class="details-error" role="alert">{details.error}</p>
 {/if}
-{#if guideOpen}<ReportObstacleGuide {placementEditing} onback={backToMap} />{/if}
+{#if guideOpen}<ReportObstacleGuide onback={backToMap} onclose={backToMap} />{/if}
 {#if faqOpen}<FaqPage onback={backToMap} onguide={() => openPage(reportingGuideRoute)} />{/if}
 {#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} />{/if}
 {#if notificationsOpen}
