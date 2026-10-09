@@ -27,6 +27,7 @@ const drawingToolbar = await compileSvelteComponent('src/lib/map/DrawingToolbar.
 });
 const searchBar = await compileSvelteComponent('src/lib/map/SearchBar.svelte', {
   './createLocationSearchController.js': new URL('../src/lib/map/createLocationSearchController.js', import.meta.url).href,
+  '../components/SearchField.svelte': await compileSvelteComponent('src/lib/components/SearchField.svelte'),
 });
 const { default: MapToolbar } = await import(await compileSvelteComponent('src/lib/map/MapToolbar.svelte', {
   './DrawingToolbar.svelte': drawingToolbar,

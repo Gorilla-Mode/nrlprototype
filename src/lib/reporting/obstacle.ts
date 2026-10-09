@@ -29,6 +29,10 @@ export const obstacleTypeChoices = [
   { type: ObstacleType.Other, id: 'other', label: 'Other', iconKey: 'other' },
 ] as const;
 
+export function obstacleTypeLabel(type: ObstacleType): string {
+  return obstacleTypeChoices.find((choice) => choice.type === type)?.label ?? 'Other';
+}
+
 export interface Obstacle {
   id: string;
   type: ObstacleType;

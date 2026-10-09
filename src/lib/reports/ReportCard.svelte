@@ -1,21 +1,28 @@
 <script lang="ts">
   import StatusBadge from './StatusBadge.svelte';
-  import { reportActionLabel, reportSecondaryLine, type Report } from './reportsData';
+  import { isoDate, reportActionLabel, reportActivity, reportProgressLine, type Report } from './reportsData';
+  import { obstacleTypeLabel } from '../reporting/obstacle';
 
-  let { report, onopen, selectMode = false, selected = false, ontoggleselect }: {
+  let { report, onopen, selectMode = false, selected = false, ontoggleselect, justSent = false, unavailableHint }: {
     report: Report;
     onopen: (report: Report) => void;
     selectMode?: boolean;
     selected?: boolean;
     ontoggleselect?: (report: Report) => void;
+    /** Briefly tints the card after it was sent from select mode. */
+    justSent?: boolean;
+    /** Id of the page's text explaining why a card cannot be selected. */
+    unavailableHint?: string;
   } = $props();
 
   // Only ready reports can be sent to the registrar, so only those are selectable.
   let selectable = $derived(report.status === 'ready');
+  let activity = $derived(reportActivity(report));
 
+  // In select mode a card only selects; cards that cannot be selected do nothing.
   function handleClick() {
-    if (selectMode && selectable) ontoggleselect?.(report);
-    else onopen(report);
+    if (!selectMode) onopen(report);
+    else if (selectable) ontoggleselect?.(report);
   }
 </script>
 
@@ -24,31 +31,36 @@
   class="reports-card"
   class:reports-card-selected={selectMode && selectable && selected}
   class:reports-card-dimmed={selectMode && !selectable}
+  class:reports-card-just-sent={justSent}
   aria-pressed={selectMode && selectable ? selected : undefined}
+  aria-disabled={selectMode && !selectable ? true : undefined}
+  aria-describedby={selectMode && !selectable ? unavailableHint : undefined}
   onclick={handleClick}
 >
-  <div class="reports-card-top">
-    {#if selectMode && selectable}
-      <span class="reports-card-checkbox" class:checked={selected} aria-hidden="true">
-        {#if selected}
-          <svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        {/if}
-      </span>
-    {/if}
-    <span class="reports-card-name">{report.name}</span>
-    <StatusBadge status={report.status} />
-  </div>
+  <div class="reports-card-main">
+    <div class="reports-card-top">
+      {#if selectMode && selectable}
+        <span class="reports-card-checkbox" class:checked={selected} aria-hidden="true">
+          {#if selected}
+            <svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          {/if}
+        </span>
+      {/if}
+      <span class="reports-card-name">{report.name}</span>
+      <StatusBadge status={report.status} />
+    </div>
 
-  <div class="reports-card-info">
-    <span class="reports-card-type">{report.obstacleType}</span>
-    <span class="reports-card-dot" aria-hidden="true">·</span>
-    <span>{report.heightFeet} ft ({report.heightMeters} m)</span>
+    <div class="reports-card-info">
+      <span>{obstacleTypeLabel(report.obstacleType)}</span>
+      <span class="reports-card-dot" aria-hidden="true">·</span>
+      <span>{report.heightFeet} ft ({report.heightMeters} m)</span>
+    </div>
+    <div class="reports-card-step">{reportProgressLine(report)}</div>
   </div>
 
   <div class="reports-card-bottom">
-    <span class="reports-card-dates">
-      <span>Created {report.createdDate}</span>
-      <span class:reports-card-declined={report.status === 'declined'}>{reportSecondaryLine(report)}</span>
+    <span class="reports-card-meta">
+      {#if activity.date}<time datetime={isoDate(activity.date)} title={activity.date}>{activity.text}</time>{:else}{activity.text}{/if}
     </span>
     {#if !selectMode}
       <span class="reports-card-cta card-cta-link">
@@ -79,5 +91,4 @@
   .reports-card-checkbox svg { width: var(--space-4); height: var(--space-4); }
 
   .reports-card-selected { border-color: var(--color-action-secondary); background: var(--color-action-selected); }
-  .reports-card-dimmed { opacity: var(--opacity-subdued); }
 </style>

@@ -11,7 +11,14 @@ backend, database, authentication or submission endpoint.
 - App owns hash navigation, page/drawer state and settings shared with the map. HomeMap
   stays mounted behind full-screen pages so its camera and transient work survive.
 - MapCanvas alone owns the MapLibre instance. UI controls send typed commands through
-  createMapController; map sources and layers belong in `mapConfig.ts`.
+  createMapController; map sources and layers belong in `mapConfig.ts`. The one
+  exception is report location maps, which never control the main map: MiniMap builds a
+  short-lived, non-interactive instance from `createPreviewStyle`, keeps a still image
+  and removes it; MapLightbox owns one interactive instance (zoom and pan, no rotation)
+  that exists only while its dialog is open. "Show on map" goes through App → HomeMap.
+  The reporting guide's GuideExampleMap also owns one interactive instance (Kartverket
+  topo from `createTopoStyle`, a fixed example Point, no wheel zoom, two-finger touch)
+  for the page's lifetime; it never controls the main map or creates reports.
 - Drawing and reporting controllers own geometry state, validation, Turf measurements
   and report assembly. Components present state and issue commands; display adapters
   translate state into MapLibre layers and CSS-derived paint values.
@@ -63,7 +70,8 @@ reporting parameter is missing or invalid. Explicit `reporting` overrides requir
 Combine query parameters with `&` before any route hash.
 How to Report an Obstacle is a public page at `#/Help/ReportObstacle`, reachable from
 Menu, FAQ drawing instructions and Settings support. It uses the normal history, page
-focus and inert-map lifecycle and describes the active placement variant. Legacy `help`
+focus and inert-map lifecycle; back and close both return as Back does. Its content is
+the same for every placement variant. Legacy `help`
 parameters are ignored and do not affect map layout.
 Changing the debug selector replaces the current URL and reloads the application,
 clearing the drawing, draft, map view and other session state. Selecting the current

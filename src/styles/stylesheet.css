@@ -439,7 +439,23 @@
   --dialog-padding-inline: var(--layout-gutter-inline);
   --dialog-padding-block: var(--space-6);
   --dialog-content-max: 40rem;
+  /* DialogActions: the primary action is a little wider than its label alone. */
+  --dialog-action-primary-padding: var(--space-8);
+  /* Dialog: title, status icon and X centred on one 44 px line. */
+  --dialog-header-padding-top: var(--space-4);
+  --dialog-title-offset: calc((var(--target-size-min) - var(--font-size-heading-small) * var(--line-height-tight)) / 2);
+  --dialog-icon-offset: calc((var(--target-size-min) - var(--icon-size-large)) / 2);
 }
+
+/* Dialog actions: the app's blue for the main action, a quiet text button beside it.
+   Both keep the shared button height. */
+.dialog-action-primary { border-color: var(--color-action-secondary); background: var(--color-action-secondary); color: var(--color-text-inverse); font-weight: var(--font-weight-semibold); }
+.dialog-action-primary:not(:disabled):hover { border-color: var(--color-action-secondary-hover); background: var(--color-action-secondary-hover); }
+.dialog-action-primary:not(:disabled):active { opacity: var(--opacity-subdued); background: var(--color-action-secondary); }
+/* Text-only, but never narrower than the 44 px target; .button keeps it 48 px tall like the primary. */
+.dialog-action-secondary { min-width: var(--target-size-min); border-color: transparent; background: transparent; color: var(--color-action-secondary); font-weight: var(--font-weight-semibold); }
+.dialog-action-secondary:not(:disabled):hover { background: var(--color-map-control-hover); }
+.dialog-action-secondary:not(:disabled):active { background: var(--color-action-selected); }
 
 .surface-card,
 .surface-panel,
@@ -836,6 +852,10 @@ button {
   /* Matches --faq-title-size/--settings-title-size: the same sticky
      title + back/close icon-button pattern used on all three pages. */
   --reports-title-size: 1.625rem;
+  /* Back chevron drawn at the text's cap height, with a stroke matching medium-weight text. */
+  --reports-back-icon-height: 0.72em;
+  --reports-back-stroke-width: 2.25;
+  --reports-mini-map-height: 10rem;
 }
 
 .menu-drawer {
@@ -867,7 +887,7 @@ button {
   width: var(--target-size-min); min-height: var(--target-size-min); padding: 0;
   border: 0; border-radius: var(--radius-round); background: var(--color-background-subtle); color: var(--color-text-primary); cursor: pointer;
 }
-.menu-drawer svg, .faq-page svg, .reports-page svg, .notifications-page svg, .settings-page svg { flex: none; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+.menu-drawer svg, .faq-page svg, .reports-page svg, .reports-topbar svg, .notifications-page svg, .settings-page svg { flex: none; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 .menu-close svg, .faq-icon-button svg, .reports-icon-button svg, .notifications-icon-button svg { width: var(--icon-size-large); height: var(--icon-size-large); }
 .menu-scroll {
   display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
@@ -1026,24 +1046,44 @@ button {
    light and dark. The header and list share the app's own layout width and gutter
    (--layout-content-max, ~1200px, and --layout-gutter-inline via the safe-area-aware
    --map-control-inset-* aliases) instead of the narrower FAQ/Settings page tokens. */
-.reports-header { padding-bottom: var(--space-5); }
 .reports-header-row {
   max-width: var(--layout-content-max);
   margin-inline: auto;
   padding-inline: var(--map-control-inset-left) var(--map-control-inset-right);
 }
-.reports-header-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); flex-wrap: wrap; min-height: var(--faq-header-height); padding-top: var(--space-2); }
-.reports-header-title { display: flex; align-items: center; gap: var(--space-2); }
-.reports-title { font-size: var(--reports-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); }
+/* Top bar shared by the reports list and the report/draft detail pages, after the
+   iPadOS navigation bar: a blue back button naming the destination, and on the list a
+   small title that appears once the large title has scrolled under the bar. */
+.reports-topbar { border-bottom: var(--border-default); }
+.reports-header .reports-topbar { border-bottom: 0; }
+.reports-topbar-content { position: relative; display: flex; align-items: center; gap: var(--space-2); min-height: var(--faq-header-height); }
+.reports-topbar-collapsed-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: var(--faq-header-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-header-tracking); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity var(--duration-default) var(--ease-standard); }
+.reports-topbar-collapsed-title.visible { opacity: 1; }
+/* Chevron and destination read as one button. The padding gives a 44 × 44px target and
+   the matching negative margin keeps the chevron's left edge on the title's left edge. */
+.reports-back { display: inline-flex; align-items: center; gap: calc(var(--space-1) + var(--border-width-default)); min-width: var(--target-size-min); min-height: var(--target-size-min); margin-inline-start: calc(-1 * var(--space-2)); padding: 0 var(--space-2); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-action-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: var(--line-height-tight); cursor: pointer; }
+.reports-back svg { flex: none; width: calc(var(--reports-back-icon-height) * 8 / 14); height: var(--reports-back-icon-height); overflow: visible; }
+.reports-back svg path { stroke-width: var(--reports-back-stroke-width); stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.reports-back:hover { background: var(--color-map-control-hover); color: var(--color-action-secondary-hover); }
+.reports-back:active { opacity: var(--opacity-subdued); }
+.reports-topbar-content > .reports-status-badge { margin-left: auto; }
 .reports-segmented { display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-control); background: var(--color-background-subtle); }
 .reports-segment { min-height: var(--control-height-default); padding-inline: var(--space-6); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); cursor: pointer; }
 .reports-segment[aria-pressed='true'] { background: var(--color-background-raised); color: var(--color-text-primary); font-weight: var(--font-weight-semibold); box-shadow: var(--shadow-surface); }
 .reports-segment:hover { background: var(--color-map-control-hover); }
 .reports-segment[aria-pressed='true']:hover { background: var(--color-background-raised); }
 
-.reports-toolbar { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-5); flex-wrap: wrap; }
+/* iPadOS large title: scrolls with the content under the sticky top bar. */
+.reports-intro { padding-block: var(--space-4) var(--space-5); border-bottom: var(--border-default); background: var(--color-background-raised); }
+.reports-large-title { font-size: var(--font-size-display); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); line-height: var(--line-height-tight); }
+.reports-subtitle { margin-top: var(--space-1); color: var(--color-text-secondary); font-size: var(--font-size-body); }
+
+/* Search, Filter and Select share one control height so they line up. Filter and Select
+   are secondary: raised surface, thin border, smaller text. */
+.reports-toolbar { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-5); flex-wrap: wrap; }
 .reports-search { flex: 1; min-width: 12rem; }
-.reports-tool-button { flex: none; min-height: var(--control-height-large); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+.reports-tool-button { flex: none; min-height: var(--control-height-default); font-size: var(--font-size-body-small); font-weight: var(--font-weight-medium); }
+.reports-tool-button:not(.button--primary) { background: var(--color-background-raised); }
 .reports-tool-button svg { flex: none; width: var(--icon-size-default); height: var(--icon-size-default); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 
 .reports-status-tabs { display: flex; gap: var(--space-3); margin-top: var(--space-4); flex-wrap: wrap; }
@@ -1054,11 +1094,10 @@ button {
 .reports-status-tab-count { font-weight: var(--font-weight-medium); opacity: var(--opacity-subdued); }
 
 .reports-content { width: 100%; max-width: var(--layout-content-max); margin-inline: auto; padding: var(--faq-content-top) var(--map-control-inset-right) max(var(--faq-content-bottom), var(--safe-area-bottom)) var(--map-control-inset-left); overflow-wrap: anywhere; }
-.reports-list-meta { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-5); flex-wrap: wrap; }
-.reports-list-count { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-section-tracking); text-transform: uppercase; color: var(--color-text-secondary); }
-.reports-list-sort { font-size: var(--font-size-body); color: var(--color-text-secondary); }
 
 /* One column by default (mobile); two from 600px, three from 1100px. */
+/* Every card has the same three lines, so equal rows add no gaps; they keep the footer
+   rules aligned across rows even when a long title wraps. */
 .reports-card-grid { display: grid; grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: var(--space-5); }
 @media (min-width: 37.5rem) {
   .reports-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1078,30 +1117,42 @@ button {
   .reports-status-tab { flex: none; }
 }
 
-.reports-card { display: flex; flex-direction: column; gap: var(--space-3); width: 100%; text-align: left; padding: var(--card-padding-block) var(--card-padding-inline); border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); box-shadow: var(--shadow-surface); color: var(--color-text-primary); cursor: pointer; }
+.reports-card { display: flex; flex-direction: column; width: 100%; padding: 0; overflow: hidden; text-align: left; border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); box-shadow: var(--shadow-surface); color: var(--color-text-primary); cursor: pointer; }
 .reports-card:hover { background: var(--color-map-control-hover); }
 .reports-card:active { background: var(--color-background-subtle); transform: scale(var(--scale-control-active)); }
+.reports-card:focus-visible { outline-offset: var(--space-1); }
+/* Two zones: what the report is on top, its latest activity and action below a faint rule.
+   The main zone takes any spare height, so the bottom zone lines up across a row. */
+.reports-card-main { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--card-padding-block) var(--card-padding-inline) var(--space-4); }
 .reports-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
 .reports-card-name { flex: 1; min-width: 0; font-size: var(--font-size-heading-small); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); overflow-wrap: anywhere; }
-.reports-card-info { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-body); color: var(--color-text-primary); }
-.reports-card-type { font-weight: var(--font-weight-semibold); }
+.reports-card-info { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: var(--font-size-body); color: var(--color-text-secondary); }
+.reports-card-step { font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
 .reports-card-dot { color: var(--color-border-default); }
-.reports-card-bottom { margin-top: auto; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-4); }
-.reports-card-dates { display: flex; flex-direction: column; gap: var(--space-1); white-space: nowrap; font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
-.reports-card-declined { color: var(--color-status-error); }
+.reports-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) var(--card-padding-inline); border-top: var(--border-default); }
+.reports-card-meta { flex: 1; min-width: 0; font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
 /* Shared "button with arrow" pattern: a text action paired with a trailing
    chevron (report/draft card CTAs). The icon is sized in em so it always
    tracks the current font size exactly. */
-.card-cta-link { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-action-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+.card-cta-link { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-action-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); }
 .card-cta-link svg { flex: none; width: 1em; height: 1em; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 
 .reports-card-cta { flex: none; margin-left: auto; }
 
 .reports-status-badge { flex: none; display: inline-flex; align-items: center; min-height: var(--space-6); padding-inline: var(--space-3); border-radius: var(--radius-small); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); }
 .reports-status-badge[data-status='ready'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
-.reports-status-badge[data-status='pending'] { background: var(--color-status-warning-surface); color: var(--color-status-warning); }
+/* Shown as "Sent for review": a neutral blue, not a warning. */
+.reports-status-badge[data-status='pending'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
 .reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
 .reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
+.reports-status-badge[data-status='draft'] { background: var(--color-background-subtle); color: var(--color-text-secondary); }
+/* In list cards the title is the only bold text and each status has a fixed colour: Ready
+   turns green, "Sent for review" is a neutral blue. Detail pages keep the shared badge. */
+.reports-card .reports-status-badge { font-weight: var(--font-weight-medium); }
+.reports-card .reports-status-badge[data-status='ready'],
+.reports-card .reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
+.reports-card .reports-status-badge[data-status='pending'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
+.reports-card .reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
 
 /* Notifications: report-status updates in a single reading column sized from the
    portrait-iPad mockup. Status dots repeat the status text colour and never stand
@@ -1209,3 +1260,108 @@ button {
   backdrop-filter: blur(var(--report-backdrop-blur));
   -webkit-backdrop-filter: blur(var(--report-backdrop-blur));
 }
+
+/* 27. Reporting guide: Figma "NRL-ipad-reporting-tutorial-long" (834 px portrait iPad).
+   Dimensions are local aliases; colours reuse semantic roles, so both themes and AA
+   contrast follow the rest of the app rather than the frame's lighter greys. */
+:root {
+  --guide-content-max: 37.5rem;
+  --guide-header-gutter: var(--faq-gutter);
+  --guide-title-size: 1.875rem;
+  --guide-step-title-size: 1.375rem;
+  --guide-intro-size: var(--faq-panel-title-size);
+  --guide-card-title-size: var(--faq-small-text-size);
+  --guide-card-text-size: 0.84375rem;
+  --guide-caption-size: var(--faq-section-title-size);
+  --guide-eyebrow-size: 0.6875rem;
+  --guide-label-size: 0.625rem;
+  --guide-font-weight-strong: 700;
+  --guide-label-tracking: 0.04em;
+  --guide-step-gap: var(--space-16);
+  --guide-step-padding-top: var(--space-12);
+  --guide-progress-height: 0.1875rem;
+  --guide-progress-gap: 0.375rem;
+  --guide-badge-size: 1.875rem;
+  --guide-number-size: 1.25rem;
+  --guide-related-icon-size: 2.25rem;
+  --guide-bullet-size: 0.3125rem;
+  --guide-diagram-width: 4.75rem;
+  --guide-diagram-height: 3.5rem;
+  --guide-example-radius: 1.25rem;
+  --guide-option-height: 4.375rem;
+  --guide-description-height: 7rem;
+  --guide-map-aspect: 600 / 388;
+  --guide-map-min-height: 15rem;
+  --guide-map-marker-size: 9.375rem;
+  --guide-diagram-area-fill: color-mix(in srgb, var(--color-map-line) 16%, transparent);
+  --guide-map-radius-fill: color-mix(in srgb, var(--color-map-line) 10%, transparent);
+  --guide-map-radius-stroke: color-mix(in srgb, var(--color-map-line) 32%, transparent);
+  --guide-map-marker-shadow: color-mix(in srgb, var(--color-registered-obstacle) 18%, transparent);
+}
+@media (min-width: 48rem) { :root { --guide-header-gutter: 2.5rem; } }
+
+/* 28. Report sent dialogs: the shared Dialog component draws header, padding and actions;
+   these classes style the content of the one-report and bulk dialogs alike. */
+:root {
+  --report-sent-highlight-duration: 1.5s;
+}
+.report-sent-name { color: var(--color-text-primary); font-size: var(--font-size-body); }
+
+/* Same table look as the report summary elsewhere in the app. */
+.report-sent-table { width: 100%; border-collapse: collapse; }
+.report-sent-table tr + tr { border-top: var(--border-default); }
+.report-sent-table th, .report-sent-table td { padding: var(--space-3) 0; text-align: left; font-weight: var(--font-weight-regular); vertical-align: top; }
+.report-sent-table th { width: 40%; color: var(--color-text-secondary); font-weight: var(--font-weight-medium); }
+.report-sent-table td { color: var(--color-text-primary); overflow-wrap: anywhere; }
+.report-sent-table td.report-sent-unset { color: var(--color-text-secondary); }
+.report-sent-next { margin: var(--space-3) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); line-height: var(--line-height-body); }
+
+/* Several reports: confirmation list, receipt marks and failures. */
+.report-sent-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.report-sent-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); padding: var(--space-3) 0; overflow-wrap: anywhere; }
+.report-sent-item + .report-sent-item { border-top: var(--border-default); }
+.report-sent-item-done, .report-sent-item-failed { grid-template-columns: var(--icon-size-large) minmax(0, 1fr); column-gap: var(--space-3); }
+.report-sent-item-done > :not(.report-sent-mark), .report-sent-item-failed > :not(.report-sent-mark) { grid-column: 2; }
+.report-sent-mark { grid-row: 1 / span 3; display: grid; place-items: center; width: var(--icon-size-large); height: var(--icon-size-large); border-radius: var(--radius-round); color: var(--color-text-inverse); }
+.report-sent-mark svg { width: var(--icon-size-small); height: var(--icon-size-small); stroke: currentColor; stroke-width: calc(var(--icon-stroke-width) + 0.75); stroke-linecap: round; stroke-linejoin: round; }
+.report-sent-item-done .report-sent-mark { background: var(--color-status-success); }
+.report-sent-item-failed .report-sent-mark { background: var(--color-status-error); }
+.report-sent-item-name { color: var(--color-text-primary); font-weight: var(--font-weight-semibold); }
+.report-sent-item-meta { color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
+.report-sent-reason { color: var(--color-status-error); font-size: var(--font-size-body-small); }
+.report-sent-failed { margin-bottom: var(--space-4); padding: var(--space-3) var(--space-4) var(--space-4); border-radius: var(--radius-card); background: var(--color-status-error-surface); }
+.report-sent-failed h3 { margin: 0; color: var(--color-status-error); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); }
+.report-sent-failed .report-sent-item + .report-sent-item { border-top-color: color-mix(in srgb, var(--color-status-error) 24%, transparent); }
+.report-sent-retry { margin-top: var(--space-3); font-weight: var(--font-weight-semibold); }
+
+/* Select mode on the Reports page: a fixed bar with the count and Send, above the safe area. */
+.reports-select-bar {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: var(--layer-popover);
+  border-top: var(--border-default);
+  background: var(--color-background-raised);
+  box-shadow: var(--shadow-control);
+}
+.reports-select-bar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: var(--layout-content-max);
+  margin-inline: auto;
+  padding: var(--space-3) var(--map-control-inset-right) max(var(--space-3), var(--safe-area-bottom)) var(--map-control-inset-left);
+}
+.reports-select-count { color: var(--color-text-secondary); font-size: var(--font-size-body); }
+.reports-select-send { min-width: 9rem; }
+/* Room for the bar, so the last cards can scroll clear of it. */
+.reports-select-active .reports-content { padding-bottom: calc(var(--control-height-default) + 2 * var(--space-3) + max(var(--faq-content-bottom), var(--safe-area-bottom))); }
+/* Not selectable in select mode: drafts and anything already sent. */
+.reports-card-dimmed { opacity: var(--opacity-subdued); cursor: not-allowed; }
+.reports-card-dimmed:hover { background: var(--color-background-raised); }
+.reports-card-dimmed:active { background: var(--color-background-raised); transform: none; }
+/* Just sent: the card's new status is in its badge; the tint only draws the eye to it. */
+.reports-card-just-sent { animation: reports-just-sent var(--report-sent-highlight-duration) var(--ease-standard); }
+@keyframes reports-just-sent { from { background: var(--color-status-success-surface); } to { background: var(--color-background-raised); } }
+/* Reduced motion: the tint holds, then ends in one step instead of fading. */
+@media (prefers-reduced-motion: reduce) { .reports-card-just-sent { animation-timing-function: steps(1, end); } }

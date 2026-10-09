@@ -22,6 +22,12 @@ aliases and breakpoints; inspect it instead of copying those details here.
   clip, and controls respect safe-area insets and MapLibre attribution.
 - Respect reduced motion while preserving state feedback. Dialogs manage initial and
   return focus and make their background inert.
+- Dialog actions put the primary action right of the secondary one, right-aligned with
+  label-based widths; below 30rem they stack full width with the primary on top.
+  DialogActions keeps DOM and Tab order equal to the visual order; focus starts on the
+  primary action. The secondary action is a borderless text button of the same height.
+  Report dialogs use the shared Dialog: left-aligned title on the X's line, an optional
+  small status icon before it and a muted subtitle indented under the title text.
 
 ## Map-specific decisions
 
@@ -74,8 +80,9 @@ angle. Its wrapper is keyboard focusable and shows focus only for keyboard input
 pan map content in the arrow direction by 16 CSS px (64 with Shift), 1/2/3 select geometry,
 and Escape cancels. Placement uses the updated geographic coordinate beneath the donut.
 No separate center button or tutorial panel is displayed.
-Guidance lives in the public How to Report an Obstacle page, including the active placement
-variant, crosshair placement, editing and session-only draft/report behavior.
+Guidance lives in the public How to report an obstacle page, built from the Figma
+reporting-tutorial frame (five steps, its copy verbatim). Its form examples are static
+pictures without controls; its example map is real but never creates a report.
 Drawing footers retain labels, counts, measurements, completion and validation feedback.
 The crosshair geometry picker uses one equal-width three-column row with icons above
 labels and native radios. Report obstacle has its own row on phones and portrait tablets.

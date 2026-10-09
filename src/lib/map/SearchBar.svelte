@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import SearchField from '../components/SearchField.svelte';
   import {
     createLocationSearchController,
     idleSearchState,
@@ -78,13 +79,8 @@
 <svelte:window onpointerdown={handlePointerDown} />
 
 <div class="search-bar" bind:this={field}>
-  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <circle cx="10.75" cy="10.75" r="6.75" />
-    <path d="m16 16 5 5" />
-  </svg>
-  <input
-    bind:this={input}
-    type="search"
+  <SearchField
+    bind:input
     placeholder="Search place or address"
     aria-label="Search place or address"
     role="combobox"
@@ -127,37 +123,15 @@
 </div>
 
 <style>
+  /* Layout on the map only; the field's look comes from SearchField. */
   .search-bar {
     position: relative;
-    display: flex;
     flex: 1;
-    align-items: center;
-    gap: var(--space-2);
     min-width: 0;
     max-width: var(--map-search-max);
     margin-inline-end: auto;
-    height: var(--map-control-size);
-    padding-inline: var(--map-search-padding-inline);
-    border: var(--border-strong);
-    border-radius: var(--radius-control);
-    background: var(--color-background-raised);
-    box-shadow: var(--shadow-control);
-    color: var(--color-text-secondary);
     pointer-events: auto;
   }
-  .search-bar input {
-    width: 100%;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    outline: none;
-    background: transparent;
-    color: var(--color-text-primary);
-    font-size: var(--font-size-body);
-    -webkit-text-fill-color: currentColor;
-  }
-  .search-bar input::placeholder { color: var(--color-text-secondary); opacity: var(--opacity-opaque); }
-  .search-bar:focus-within { outline: var(--border-width-emphasis) solid var(--color-focus-ring); outline-offset: var(--space-1); }
   .suggestions, .search-note {
     position: absolute;
     z-index: var(--layer-popover);

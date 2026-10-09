@@ -5,7 +5,7 @@
 
   const labels: Record<ReportStatus, string> = {
     ready: 'Ready',
-    pending: 'Pending',
+    pending: 'Sent for review',
     approved: 'Approved',
     declined: 'Declined',
   };
