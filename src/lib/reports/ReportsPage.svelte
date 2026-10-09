@@ -4,7 +4,8 @@
   import StatusTabs from './StatusTabs.svelte';
   import ReportCard from './ReportCard.svelte';
   import ReportDetailPage from './ReportDetailPage.svelte';
-  import { reports, type Report, type StatusTabKey } from './reportsData';
+  import ReportSentDialog from './ReportSentDialog.svelte';
+  import { isSent, reports, type Report, type StatusTabKey } from './reportsData';
   import DraftCard from '../drafts/DraftCard.svelte';
   import DraftDetailPage from '../drafts/DraftDetailPage.svelte';
   import { drafts } from '../drafts/mockData';
@@ -56,10 +57,16 @@
     refreshTick++;
   }
 
+  // Confirmation after a draft is sent: the new report and when sending succeeded.
+  let sentConfirmation = $state.raw<{ report: Report; at: Date } | null>(null);
+
   function draftSent() {
-    statusFilter = 'pending';
+    const sent = reports.find((report) => report.id === selectedDraft?.id);
+    if (sent) sentConfirmation = { report: sent, at: new Date() };
+    statusFilter = 'sent';
     backToList();
   }
+
 
   function toggleSelectMode() {
     selectMode = !selectMode;
@@ -129,7 +136,7 @@
   }
 
   function matchesStatus(report: Report, key: StatusTabKey): boolean {
-    if (key === 'reviewed') return report.status === 'approved' || report.status === 'declined';
+    if (key === 'sent') return isSent(report);
     return report.status === key;
   }
 
@@ -222,6 +229,10 @@
       </div>
     </main>
   {/key}
+  {#if sentConfirmation}
+    <ReportSentDialog report={sentConfirmation.report} sentAt={sentConfirmation.at}
+      onbacktoreports={() => (sentConfirmation = null)} onclose={() => (sentConfirmation = null)} />
+  {/if}
 {/if}
 
 <style>

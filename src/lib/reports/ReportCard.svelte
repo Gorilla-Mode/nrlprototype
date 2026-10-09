@@ -1,6 +1,6 @@
 <script lang="ts">
   import StatusBadge from './StatusBadge.svelte';
-  import { reportActionLabel, reportSecondaryLine, type Report } from './reportsData';
+  import { isoDate, reportActionLabel, reportActivity, reportProgressLine, type Report } from './reportsData';
   import { obstacleTypeLabel } from '../reporting/obstacle';
 
   let { report, onopen, selectMode = false, selected = false, ontoggleselect }: {
@@ -13,6 +13,7 @@
 
   // Only ready reports can be sent to the registrar, so only those are selectable.
   let selectable = $derived(report.status === 'ready');
+  let activity = $derived(reportActivity(report));
 
   function handleClick() {
     if (selectMode && selectable) ontoggleselect?.(report);
@@ -28,28 +29,30 @@
   aria-pressed={selectMode && selectable ? selected : undefined}
   onclick={handleClick}
 >
-  <div class="reports-card-top">
-    {#if selectMode && selectable}
-      <span class="reports-card-checkbox" class:checked={selected} aria-hidden="true">
-        {#if selected}
-          <svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        {/if}
-      </span>
-    {/if}
-    <span class="reports-card-name">{report.name}</span>
-    <StatusBadge status={report.status} />
-  </div>
+  <div class="reports-card-main">
+    <div class="reports-card-top">
+      {#if selectMode && selectable}
+        <span class="reports-card-checkbox" class:checked={selected} aria-hidden="true">
+          {#if selected}
+            <svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          {/if}
+        </span>
+      {/if}
+      <span class="reports-card-name">{report.name}</span>
+      <StatusBadge status={report.status} />
+    </div>
 
-  <div class="reports-card-info">
-    <span class="reports-card-type">{obstacleTypeLabel(report.obstacleType)}</span>
-    <span class="reports-card-dot" aria-hidden="true">·</span>
-    <span>{report.heightFeet} ft ({report.heightMeters} m)</span>
+    <div class="reports-card-info">
+      <span>{obstacleTypeLabel(report.obstacleType)}</span>
+      <span class="reports-card-dot" aria-hidden="true">·</span>
+      <span>{report.heightFeet} ft ({report.heightMeters} m)</span>
+    </div>
+    <div class="reports-card-step">{reportProgressLine(report)}</div>
   </div>
 
   <div class="reports-card-bottom">
-    <span class="reports-card-dates">
-      <span>Created {report.createdDate}</span>
-      <span class:reports-card-declined={report.status === 'declined'}>{reportSecondaryLine(report)}</span>
+    <span class="reports-card-meta">
+      {#if activity.date}<time datetime={isoDate(activity.date)} title={activity.date}>{activity.text}</time>{:else}{activity.text}{/if}
     </span>
     {#if !selectMode}
       <span class="reports-card-cta card-cta-link">

@@ -50,12 +50,17 @@ export function geometryCameraTarget(geometry: ReportGeometry): GeometryCameraTa
   return { lng, lat, zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)) };
 }
 
+/** "60.3913° N, 5.3221° E" for the first vertex, or null when no location is set. */
+export function coordinateLabel(geometry: ReportGeometry | null): string | null {
+  if (!geometry) return null;
+  const [lng, lat] = positions(geometry)[0];
+  return `${Math.abs(lat).toFixed(4)}° ${lat < 0 ? 'S' : 'N'}, ${Math.abs(lng).toFixed(4)}° ${lng < 0 ? 'W' : 'E'}`;
+}
+
 /** "60.3913° N, 5.3221° E · 2 vertices" from the first vertex, or "Location not set". */
 export function locationCaption(geometry: ReportGeometry | null): string {
-  if (!geometry) return 'Location not set';
-  const [lng, lat] = positions(geometry)[0];
+  const coordinates = coordinateLabel(geometry);
+  if (!coordinates) return 'Location not set';
   const count = vertexCount(geometry);
-  const latitude = `${Math.abs(lat).toFixed(4)}° ${lat < 0 ? 'S' : 'N'}`;
-  const longitude = `${Math.abs(lng).toFixed(4)}° ${lng < 0 ? 'W' : 'E'}`;
-  return `${latitude}, ${longitude} · ${count} ${count === 1 ? 'vertex' : 'vertices'}`;
+  return `${coordinates} · ${count} ${count === 1 ? 'vertex' : 'vertices'}`;
 }

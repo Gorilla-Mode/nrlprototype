@@ -4,7 +4,7 @@ import type { LineString, Point } from 'geojson';
 import { createPreviewStyle, createRasterStyle, PREVIEW_GEOMETRY_SOURCE_ID, PREVIEW_MAX_ZOOM } from '../src/lib/map/mapConfig.js';
 import { previewCamera } from '../src/lib/map/previewMap.js';
 import { matchesGeometryFilter } from '../src/lib/reports/filtering.js';
-import { geometryBounds, geometryCameraTarget, geometryKind, locationCaption, vertexCount } from '../src/lib/reports/reportGeometry.js';
+import { coordinateLabel, geometryBounds, geometryCameraTarget, geometryKind, locationCaption, vertexCount } from '../src/lib/reports/reportGeometry.js';
 import { reports } from '../src/lib/reports/reportsData.js';
 import { ObstacleType } from '../src/lib/reporting/obstacle.js';
 import { drafts } from '../src/lib/drafts/mockData.js';
@@ -85,4 +85,10 @@ test('mini map and enlarged map share one initial camera: fixed zoom for a point
   });
   const large = previewCamera(line, 1024, 700);
   assert.ok('fitBoundsOptions' in large && large.fitBoundsOptions.padding === 140);
+});
+
+test('coordinates alone, for the sent-report summary, or null without a location', () => {
+  assert.equal(coordinateLabel(line), '60.3913° N, 5.3221° E');
+  assert.equal(coordinateLabel(point), '61.0450° N, 8.7850° E');
+  assert.equal(coordinateLabel(null), null);
 });

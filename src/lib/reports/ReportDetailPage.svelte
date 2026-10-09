@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import StatusBadge from './StatusBadge.svelte';
-  import type { Report } from './reportsData';
+  import ReportSentDialog from './ReportSentDialog.svelte';
+  import { formatLongDate, type Report } from './reportsData';
   import { lightingOptions, lightingSummary, lightingValueLabel, formatToday } from '../drafts/types';
   import MiniMap from '../map/MiniMap.svelte';
   import PhotoField from './PhotoField.svelte';
@@ -35,6 +37,19 @@
     report.status = 'pending';
     report.secondaryDate = formatToday();
     editing = false;
+    // Confirmation only; the moment is read here because reports store no time of day.
+    sentAt = new Date();
+  }
+
+  let scrollArea: HTMLDivElement;
+  let sentAt: Date | null = null;
+
+  // The page always opens at its top, and returns there to show the "sent" banner.
+  onMount(() => { scrollArea.scrollTop = 0; });
+
+  function closeSentDialog() {
+    sentAt = null;
+    scrollArea.scrollTop = 0;
   }
 
   $: geometryType = geometryKind(report.geometry);
@@ -66,8 +81,14 @@
     </div>
   </header>
 
-  <div class="scroll-area">
+  <div class="scroll-area" bind:this={scrollArea}>
     <div class="safe-area">
+      {#if isPending}
+        <div class="sent-banner" role="status">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12 21 4l-6 17-3-7-9-2ZM12 14l3-3" /></svg>
+          <p><strong>Sent for review on {formatLongDate(report.secondaryDate)}.</strong> This report can no longer be edited.</p>
+        </div>
+      {/if}
       <div class="title-block">
         <h1>{report.name}</h1>
         <div class="subtitle">{#if geometryType}{geometryType} ·{' '}{/if}<strong class="type-highlight">{typeLabel}</strong> · {heightDisplay}</div>
@@ -133,7 +154,7 @@
           <div class="ready-title">Ready to send for review</div>
           <div class="ready-desc muted">Everything the reviewer needs is filled in.</div>
         {:else if isPending}
-          <div class="ready-title">Pending review</div>
+          <div class="ready-title">Sent for review</div>
           <div class="ready-desc muted">Sent to the NRL reviewer. You'll be notified about the outcome.</div>
         {:else if isApproved}
           <div class="ready-title">Approved</div>
@@ -219,30 +240,32 @@
     </div>
   </div>
 
-  <footer class="bottom-bar">
-    <div class="actions">
-      {#if isReady}
-        <button class="button" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
-        <button class="button button--primary" on:click={sendForReview}>
-          <span class="paper-plane">➤</span> Send for Review
-        </button>
-        <div class="primary-note">
-          <div class="note-strong">Goes straight to the NRL reviewer</div>
-          <div class="muted">You cannot edit the report after sending</div>
-        </div>
-      {:else if isPending}
-        <div class="pending-note">
-          <div class="note-strong">Sent for review</div>
-          <div class="muted">This report can no longer be edited</div>
-        </div>
-      {:else}
-        <div class="pending-note">
-          <div class="note-strong">{isApproved ? 'Approved' : 'Declined'} by {report.reviewer}</div>
-          <div class="muted">This report has been reviewed and closed</div>
-        </div>
-      {/if}
-    </div>
-  </footer>
+  <!-- Sent reports explain their state in the banner at the top instead. -->
+  {#if !isPending}
+    <footer class="bottom-bar">
+      <div class="actions">
+        {#if isReady}
+          <button class="button" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
+          <button class="button button--primary" on:click={sendForReview}>
+            <span class="paper-plane">➤</span> Send for Review
+          </button>
+          <div class="primary-note">
+            <div class="note-strong">Goes straight to the NRL reviewer</div>
+            <div class="muted">You cannot edit the report after sending</div>
+          </div>
+        {:else}
+          <div class="pending-note">
+            <div class="note-strong">{isApproved ? 'Approved' : 'Declined'} by {report.reviewer}</div>
+            <div class="muted">This report has been reviewed and closed</div>
+          </div>
+        {/if}
+      </div>
+    </footer>
+  {/if}
+
+  {#if sentAt}
+    <ReportSentDialog {report} {sentAt} onbacktoreports={onback} onclose={closeSentDialog} />
+  {/if}
 </section>
 
 <style>
@@ -254,6 +277,10 @@
 
   .top-bar { flex-shrink: 0; background: var(--color-background-raised); padding-top: var(--safe-area-top); }
 
+  .sent-banner { display:flex; align-items:flex-start; gap:var(--space-3); margin-bottom:var(--space-5); padding:var(--space-3) var(--space-4); border:var(--border-default); border-left:var(--border-width-emphasis) solid var(--color-status-info); border-radius:var(--radius-control); background:var(--color-status-info-surface); color:var(--color-text-primary) }
+  .sent-banner svg { flex:none; width:var(--icon-size-default); height:var(--icon-size-default); margin-top:var(--space-1); color:var(--color-status-info); stroke:currentColor; stroke-width:var(--icon-stroke-width); stroke-linecap:round; stroke-linejoin:round }
+  .sent-banner p { margin:0; font-size:var(--font-size-body); line-height:var(--line-height-body) }
+  .sent-banner strong { font-weight:var(--font-weight-semibold) }
   .title-block { margin-bottom: var(--space-6) }
   h1 { margin:0 0 var(--space-1); font-size:var(--reports-title-size); font-weight:var(--font-weight-semibold); letter-spacing:var(--faq-title-tracking); line-height:var(--line-height-tight); color:var(--color-text-primary) }
   .subtitle { color:var(--color-text-secondary); font-size:var(--font-size-body-small) }

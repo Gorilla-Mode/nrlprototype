@@ -1065,7 +1065,7 @@ button {
 /* Search, Filter and Select share one control height so they line up. Filter and Select
    are secondary: raised surface, thin border, smaller text. */
 .reports-toolbar { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-5); flex-wrap: wrap; }
-.reports-search { flex: 1; min-width: 12rem; min-height: var(--control-height-default); }
+.reports-search { flex: 1; min-width: 12rem; }
 .reports-tool-button { flex: none; min-height: var(--control-height-default); font-size: var(--font-size-body-small); font-weight: var(--font-weight-medium); }
 .reports-tool-button:not(.button--primary) { background: var(--color-background-raised); }
 .reports-tool-button svg { flex: none; width: var(--icon-size-default); height: var(--icon-size-default); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
@@ -1080,6 +1080,8 @@ button {
 .reports-content { width: 100%; max-width: var(--layout-content-max); margin-inline: auto; padding: var(--faq-content-top) var(--map-control-inset-right) max(var(--faq-content-bottom), var(--safe-area-bottom)) var(--map-control-inset-left); overflow-wrap: anywhere; }
 
 /* One column by default (mobile); two from 600px, three from 1100px. */
+/* Every card has the same three lines, so equal rows add no gaps; they keep the footer
+   rules aligned across rows even when a long title wraps. */
 .reports-card-grid { display: grid; grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: var(--space-5); }
 @media (min-width: 37.5rem) {
   .reports-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1099,33 +1101,42 @@ button {
   .reports-status-tab { flex: none; }
 }
 
-.reports-card { display: flex; flex-direction: column; gap: var(--space-3); width: 100%; text-align: left; padding: var(--card-padding-block) var(--card-padding-inline); border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); box-shadow: var(--shadow-surface); color: var(--color-text-primary); cursor: pointer; }
+.reports-card { display: flex; flex-direction: column; width: 100%; padding: 0; overflow: hidden; text-align: left; border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); box-shadow: var(--shadow-surface); color: var(--color-text-primary); cursor: pointer; }
 .reports-card:hover { background: var(--color-map-control-hover); }
 .reports-card:active { background: var(--color-background-subtle); transform: scale(var(--scale-control-active)); }
+.reports-card:focus-visible { outline-offset: var(--space-1); }
+/* Two zones: what the report is on top, its latest activity and action below a faint rule.
+   The main zone takes any spare height, so the bottom zone lines up across a row. */
+.reports-card-main { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--card-padding-block) var(--card-padding-inline) var(--space-4); }
 .reports-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
 .reports-card-name { flex: 1; min-width: 0; font-size: var(--font-size-heading-small); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); overflow-wrap: anywhere; }
-.reports-card-info { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-size-body); color: var(--color-text-primary); }
-.reports-card-type { font-weight: var(--font-weight-semibold); }
+.reports-card-info { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: var(--font-size-body); color: var(--color-text-secondary); }
+.reports-card-step { font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
 .reports-card-dot { color: var(--color-border-default); }
-/* The CTA keeps the bottom-right corner in every card: the date column shrinks and
-   wraps its own text rather than pushing the CTA onto a line of its own. */
-.reports-card-bottom { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); }
-.reports-card-dates { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
-.reports-card-declined { color: var(--color-status-error); }
+.reports-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) var(--card-padding-inline); border-top: var(--border-default); }
+.reports-card-meta { flex: 1; min-width: 0; font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
 /* Shared "button with arrow" pattern: a text action paired with a trailing
    chevron (report/draft card CTAs). The icon is sized in em so it always
    tracks the current font size exactly. */
-.card-cta-link { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-action-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+.card-cta-link { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-action-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); }
 .card-cta-link svg { flex: none; width: 1em; height: 1em; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 
 .reports-card-cta { flex: none; margin-left: auto; }
 
 .reports-status-badge { flex: none; display: inline-flex; align-items: center; min-height: var(--space-6); padding-inline: var(--space-3); border-radius: var(--radius-small); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); }
 .reports-status-badge[data-status='ready'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
-.reports-status-badge[data-status='pending'] { background: var(--color-status-warning-surface); color: var(--color-status-warning); }
+/* Shown as "Sent for review": a neutral blue, not a warning. */
+.reports-status-badge[data-status='pending'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
 .reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
 .reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
 .reports-status-badge[data-status='draft'] { background: var(--color-background-subtle); color: var(--color-text-secondary); }
+/* In list cards the title is the only bold text and each status has a fixed colour: Ready
+   turns green, "Sent for review" is a neutral blue. Detail pages keep the shared badge. */
+.reports-card .reports-status-badge { font-weight: var(--font-weight-medium); }
+.reports-card .reports-status-badge[data-status='ready'],
+.reports-card .reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
+.reports-card .reports-status-badge[data-status='pending'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
+.reports-card .reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
 
 /* Notifications: report-status updates in a single reading column sized from the
    portrait-iPad mockup. Status dots repeat the status text colour and never stand

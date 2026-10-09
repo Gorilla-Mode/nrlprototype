@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { isReportsHash, reportsRoute } from '../src/lib/reports/reports.js';
 import { settingsSectionFromHash } from '../src/lib/settings/settings.js';
-import { countForStatusTab, reportActionLabel, reportSecondaryLine, reports } from '../src/lib/reports/reportsData.js';
+import { countForStatusTab, formatLongDate, formatSentAt, isSent, isoDate, relativeDate, reportActionLabel, reportActivity, reportProgressLine, reportSecondaryLine, reports, statusTabs } from '../src/lib/reports/reportsData.js';
 import { drafts } from '../src/lib/drafts/mockData.js';
 import { lightingOptions, lightingSummary, lightingValueLabel, missingDraftFields } from '../src/lib/drafts/types.js';
 import { PHOTO_MAX_EDGE, scaledSize } from '../src/lib/reports/photos.js';
@@ -17,16 +17,20 @@ test('the Reports route resolves only for its own hash and never collides with S
   assert.equal(settingsSectionFromHash(reportsRoute), null);
 });
 
-test('status tab counts are derived from the report data, with Reviewed combining approved and declined', () => {
+test('status tab counts are derived from the report data, with Sent covering everything already sent', () => {
+  assert.deepEqual(statusTabs.map((tab) => tab.label), ['All', 'Drafts', 'Ready to send', 'Sent']);
   assert.equal(reports.length, 10);
   assert.equal(countForStatusTab(reports, 'all'), 10);
   assert.equal(countForStatusTab(reports, 'ready'), 4);
-  assert.equal(countForStatusTab(reports, 'pending'), 3);
-  assert.equal(countForStatusTab(reports, 'reviewed'), 3);
-  assert.equal(
-    countForStatusTab(reports, 'ready') + countForStatusTab(reports, 'pending') + countForStatusTab(reports, 'reviewed'),
-    countForStatusTab(reports, 'all'),
-  );
+  assert.equal(countForStatusTab(reports, 'sent'), 6);
+  assert.equal(countForStatusTab(reports, 'ready') + countForStatusTab(reports, 'sent'), countForStatusTab(reports, 'all'));
+  for (const report of reports) assert.equal(isSent(report), report.status !== 'ready');
+});
+
+test('sent dates read as full dates, with the time of sending in the confirmation', () => {
+  assert.equal(formatLongDate('14.10.2024'), '14 October 2024');
+  assert.equal(formatLongDate(undefined), '');
+  assert.equal(formatSentAt(new Date(2026, 9, 9, 14, 32)), '9 Oct 2026, 14:32');
 });
 
 test('each report card follows the status rules for its second line and action label', () => {
@@ -89,4 +93,38 @@ test('photos are optional: every item starts with a photo list, and photos never
   const ready = { ...drafts[1], heightAboveGround: '95 ft (29 m)' };
   assert.deepEqual(missingDraftFields({ ...ready, photos: [] }), []);
   assert.deepEqual(missingDraftFields({ ...ready, photos: [photo] }), []);
+});
+
+test('cards show relative edit times, keeping the exact date available', () => {
+  const now = new Date(2026, 9, 9, 15, 30);
+  assert.equal(relativeDate('09.10.2026', now), 'today');
+  assert.equal(relativeDate('08.10.2026', now), 'yesterday');
+  assert.equal(relativeDate('06.10.2026', now), '3 days ago');
+  assert.equal(relativeDate('25.09.2026', now), '2 weeks ago');
+  assert.equal(relativeDate('09.07.2026', now), '3 months ago');
+  assert.equal(relativeDate('14.10.2024', now), '2 years ago');
+  assert.equal(relativeDate('not a date', now), 'not a date');
+  assert.equal(isoDate('14.10.2024'), '2024-10-14');
+  assert.equal(isoDate(undefined), undefined);
+});
+
+test('each card shows one activity line: edited or sent with relative time, or the reviewer', () => {
+  const now = new Date(2026, 9, 9);
+  for (const report of reports) {
+    const activity = reportActivity(report, now);
+    if (report.status === 'ready') assert.deepEqual(activity, { text: `Edited ${relativeDate(report.secondaryDate!, now)}`, date: report.secondaryDate });
+    else if (report.status === 'pending') assert.deepEqual(activity, { text: `Sent ${relativeDate(report.secondaryDate!, now)}`, date: report.secondaryDate });
+    else assert.deepEqual(activity, { text: `Reviewer ${report.reviewer}` });
+    assert.doesNotMatch(activity.text, /Created/);
+  }
+});
+
+test('every report card gets a third line for its status, like a draft step line', () => {
+  const lines = Object.fromEntries(reports.map((report) => [report.status, reportProgressLine(report)]));
+  assert.deepEqual(lines, {
+    ready: 'All steps complete',
+    pending: 'Awaiting review by Kartverket',
+    approved: 'Added to the register',
+    declined: 'Not added to the register',
+  });
 });

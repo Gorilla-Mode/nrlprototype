@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SearchField from '../components/SearchField.svelte';
   import FilterPanel from './FilterPanel.svelte';
   import type { GeometryKey, HeightFilterKey } from './filtering';
 
@@ -26,9 +27,8 @@
 </script>
 
 <div class="reports-header-row reports-toolbar">
-  <div class="faq-search reports-search">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.75" cy="10.75" r="6.75" /><path d="m16 16 5 5" /></svg>
-    <input type="search" placeholder="Search obstacle name or type" aria-label="Search obstacle name or type" bind:value={query} />
+  <div class="reports-search">
+    <SearchField placeholder="Search obstacle name or type" aria-label="Search obstacle name or type" bind:value={query} />
   </div>
 
   <div class="reports-filter-wrap">
