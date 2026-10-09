@@ -2,20 +2,20 @@
   import MapButton from './MapButton.svelte';
   import DrawingToolbar from './DrawingToolbar.svelte';
   import SearchBar from './SearchBar.svelte';
-  import type { PlacementEditingVariantId } from './placementEditing';
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { LocationSuggestion } from './locationSearch';
   import type { ObstacleGeometryType } from '../reporting/obstacle';
+  import type { CrosshairDrawingState } from './createMapDrawingInteraction';
 
-  let { placementEditing = 'default', drawing, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), selectionControlsCovered = false, showSelectionControls = true, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, onhelp, helpOpen, showHelp = false, menuOpen }: {
+  let { drawing, crosshairState, onedit, onplace, oncanceledit, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), selectionControlsCovered = false, showSelectionControls = true, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, menuOpen }: {
     onmenu: () => void;
     onreports: () => void;
-    onhelp: () => void;
-    helpOpen: boolean;
-    showHelp?: boolean;
     menuOpen: boolean;
-    placementEditing?: PlacementEditingVariantId;
     drawing: DrawingState;
+    crosshairState?: CrosshairDrawingState;
+    onedit?: () => void;
+    onplace?: () => void;
+    oncanceledit?: () => void;
     crosshairMode: boolean;
     geometryType?: ObstacleGeometryType;
     selectionControlsCovered?: boolean;
@@ -48,19 +48,10 @@
   </MapButton>
 </div>
 
-{#if showHelp}
-  <button class="map-help" type="button" aria-haspopup="dialog" aria-expanded={helpOpen} aria-controls="map-tutorial" onclick={onhelp}>
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M8 8a4 4 0 0 1 8 0c0 3-4 3-4 6M12 18v1" />
-    </svg>
-    <span>Help</span>
-  </button>
-{/if}
-
 {#if showSelectionControls}
 <div class:covered={selectionControlsCovered} inert={selectionControlsCovered}>
-  <DrawingToolbar state={drawing} {placementEditing} {crosshairMode} bind:geometryType {onstart} {onaddpoint}
-    {onundo} {ondelete} {oncomplete} {onresumedetails} helpVisible={showHelp} />
+  <DrawingToolbar state={drawing} {crosshairState} {onedit} {onplace} {oncanceledit} {crosshairMode} bind:geometryType {onstart} {onaddpoint}
+    {onundo} {ondelete} {oncomplete} {onresumedetails} />
 </div>
 {/if}
 
@@ -80,36 +71,4 @@
     pointer-events: none;
   }
 
-  .map-help {
-    position: absolute;
-    z-index: var(--layer-map-overlay);
-    right: var(--map-control-inset-right);
-    bottom: var(--map-help-inset-bottom);
-    width: var(--map-help-size);
-    height: var(--map-help-size);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
-    padding: var(--space-2);
-    border: var(--border-width-default) solid var(--color-action-secondary);
-    border-radius: var(--radius-round);
-    background: var(--color-action-secondary);
-    color: var(--color-text-inverse);
-    box-shadow: var(--shadow-control);
-    font-size: var(--font-size-body);
-    font-weight: var(--font-weight-semibold);
-    cursor: pointer;
-  }
-  .map-help:hover { background: var(--color-action-secondary-hover); }
-  .map-help:active { background: var(--color-action-secondary-hover); transform: scale(var(--scale-control-active)); }
-  .map-help svg {
-    width: var(--icon-size-large);
-    height: var(--icon-size-large);
-    stroke: currentColor;
-    stroke-width: var(--icon-stroke-width);
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
 </style>

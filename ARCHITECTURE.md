@@ -30,6 +30,12 @@ mode does not save its midpoint as an ordinary circle. Circle-only correction ca
 restores the prior circle. The error-report form keeps its own answers and the existing
 prototype completion handler.
 
+`radialMenu.ts` defines the shared 96 px inner and 154 px outer radii for geometry and
+error-report menus and placed circles. Hover and release exclude the inclusive inner
+boundary; circle matching and correction bottom clearance use the outer radius.
+Position correction retains a separate 56 px centre grab radius, leaving touches
+outside that target available for map navigation.
+
 ## Navigation and map lifecycle
 
 Routing uses browser history and hashes without a routing dependency. A hidden HomeMap
@@ -55,8 +61,10 @@ reporting parameter is missing or invalid. Explicit `reporting` overrides requir
 `debug=1`, which also exposes the menu selector. It offers `one-step-keypad`,
 `one-step` (“One step — scrolling”), `two-step` and `two-step-keypad`.
 Combine query parameters with `&` before any route hash.
-The map Help button appears only with both `debug=1` and `help=1`; enabling it does not
-open the tutorial automatically. Other `help` values leave the button hidden.
+How to Report an Obstacle is a public page at `#/Help/ReportObstacle`, reachable from
+Menu, FAQ drawing instructions and Settings support. It uses the normal history, page
+focus and inert-map lifecycle and describes the active placement variant. Legacy `help`
+parameters are ignored and do not affect map layout.
 Changing the debug selector replaces the current URL and reloads the application,
 clearing the drawing, draft, map view and other session state. Selecting the current
 variant does nothing. The URL keeps its deployment path, unrelated query parameters
@@ -93,7 +101,7 @@ unrelated parameters, deployment paths and hashes. Changes replace the URL and r
 selecting the current choice does nothing. The value passes through App → HomeMap →
 MapCanvas → createMapController and remains fixed for that map instance.
 
-Default placement retains hold/drag/release and immediate Point completion. All three
+Default pointer placement retains hold/drag/release and immediate Point completion. All three
 editing variants allow placed vertices to move while drawing, including crosshair
 geometry. Only Basic defers Point completion: its single vertex cannot be appended;
 Complete opens the existing report form once. Completing locks every geometry. Editing
@@ -103,25 +111,64 @@ The drawing controller replaces coordinates immutably, validates and measures du
 moves, and allows invalid intermediate geometry while disabling Complete. Each changed,
 committed move adds one Undo entry; additions and moves undo in chronological order.
 Cancelled or unchanged moves add none. Undo never removes the initial vertex.
-`createVertexEditingInteraction` resolves nearest projected vertices within a 44 px
-minimum target, with vertex-order ties. Basic and Persistent activate after 200 ms;
-movement beyond 8 px before activation remains navigation. Two-finger activates vertex
-editing immediately. Moves preserve grab offset, stop camera movement, suppress conflicting
+
+Crosshair editing is available in every placement variant while geometry is unfinished.
+`createMapDrawingInteraction` owns typed candidate/target/editing state and begin/place/cancel
+commands, forwarded through controller, canvas and toolbar. Nearest targeting compares projected
+CSS-pixel distances from the rendered canvas midpoint without a threshold; ties favour vertex
+order. Camera movement and resize refresh the candidate while an edit locks its target index.
+Begin and Place stop the camera and sample again. Begin opens a drawing move transaction;
+only Place updates its vertex and commits. Cancel, Escape, crosshair off, hidden maps, blur,
+Delete and teardown discard the transaction. Normal mode permits these controller transactions
+but keeps pointer vertex dragging disabled. Crosshair mode disables pointer and handle editing
+in every variant while preserving map navigation. Undo and Complete are unavailable during an
+edit, while invalid committed moves use ordinary validation. Basic Point uses the same workflow
+without Add point; other Point variants still complete immediately.
+
+`createDrawingDisplay` retains committed geometry in its original source and renders candidate
+points, dashed affected edges with white casing offset to each side of the path, target
+connector and ring in a separate source. Adding previews the last-to-candidate edge and
+polygon candidate-to-first
+closure once two vertices exist. Editing
+previews only adjacent vertices, deduplicating incomplete polygon neighbors. It adds no preview
+fill. During editing the locked-origin ring stays in place and a movement shaft and head
+replace the nearest connector. Projection/unprojection constructs the head in CSS pixels,
+ending at the candidate marker's outer edge and shrinking or hiding for short moves.
+Display move/resize listeners refresh this geometry even if candidate coordinates do not
+change, including camera zoom, rotation and pitch. Source/layer IDs live in `mapConfig.ts`,
+with paint and arrow dimensions resolved from semantic CSS tokens.
+Buffered geometry and previews retry on style data/render events until the style is ready;
+success stops retries so source updates cannot cause perpetual redraws. Style reloads restore
+both sources, and teardown removes layers, sources and listeners.
+
+`createVertexEditingInteraction` resolves nearest projected vertices within CSS-resolved
+semantic target diameters: 72 px for touch and 44 px for mouse/pen, with vertex-order ties.
+Basic and Persistent activate after 100 ms for touch or 200 ms for mouse/pen; movement
+beyond 8 px before activation remains navigation. Two-finger activates vertex editing
+immediately. Moves preserve grab offset, stop camera movement, suppress conflicting
 gestures and restore their original enabled states. Cancellation restores coordinates.
 Pointer cancellation, lost capture, second touch, blur, hidden maps, resize, mode changes,
 Delete and teardown cancel gestures. Typed projected handles expose keyboard editing.
 
-Persistent donut ignores its opening release. Subsequent center drags beyond 8 px move
-its screen and geographic center together, leaving the map stationary and the donut open.
-Center taps cancel; sector and outside taps use the existing angle selection. Keyboard
-arrows move the center and labeled geometry buttons select its placement.
+Persistent donut supports hover and angle-based geometry selection during its opening
+hold. Opening release within the shared 96 px center radius (boundary included) keeps it open.
+Subsequent presses beginning in the center pan the map after movement exceeds 8 px:
+the full accumulated displacement is applied at activation, then incremental deltas,
+including the final release position. The donut stays fixed and drag releases cannot
+select geometry. Later center taps cancel; sector and outside taps use angle selection.
+A focusable donut wrapper forwards `panPersistentMap(dx, dy)` for keyboard arrows to pan
+map content by 16 CSS px in the arrow direction, or 64 with Shift; 1/2/3 choose geometry
+at the updated coordinate, and Escape cancels. There are no separate geometry buttons,
+center button or tutorial panels.
 Two-finger placement keeps ordinary hold/release selection, but adding a second touch to
 an open donut pans the map using touch-centroid deltas and MapLibre `panBy` without
 animation. Zoom, bearing and pitch stay unchanged, and placement is sampled under the
-fixed donut center. Controller-driven camera events bypass ordinary hold cancellation.
-Selection is suspended until the second finger lifts. Lifting the original finger first
-cancels. Normal pinch and pan remain available outside this gesture. Error reporting and
-registered-obstacle position correction retain their existing gesture paths.
+fixed donut center. Persistent center drags and keyboard pans share this nonanimated
+`panBy([-dx, -dy])` path and resample placement after each pan. Camera events bypass
+ordinary hold cancellation only during controller-owned panning.
+Two-finger selection is suspended until the second finger lifts. Lifting the original
+finger first cancels. Normal pinch and pan remain available outside this gesture. Error
+reporting and registered-obstacle position correction retain their existing gesture paths.
 
 ## External data and geolocation
 

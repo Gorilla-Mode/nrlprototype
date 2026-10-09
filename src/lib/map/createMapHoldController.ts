@@ -1,3 +1,5 @@
+import { defaultRadialMenuRadii } from '../radial-menu/radialMenu.js';
+
 export interface HoldOrigin {
   x: number;
   y: number;
@@ -18,8 +20,8 @@ interface MapHoldOptions {
   /** Opt-in obstacle placement variants; error-report callers leave these off. */
   persistent?: () => boolean;
   twoFinger?: () => boolean;
-  onCenterMove?: (origin: HoldOrigin) => void;
-  onTwoFingerPan?: (dx: number, dy: number) => void;
+  /** Map content displacement in CSS pixels beneath the fixed menu. */
+  onMapPan?: (dx: number, dy: number) => void;
   holdDelay?: number;
   /** Per-press delay, e.g. 0 to open at once on a target; falls back to `holdDelay`. */
   holdDelayAt?: (origin: HoldOrigin) => number | undefined;
@@ -37,8 +39,7 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
   onRelease,
   persistent = () => false,
   twoFinger = () => false,
-  onCenterMove,
-  onTwoFingerPan,
+  onMapPan,
   holdDelay = 200,
   holdDelayAt,
   movementTolerance = 8,
@@ -51,6 +52,7 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
   let opening = false;
   let centerPress = false;
   let centerDragged = false;
+  let panOffset: HoldOrigin = { x: 0, y: 0 };
   const touches = new Map<number, HoldOrigin>();
   let centroid: HoldOrigin | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -94,7 +96,8 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
     const rect = canvas.getBoundingClientRect();
     opening = !open;
     centerDragged = false;
-    centerPress = open && !!center && Math.hypot(event.clientX - rect.left - center.x, event.clientY - rect.top - center.y) < 46;
+    panOffset = { x: 0, y: 0 };
+    centerPress = open && !!center && Math.hypot(event.clientX - rect.left - center.x, event.clientY - rect.top - center.y) <= defaultRadialMenuRadii.innerRadius;
     press = {
       id: event.pointerId,
       clientX: event.clientX,
@@ -131,12 +134,24 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
       y: values.reduce((sum, value) => sum + value.y, 0) / values.length };
   }
 
+  function panFromCenter(clientX: number, clientY: number) {
+    if (!press) return;
+    const x = clientX - press.clientX;
+    const y = clientY - press.clientY;
+    if (Math.hypot(x, y) > movementTolerance) centerDragged = true;
+    if (!centerDragged) return;
+    const dx = x - panOffset.x;
+    const dy = y - panOffset.y;
+    panOffset = { x, y };
+    if (dx !== 0 || dy !== 0) onMapPan?.(dx, dy);
+  }
+
   function handlePointerMove(event: PointerEvent) {
     if (touches.has(event.pointerId)) touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (centroid) {
       if (event.buttons === 0) { cancel(); return; }
       const next = touchCentroid();
-      onTwoFingerPan?.(next.x - centroid.x, next.y - centroid.y);
+      onMapPan?.(next.x - centroid.x, next.y - centroid.y);
       centroid = next;
       return;
     }
@@ -145,14 +160,8 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
       cancel();
     } else if (open) {
       if (persistent() && !opening && centerPress) {
-        const dx = event.clientX - press.clientX;
-        const dy = event.clientY - press.clientY;
-        if (Math.hypot(dx, dy) > movementTolerance) centerDragged = true;
-        if (centerDragged) {
-          center = { x: press.origin.x + dx, y: press.origin.y + dy };
-          onCenterMove?.(center);
-        }
-      } else if (!persistent() || !opening) {
+        panFromCenter(event.clientX, event.clientY);
+      } else {
         const rect = canvas.getBoundingClientRect();
         onMove?.(event.clientX - rect.left - press.origin.x, event.clientY - rect.top - press.origin.y);
       }
@@ -179,20 +188,19 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left - press.origin.x;
     const y = event.clientY - rect.top - press.origin.y;
-    if (release && persistent() && !opening && centerPress &&
-      (centerDragged || Math.hypot(event.clientX - press.clientX, event.clientY - press.clientY) > movementTolerance)) {
-      centerDragged = true;
-      center = { x: press.origin.x + event.clientX - press.clientX, y: press.origin.y + event.clientY - press.clientY };
-      onCenterMove?.(center);
+    if (release && persistent() && !opening && centerPress) {
+      panFromCenter(event.clientX, event.clientY);
     }
-    if (release && persistent() && (opening || (centerPress && centerDragged))) {
+    if (release && persistent() && ((opening && Math.hypot(x, y) <= defaultRadialMenuRadii.innerRadius) || (!opening && centerPress && centerDragged))) {
       const id = press.id;
       press = undefined;
       if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
+      onMove?.(0, 0);
       return;
     }
+    const centerTap = persistent() && !opening && centerPress;
     cancel();
-    if (release) onRelease?.(x, y);
+    if (release && !centerTap) onRelease?.(x, y);
   }
 
   function handleLostCapture(event: PointerEvent) {
@@ -251,10 +259,9 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
 
   return {
     cancel,
-    moveCenter(origin: HoldOrigin) {
+    panMap(dx: number, dy: number) {
       if (!open || !persistent() || press) return;
-      center = { ...origin };
-      onCenterMove?.(center);
+      onMapPan?.(dx, dy);
     },
     destroy() {
       if (destroyed) return;

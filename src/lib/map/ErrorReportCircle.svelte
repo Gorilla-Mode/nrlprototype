@@ -1,14 +1,15 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
+  import { defaultRadialMenuRadii } from '../radial-menu/radialMenu';
   import MoveIcon from '../icons/MoveIcon.svelte';
   import type { ScreenPoint } from '../obstacles/registeredObstacles';
 
-  let { center, innerRadius, outerRadius, icon, onmove, handle = null }: {
+  let { center, innerRadius = defaultRadialMenuRadii.innerRadius, outerRadius = defaultRadialMenuRadii.outerRadius, icon, onmove, handle = null }: {
     /** Circle centre in map-container pixels. */
     center: ScreenPoint;
-    innerRadius: number;
-    outerRadius: number;
+    innerRadius?: number;
+    outerRadius?: number;
     icon: Snippet;
     onmove: (x: number, y: number) => void;
     /**

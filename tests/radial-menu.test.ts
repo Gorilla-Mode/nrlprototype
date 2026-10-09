@@ -6,7 +6,8 @@ import { pathToFileURL } from 'node:url';
 import { createRawSnippet, type Component } from 'svelte';
 import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
-import { createRadialSegments, getHoveredRadialSegment, type RadialMenuProps } from '../src/lib/radial-menu/radialMenu.js';
+import { compileSvelteComponent } from './helpers/svelte-server.js';
+import { createRadialSegments, defaultRadialMenuRadii, getHoveredRadialSegment, type RadialMenuProps } from '../src/lib/radial-menu/radialMenu.js';
 
 const filename = pathToFileURL(resolve('src/lib/radial-menu/RadialMenu.svelte'));
 const source = await readFile(filename, 'utf8');
@@ -15,9 +16,43 @@ for (const specifier of ['svelte/internal/server', 'svelte/internal/flags/legacy
   code = code.replaceAll(`'${specifier}'`, JSON.stringify(import.meta.resolve(specifier)));
 }
 code = code.replaceAll("'./radialMenu'", JSON.stringify(new URL('../src/lib/radial-menu/radialMenu.js', import.meta.url).href));
-const { default: RadialMenu } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`) as {
+const radialMenuModule = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+const { default: RadialMenu } = await import(radialMenuModule) as {
   default: Component<RadialMenuProps>;
 };
+
+const circleModule = await compileSvelteComponent('src/lib/map/ErrorReportCircle.svelte', {
+  '../radial-menu/RadialMenu.svelte': radialMenuModule,
+  '../radial-menu/radialMenu': new URL('../src/lib/radial-menu/radialMenu.js', import.meta.url).href,
+  '../icons/MoveIcon.svelte': await compileSvelteComponent('src/lib/icons/MoveIcon.svelte'),
+});
+const { default: ErrorReportCircle } = await import(circleModule) as {
+  default: Component<{
+    center: { x: number; y: number };
+    icon: RadialMenuProps['items'][number]['icon'];
+    onmove: (x: number, y: number) => void;
+    innerRadius?: number;
+    outerRadius?: number;
+    handle?: { dragging: boolean };
+  }>;
+};
+
+test('placed error and position circles share menu defaults and retain explicit radius overrides', () => {
+  for (const handle of [undefined, { dragging: false }, { dragging: true }]) {
+    for (const radii of [{}, { innerRadius: 60, outerRadius: 140 }]) {
+      const { body } = render(ErrorReportCircle, { props: {
+        center: { x: 200, y: 300 },
+        icon: createRawSnippet(() => ({ render: () => '<path d="M0 0L24 24" />' })),
+        onmove: () => {}, handle, ...radii,
+      } });
+      const inner = radii.innerRadius ?? 96;
+      const outer = (radii.outerRadius ?? 154) + (handle?.dragging ? 12 : 0);
+      assert.ok(body.includes(`A ${inner} ${inner}`));
+      assert.ok(body.includes(`A ${outer} ${outer}`));
+      if (handle) assert.ok(body.includes(`calc(50% - ${(inner + (radii.outerRadius ?? 154)) / 2}px)`));
+    }
+  }
+});
 
 for (const count of [1, 3, 6]) {
   test(`renders ${count} independently supplied items, including icons and labels`, () => {
@@ -34,7 +69,9 @@ for (const count of [1, 3, 6]) {
       assert.ok(body.includes(`fill="${item.color}"`));
       assert.ok(body.includes(`data-icon="${index}"`));
     }
-    assert.match(body, /width="250" height="250"/);
+    assert.match(body, /width="334" height="334"/);
+    assert.match(body, /A 96 96/);
+    assert.match(body, /A 154 154/);
     assert.match(body, /role="img" aria-label="Radial menu preview:/);
     assert.doesNotMatch(body, /<button|tabindex|role="menuitem"/);
     assert.doesNotMatch(body, /NaN|Infinity/);
@@ -48,6 +85,7 @@ test('empty items render nothing and radii are configurable', () => {
   assert.match(body, /width="306" height="306"/);
   assert.match(body, /viewBox="-153 -153 306 306"/);
   assert.match(body, /A 60 60/);
+  assert.match(body, /A 140 140/);
 });
 
 test('code luma variable darkens the item color with the configured 40% black mix', () => {
@@ -74,7 +112,7 @@ for (const radii of radiusCases) {
       id: `item-${index}`, label: `Choice ${index}`, color: 'var(--color-radial-point)',
       icon: createRawSnippet(() => ({ render: () => '<circle r="8" />' })),
     }));
-    const pointers = [null, { x: 0, y: -79 }, { x: 68, y: 39 }, { x: -68, y: 39 }];
+    const pointers = [null, { x: 0, y: -125 }, { x: 108, y: 63 }, { x: -108, y: 63 }];
     let initialViewport: string | undefined;
     for (const pointer of pointers) {
       const { body } = render(RadialMenu, { props: { items, ...radii, pointer } });
@@ -92,7 +130,7 @@ for (const radii of radiusCases) {
         assert.ok(Number(arc[2]) + 0.4 < height / 2, 'arc and half its stroke fit vertically');
       }
       if (pointer) {
-        const expandedRadius = (radii.outerRadius ?? 112) + (radii.hoverExpansion ?? 12);
+        const expandedRadius = (radii.outerRadius ?? defaultRadialMenuRadii.outerRadius) + (radii.hoverExpansion ?? 12);
         assert.ok(body.includes(`A ${expandedRadius} ${expandedRadius}`));
         assert.equal((body.match(/is-hovered/g) ?? []).length, 1);
       }
@@ -101,56 +139,56 @@ for (const radii of radiusCases) {
 }
 
 test('three item centers are evenly spaced with point above, line right, and polygon left', () => {
-  const segments = createRadialSegments(3, 46, 112);
+  const segments = createRadialSegments(3, defaultRadialMenuRadii.innerRadius, defaultRadialMenuRadii.outerRadius);
   assert.ok(Math.abs(segments[0].x) < 1e-10);
-  assert.equal(segments[0].y, -79);
+  assert.equal(segments[0].y, -125);
   assert.ok(segments[1].x > 0 && segments[1].y > 0);
   assert.ok(segments[2].x < 0 && segments[2].y > 0);
   for (const segment of segments) {
-    assert.ok(Math.abs(Math.hypot(segment.x, segment.y) - 79) < 1e-10);
-    assert.match(segment.path, /A 46 46/);
-    assert.match(segment.path, /A 112 112/);
+    assert.ok(Math.abs(Math.hypot(segment.x, segment.y) - 125) < 1e-10);
+    assert.match(segment.path, /A 96 96/);
+    assert.match(segment.path, /A 154 154/);
   }
 });
 
 test('one item uses full circles around the safe zone; invalid radii fail clearly', () => {
-  const [segment] = createRadialSegments(1, 46, 112);
-  assert.equal((segment.path.match(/A 112 112/g) ?? []).length, 2);
-  assert.equal((segment.path.match(/A 46 46/g) ?? []).length, 2);
+  const [segment] = createRadialSegments(1, defaultRadialMenuRadii.innerRadius, defaultRadialMenuRadii.outerRadius);
+  assert.equal((segment.path.match(/A 154 154/g) ?? []).length, 2);
+  assert.equal((segment.path.match(/A 96 96/g) ?? []).length, 2);
   for (const [inner, outer] of [[0, 112], [112, 46], [46, NaN]]) {
     assert.throws(() => createRadialSegments(3, inner, outer), RangeError);
   }
 });
 
 test('hover follows the displayed sectors for one, three, and six items', () => {
-  const hover = (x: number, y: number, count: number) => getHoveredRadialSegment({ x, y }, count, 46);
-  assert.equal(hover(79, 0, 1), 0);
-  assert.equal(hover(-79, 0, 1), 0);
-  for (const [index, [x, y]] of [[0, -79], [68, 39], [-68, 39]].entries()) {
+  const hover = (x: number, y: number, count: number) => getHoveredRadialSegment({ x, y }, count, defaultRadialMenuRadii.innerRadius);
+  assert.equal(hover(125, 0, 1), 0);
+  assert.equal(hover(-125, 0, 1), 0);
+  for (const [index, [x, y]] of [[0, -125], [108, 63], [-108, 63]].entries()) {
     assert.equal(hover(x, y, 3), index);
   }
-  for (const [index, [x, y]] of [[0, -79], [68, -39], [68, 39], [0, 79], [-68, 39], [-68, -39]].entries()) {
+  for (const [index, [x, y]] of [[0, -125], [108, -63], [108, 63], [0, 125], [-108, 63], [-108, -63]].entries()) {
     assert.equal(hover(x, y, 6), index);
   }
-  assert.equal(hover(1, 79, 3), 1);
-  assert.equal(hover(-1, 79, 3), 2);
+  assert.equal(hover(1, 125, 3), 1);
+  assert.equal(hover(-1, 125, 3), 2);
 });
 
 test('overshooting keeps targeting by angle, including direct jumps and switching beyond the visible ring', () => {
-  const hover = (x: number, y: number) => getHoveredRadialSegment({ x, y }, 3, 46);
+  const hover = (x: number, y: number) => getHoveredRadialSegment({ x, y }, 3, defaultRadialMenuRadii.innerRadius);
   assert.equal(hover(0, 0), null);
-  assert.equal(hover(0, -46), null);
-  assert.equal(hover(0, -47), 0);
-  assert.equal(hover(0, -112), 0);
-  assert.equal(hover(0, -125), 0);
+  assert.equal(hover(0, -96), null);
+  assert.equal(hover(0, -97), 0);
+  assert.equal(hover(0, -154), 0);
+  assert.equal(hover(0, -167), 0);
   assert.equal(hover(0, -10000), 0, 'overshooting works without first passing through the visible segment');
   assert.equal(hover(10000, 6000), 1, 'a distant neighboring sector can be hovered immediately');
   assert.equal(hover(-10000, 6000), 2);
   assert.equal(hover(0, 0), null, 'returning to the safe zone still clears hover');
-  assert.equal(getHoveredRadialSegment({ x: 10000, y: 0 }, 1, 46), 0);
-  assert.equal(getHoveredRadialSegment({ x: -6800, y: -3900 }, 6, 46), 5);
-  assert.equal(getHoveredRadialSegment(null, 3, 46), null);
-  assert.equal(getHoveredRadialSegment({ x: 0, y: -79 }, 0, 46), null);
+  assert.equal(getHoveredRadialSegment({ x: 10000, y: 0 }, 1, defaultRadialMenuRadii.innerRadius), 0);
+  assert.equal(getHoveredRadialSegment({ x: -6800, y: -3900 }, 6, defaultRadialMenuRadii.innerRadius), 5);
+  assert.equal(getHoveredRadialSegment(null, 3, defaultRadialMenuRadii.innerRadius), null);
+  assert.equal(getHoveredRadialSegment({ x: 0, y: -125 }, 0, defaultRadialMenuRadii.innerRadius), null);
 });
 
 test('hover uses custom radii and expansion while keeping the original safe zone', () => {

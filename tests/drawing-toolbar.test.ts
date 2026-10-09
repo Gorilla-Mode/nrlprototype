@@ -7,7 +7,6 @@ import type { Component } from 'svelte';
 import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
 import { createDrawingController, idleDrawingState, type DrawingState } from '../src/lib/reporting/createDrawingController.js';
-import type { PlacementEditingVariantId } from '../src/lib/map/placementEditing.js';
 import type { ObstacleGeometryType } from '../src/lib/reporting/obstacle.js';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
 
@@ -22,8 +21,11 @@ for (const file of ['createDrawingController', 'obstacle']) {
 }
 code = code.replaceAll("'./GeometryIcon.svelte'", JSON.stringify(await compileSvelteComponent('src/lib/map/GeometryIcon.svelte')));
 interface ToolbarProps {
-  placementEditing?: PlacementEditingVariantId;
   state: DrawingState;
+  crosshairState?: import('../src/lib/map/createMapDrawingInteraction.js').CrosshairDrawingState;
+  onedit?: () => void;
+  onplace?: () => void;
+  oncanceledit?: () => void;
   onundo: () => void;
   ondelete: () => void;
   oncomplete: () => void;
@@ -37,8 +39,9 @@ const { default: DrawingToolbar } = await import(`data:text/javascript;base64,${
   default: Component<ToolbarProps>;
 };
 const noop = () => {};
+const crosshairState = { candidate: [0, 0] as const, targetIndex: 0, editing: false };
 const body = (state: DrawingState, props: Partial<ToolbarProps> = {}) => render(DrawingToolbar, {
-  props: { state, onundo: noop, ondelete: noop, oncomplete: noop, ...props },
+  props: { state, crosshairState, onedit: noop, onundo: noop, ondelete: noop, oncomplete: noop, ...props },
 }).body;
 const buttonLabels = (html: string) => [...html.matchAll(/<button\b[^>]*>([^<]+)<\/button>/g)].map((match) => match[1]);
 
@@ -51,7 +54,7 @@ test('crosshair idle exposes labeled geometry radios and Report obstacle with Po
   }
   assert.match(html, /value="Point"[^>]*checked/);
   assert.match(html, />Report obstacle<\/button>/);
-  assert.doesNotMatch(html, /disabled|Add point|Complete selection|Resume details/);
+  assert.doesNotMatch(html, /disabled|Add point|Complete selection|Resume details|Move the map|crosshair-guidance/);
   const polygon = body(idleDrawingState, { crosshairMode: true, geometryType: 'Polygon', onstart: noop });
   assert.match(polygon, /value="Polygon"[^>]*checked/);
 });
@@ -61,7 +64,7 @@ test('crosshair drawing exposes Add point and validation; completed selections r
   drawing.start('LineString', [0, 0]);
   const props = { crosshairMode: true, onaddpoint: noop, onresumedetails: noop };
   const initial = body(drawing.getState(), props);
-  assert.deepEqual(buttonLabels(initial), ['Undo', 'Delete', 'Complete', 'Add point']);
+  assert.deepEqual(buttonLabels(initial), ['Undo', 'Delete', 'Complete', 'Edit', 'Add point']);
   assert.match(initial, /<button[^>]*class="button button--primary complete[^>]*>Add point<\/button>/);
   assert.match(initial, /<button[^>]*class="button button--primary[^>]*>Complete<\/button>/);
   assert.match(initial, /<button[^>]*class="button button--danger delete[^>]*>Delete<\/button>/);
@@ -74,7 +77,7 @@ test('crosshair drawing exposes Add point and validation; completed selections r
   assert.match(body(drawing.getState(), { crosshairMode: true }), /<button[^>]* disabled[^>]*>Add point<\/button>/);
   drawing.append([0.001, 0]);
   const valid = body(drawing.getState(), props);
-  assert.match(valid, /use Add point/);
+  assert.doesNotMatch(valid, /drawing-guidance|Move the map|Click or tap/);
   assert.doesNotMatch(valid, / disabled/);
   assert.match(valid, /≈ 111.2 m/);
   drawing.undo();
@@ -93,7 +96,7 @@ test('crosshair polygon keeps validation between commands and Add point when edg
   drawing.start('Polygon', [0, 0]);
   for (const vertex of [[2, 2], [0, 2], [2, 0]] as const) drawing.append(vertex);
   const html = body(drawing.getState(), { crosshairMode: true, onaddpoint: noop });
-  assert.deepEqual(buttonLabels(html), ['Undo', 'Delete', 'Complete', 'Add point']);
+  assert.deepEqual(buttonLabels(html), ['Undo', 'Delete', 'Complete', 'Edit', 'Add point']);
   assert.match(html, /<button[^>]* disabled[^>]*aria-describedby="drawing-guidance"[^>]*>Complete<\/button>/);
   assert.match(html, /4 points placed/);
   assert.match(html, /edges must not cross/);
@@ -111,7 +114,7 @@ test('switching input modes retains the summary and restores ordinary drawing co
   for (const crosshairMode of [true, false, true]) {
     const html = body(drawing.getState(), { crosshairMode, onaddpoint: noop });
     assert.deepEqual(buttonLabels(html), crosshairMode
-      ? ['Undo', 'Delete', 'Complete', 'Add point']
+      ? ['Undo', 'Delete', 'Complete', 'Edit', 'Add point']
       : ['Delete', 'Undo', 'Complete selection']);
     assert.match(html, /2 points placed/);
     assert.match(html, /≈ 111.2 m/);
@@ -162,14 +165,39 @@ test('valid drawing enables completion; completed summary retains Delete and hid
 test('Basic Point exposes confirmation, omits Add point, and enables Undo after moving the initial vertex', () => {
   const drawing = createDrawingController({ vertexEditing: true, deferPointCompletion: true, onChange: noop, onComplete: noop });
   drawing.start('Point', [0, 0]);
-  const props = { placementEditing: 'basic' as const, crosshairMode: true, onaddpoint: noop };
+  const props = { crosshairMode: true, onaddpoint: noop };
   const initial = body(drawing.getState(), props);
   assert.doesNotMatch(initial, />Add point<\/button>/);
-  assert.match(initial, /Complete to open the report form/);
-  assert.match(initial, /Hold placed points/);
+  assert.match(initial, />Complete<\/button>/);
+  assert.doesNotMatch(initial, /Complete to open the report form|Hold placed points|drawing-guidance/);
   drawing.beginVertexMove(0); drawing.updateVertexMove([1, 1]); drawing.commitVertexMove();
   const moved = body(drawing.getState(), props);
   assert.match(moved, /<button[^>]*>Undo<\/button>/);
   assert.doesNotMatch(moved, /<button[^>]* disabled[^>]*>Undo<\/button>/);
-  assert.match(body(drawing.getState(), { placementEditing: 'two-finger' }), /Drag placed points to edit/);
+  assert.doesNotMatch(body(drawing.getState()), /Drag placed points to edit|Arrow keys/);
+});
+
+test('crosshair editing names the locked target, replaces the footer and disables Undo and Complete', () => {
+  const drawing = createDrawingController({ vertexEditing: true, onChange: noop, onComplete: noop });
+  drawing.start('LineString', [0, 0]); drawing.append([1, 1]);
+  const normal = body(drawing.getState(), { crosshairMode: true, onaddpoint: noop,
+    crosshairState: { candidate: [0, 0], targetIndex: 1, editing: false } });
+  assert.match(normal, /aria-label="Edit point 2"/);
+  const editing = body(drawing.getState(), { crosshairMode: true, onplace: noop, oncanceledit: noop,
+    crosshairState: { candidate: [0, 0], targetIndex: 1, editing: true } });
+  assert.deepEqual(buttonLabels(editing), ['Undo', 'Delete', 'Complete', 'Cancel', 'Place point']);
+  assert.match(editing, /Editing point 2/);
+  assert.match(editing, /<button[^>]* disabled[^>]*>Undo<\/button>/);
+  assert.match(editing, /<button[^>]* disabled[^>]*>Complete<\/button>/);
+  assert.doesNotMatch(editing, /<button[^>]* disabled[^>]*>Delete<\/button>|>Add point<\/button>/);
+});
+
+test('Basic Point crosshair editing has Cancel and Place point with no Add point', () => {
+  const drawing = createDrawingController({ vertexEditing: true, deferPointCompletion: true, onChange: noop, onComplete: noop });
+  drawing.start('Point', [0, 0]);
+  assert.deepEqual(buttonLabels(body(drawing.getState(), { crosshairMode: true })), ['Undo', 'Delete', 'Complete', 'Edit']);
+  const html = body(drawing.getState(), { crosshairMode: true, onplace: noop,
+    crosshairState: { candidate: [1, 1], targetIndex: 0, editing: true } });
+  assert.deepEqual(buttonLabels(html), ['Undo', 'Delete', 'Complete', 'Cancel', 'Place point']);
+  assert.match(html, /Editing point 1/);
 });

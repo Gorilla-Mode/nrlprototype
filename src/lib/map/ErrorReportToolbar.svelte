@@ -1,9 +1,8 @@
 <script lang="ts">
   import type { RegisteredObstacle } from '../obstacles/registeredObstacles';
 
-  let { crosshairMode = false, helpVisible = false, placed, match, oncancel, onselect }: {
+  let { crosshairMode = false, placed, match, oncancel, onselect }: {
     crosshairMode?: boolean;
-    helpVisible?: boolean;
     placed: boolean;
     match: RegisteredObstacle | null;
     oncancel: () => void;
@@ -13,14 +12,14 @@
   let guidance = $derived(
     crosshairMode ? (match
       ? `Report an error – ${match.name ?? match.type} (${match.heightM} m)`
-      : 'No registered obstacle within the crosshair. Move the map to aim at an obstacle.')
-      : !placed ? 'Report an error – Hold the map to place the circle'
-      : match ? 'Report an error – Move the circle over the obstacle'
+      : 'No registered obstacle within the crosshair.')
+      : !placed ? 'No obstacle selected'
+      : match ? `Report an error – ${match.name ?? match.type} (${match.heightM} m)`
         : 'No registered obstacles here',
   );
 </script>
 
-<section class="error-report-toolbar" class:crosshair-mode={crosshairMode} class:help-visible={helpVisible} aria-label="Report an error">
+<section class="error-report-toolbar" class:crosshair-mode={crosshairMode} aria-label="Report an error">
   <p role="status">{guidance}</p>
   <div class="actions" role="group" aria-label="Error report actions">
     <button type="button" class="button" onclick={oncancel}>Cancel</button>
@@ -50,15 +49,7 @@
     box-shadow: var(--shadow-control);
     font-size: var(--font-size-body-small);
   }
-  .error-report-toolbar.help-visible { bottom: var(--map-bottom-toolbar-help-inset); }
-  .error-report-toolbar.crosshair-mode {
-    width: var(--layout-form-max);
-    max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--map-bottom-toolbar-inset) - var(--space-4)));
-    overflow-y: auto;
-  }
-  .error-report-toolbar.crosshair-mode.help-visible {
-    max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--map-bottom-toolbar-help-inset) - var(--space-4)));
-  }
+  .error-report-toolbar.crosshair-mode { width: var(--layout-form-max); }
   p { flex: 1 1 auto; min-width: 0; margin: 0; color: var(--color-text-secondary); line-height: var(--line-height-body); }
   .actions { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
   /* The action row needs its own line on portrait tablets and phones. */

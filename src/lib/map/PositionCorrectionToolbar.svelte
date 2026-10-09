@@ -23,20 +23,18 @@
 
 <section class="position-panel" class:crosshair-mode={crosshairMode} aria-labelledby="position-panel-heading" bind:clientHeight={height}>
   <div class="details">
-    <h2 id="position-panel-heading">{crosshairMode ? 'Aim the crosshair at the correct position' : 'Move the circle to the correct position'}</h2>
+    <h2 id="position-panel-heading">Correct obstacle position</h2>
     <dl>
       <dt>New position</dt>
       <dd class="new-position">{newPosition ? formatCoordinates(newPosition) : '—'}</dd>
       <dt>Registered</dt>
       <dd>{formatCoordinates(registered)}</dd>
     </dl>
-    <p class="move" role="status">
-      {#if move}
+    {#if move}
+      <p class="move" role="status">
         Moved <span class="accent">{move.distance} {move.direction}</span> from registered position
-      {:else}
-        {crosshairMode ? 'Move the map to where the obstacle actually is' : 'Drag the circle to where the obstacle actually is'}
-      {/if}
-    </p>
+      </p>
+    {/if}
   </div>
 
   <div class="actions">

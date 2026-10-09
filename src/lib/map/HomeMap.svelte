@@ -5,7 +5,6 @@
   import GeometryIcon from './GeometryIcon.svelte';
   import MapCanvas from './MapCanvas.svelte';
   import MapToolbar from './MapToolbar.svelte';
-  import TutorialDialog from './TutorialDialog.svelte';
   import RightMapControls from './RightMapControls.svelte';
   import ErrorReportCircle from './ErrorReportCircle.svelte';
   import ErrorReportToolbar from './ErrorReportToolbar.svelte';
@@ -18,13 +17,13 @@
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
   import { obstacleGeometryChoices, type GeographicVertex, type Obstacle, type ObstacleGeometryType } from '../reporting/obstacle';
-  import { obstacleMenuInnerRadius, obstacleMenuOuterRadius } from './createMapDrawingInteraction';
+  import { idleCrosshairDrawingState, type CrosshairDrawingState } from './createMapDrawingInteraction';
   import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
 
   import type { PlacementEditingVariantId } from './placementEditing';
   import type { EditableVertexHandle } from './createVertexEditingInteraction';
 
-  let { placementEditing = 'default', oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, showHelp = false, onfaq, onnotifications, onreports, onsettings,
+  let { placementEditing = 'default', oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, onguide, onfaq, onnotifications, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
@@ -38,7 +37,7 @@
     onselectiondelete?: () => void;
     menuOpen?: boolean;
     visible?: boolean;
-    showHelp?: boolean;
+    onguide: () => void;
     onfaq: () => void;
     onnotifications: () => void;
     onreports: () => void;
@@ -55,6 +54,7 @@
 
   let isLayerFadeOpen = $state(false);
   let crosshairMode = $state(false);
+  let crosshairState = $state.raw<CrosshairDrawingState>(idleCrosshairDrawingState);
   let crosshairSize = $state(0);
   let geometryType = $state<ObstacleGeometryType>('Point');
   let errorReportMode = $state(false);
@@ -145,16 +145,6 @@
     clearTimeout(reportSentTimer);
     reportSentTimer = setTimeout(() => { reportSent = false; }, 4000);
   }
-  let helpOpen = $state(false);
-  $effect(() => {
-    if (!visible || !showHelp) helpOpen = false;
-  });
-
-  async function dismissHelp() {
-    helpOpen = false;
-    await tick();
-    if (visible && showHelp) mapWrapper.querySelector<HTMLButtonElement>('.map-help')?.focus({ preventScroll: true });
-  }
   let mapCanvas: MapCanvas;
   let vertexHandles = $state.raw<readonly EditableVertexHandle[]>([]);
   let holdOrigin = $state<HoldOrigin | null>(null);
@@ -180,8 +170,15 @@
     drawing = state;
   }
 
-  function movePersistentCenter(event: KeyboardEvent) {
-    if (!holdOrigin) return;
+  function handlePersistentKeyDown(event: KeyboardEvent) {
+    if (!holdOrigin || placementEditing !== 'persistent-donut' || errorReportMode) return;
+    const choice = obstacleGeometryChoices[Number(event.key) - 1];
+    if (choice && ['1', '2', '3'].includes(event.key)) {
+      event.preventDefault();
+      mapCanvas?.selectPersistentGeometry(choice.type);
+      void tick().then(() => focusDetails());
+      return;
+    }
     if (event.key === 'Escape') { event.preventDefault(); mapCanvas?.cancelPlacement(); return; }
     const step = event.shiftKey ? 64 : 16;
     const offsets: Record<string, [number, number]> = {
@@ -190,12 +187,17 @@
     const offset = offsets[event.key];
     if (!offset) return;
     event.preventDefault();
-    mapCanvas?.movePersistentCenter(holdOrigin.x + offset[0], holdOrigin.y + offset[1]);
+    mapCanvas?.panPersistentMap(offset[0], offset[1]);
   }
 
   function handleHoldChange(origin: HoldOrigin | null) {
+    const restoreFocus = !origin && mapWrapper?.contains(document.activeElement) &&
+      document.activeElement?.classList.contains('hold-menu');
     holdOrigin = origin;
     holdPointer = null;
+    if (restoreFocus) void tick().then(() => {
+      if (visible && !menuOpen && !mapWrapper.closest('[inert]')) focusDetails();
+    });
   }
 
   function handleMapClick() {
@@ -225,8 +227,6 @@
   {#if errorReportMode && !crosshairMode && errorCircle && !holdOrigin}
     <ErrorReportCircle
       center={errorCircle}
-      innerRadius={obstacleMenuInnerRadius}
-      outerRadius={obstacleMenuOuterRadius}
       icon={errorReportIcon}
       handle={positionPick ? { dragging: positionDragging } : null}
       onmove={(x, y) => mapCanvas?.moveErrorCircle(x, y)}
@@ -247,8 +247,9 @@
     ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
   />
   <MapCanvas
-    visible={visible && !menuOpen && !helpOpen && (!selectedObstacle || !!positionPick)}
+    visible={visible && !menuOpen && (!selectedObstacle || !!positionPick)}
     {placementEditing}
+    oncrosshairchange={(state) => { crosshairState = state; }}
     onvertexhandleschange={(handles) => { vertexHandles = handles; }}
     {crosshairMode}
     {crosshairSize}
@@ -290,12 +291,12 @@
   {/if}
   <MapToolbar
     {menuOpen}
-    showHelp={showHelp && !positionPick}
-    {helpOpen}
-    onhelp={() => { isLayerFadeOpen = false; helpOpen = true; }}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
     {drawing}
-    {placementEditing}
+    {crosshairState}
+    onedit={() => mapCanvas?.beginCrosshairEdit()}
+    onplace={() => mapCanvas?.placeCrosshairEdit()}
+    oncanceledit={() => mapCanvas?.cancelCrosshairEdit()}
     {crosshairMode}
     bind:geometryType
     showSelectionControls={!errorReportMode}
@@ -326,7 +327,7 @@
       onremove={() => finishPositionPick({ kind: 'remove' })}
     />
   {:else if errorReportMode}
-    <ErrorReportToolbar {crosshairMode} helpVisible={showHelp} placed={!!errorCircle} match={errorMatch} oncancel={endErrorReport} onselect={selectErrorObstacle} />
+    <ErrorReportToolbar {crosshairMode} placed={!!errorCircle} match={errorMatch} oncancel={endErrorReport} onselect={selectErrorObstacle} />
   {/if}
 
   </div>
@@ -338,28 +339,28 @@
     {/key}
   {/if}
 
-  {#if helpOpen && visible && showHelp}
-    <TutorialDialog ondismiss={dismissHelp} />
-  {/if}
-
-  <MenuDrawer bind:open={menuOpen} {onfaq} {onnotifications} {onsettings} {debugContent}
+  <MenuDrawer bind:open={menuOpen} {onguide} {onfaq} {onnotifications} {onsettings} {debugContent}
     ondismiss={() => mapWrapper.querySelector<HTMLButtonElement>('[aria-label="Menu"]')?.focus({ preventScroll: true })} />
 
   {#if holdOrigin}
     {@const geometryIcons = { point: pointIcon, line: lineIcon, polygon: polygonIcon }}
-    <div class="hold-menu" style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}>
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div class="hold-menu" role="group"
+      tabindex={!errorReportMode && placementEditing === 'persistent-donut' ? 0 : undefined}
+      aria-label={!errorReportMode && placementEditing === 'persistent-donut'
+        ? 'Obstacle placement. Release the opening hold in a sector to choose geometry, or in the center to keep open. Drag the center or use arrow keys to pan the map beneath the fixed donut; Shift pans faster. Tap the center or press Escape to cancel; 1 Point, 2 Line, 3 Polygon'
+        : 'Obstacle placement'}
+      onkeydown={handlePersistentKeyDown} style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}>
       {#if errorReportMode}
         <RadialMenu
           pointer={holdPointer}
-          innerRadius={obstacleMenuInnerRadius}
-          outerRadius={obstacleMenuOuterRadius}
           label="Choose obstacle to report"
           items={[{ id: 'error-report', label: 'Report an error', color: 'var(--color-map-error-report)', icon: errorReportIcon }]}
         />
       {:else}
         <RadialMenu
           pointer={holdPointer}
-          innerRadius={obstacleMenuInnerRadius}
           label="Choose obstacle geometry"
           items={obstacleGeometryChoices.map((choice) => ({
             id: choice.id, label: choice.label, color: `var(${choice.colorToken})`,
@@ -368,30 +369,6 @@
         />
       {/if}
     </div>
-  {/if}
-
-  {#if holdOrigin && !errorReportMode && placementEditing !== 'default'}
-    {#if placementEditing === 'persistent-donut'}
-      <button type="button" class="persistent-center"
-        style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}
-        aria-label="Donut center. Arrow keys move placement; Shift moves faster; Enter or Escape cancels"
-        onkeydown={movePersistentCenter} onclick={() => mapCanvas?.cancelPlacement()}>×</button>
-    {/if}
-    <section class="placement-guidance" aria-label="Placement guidance">
-      {#if placementEditing === 'persistent-donut'}
-        <p>Drag the center to move placement. Tap the center to cancel, or choose a geometry.</p>
-        <div class="placement-choices">
-          {#each obstacleGeometryChoices as choice (choice.id)}
-            <button type="button" class="button" onclick={() => mapCanvas?.selectPersistentGeometry(choice.type)}>{choice.label}</button>
-          {/each}
-          <button type="button" class="button" onclick={() => mapCanvas?.cancelPlacement()}>Cancel</button>
-        </div>
-      {:else if placementEditing === 'two-finger'}
-        <p>Keep holding to choose geometry. Add a second finger to pan beneath the donut. The crosshair picker is also available.</p>
-      {:else}
-        <p>Drag out to choose geometry. Hold placed points to edit them; Complete confirms placement.</p>
-      {/if}
-    </section>
   {/if}
 
   <div class="report-sent" role="status">
@@ -407,14 +384,14 @@
 </main>
 
 <style>
-  .vertex-handle, .persistent-center {
+  .vertex-handle {
     position: absolute;
     z-index: var(--layer-map-overlay);
     left: var(--hold-x);
     top: var(--hold-y);
     transform: translate(-50%, -50%);
-    width: var(--target-size-min);
-    height: var(--target-size-min);
+    width: var(--map-vertex-target-size);
+    height: var(--map-vertex-target-size);
     padding: 0;
     border: var(--border-strong);
     border-radius: var(--radius-round);
@@ -428,25 +405,9 @@
   .vertex-handle span { visibility: hidden; }
   .vertex-handle:focus-visible { background: var(--color-background-raised); border: var(--border-strong); }
   .vertex-handle:focus-visible span { visibility: visible; }
-  .persistent-center { z-index: var(--layer-popover); }
-  .placement-guidance {
-    position: absolute;
-    z-index: var(--layer-map-overlay);
-    inset-inline: var(--map-control-inset-left) var(--map-control-inset-right);
-    bottom: var(--map-bottom-toolbar-inset);
-    margin-inline: auto;
-    width: fit-content;
-    max-width: calc(100% - var(--map-control-inset-left) - var(--map-control-inset-right));
-    padding: var(--space-3);
-    border: var(--border-strong);
-    border-radius: var(--radius-card);
-    background: var(--color-background-raised);
-    color: var(--color-text-primary);
-    box-shadow: var(--shadow-control);
-    font-size: var(--font-size-body-small);
+  @media (pointer: coarse) {
+    .vertex-handle { width: var(--map-vertex-touch-target-size); height: var(--map-vertex-touch-target-size); }
   }
-  .placement-guidance p { margin: 0; line-height: var(--line-height-body); }
-  .placement-choices { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
   .covered { visibility: hidden; }
 
   .map-wrapper {
@@ -507,6 +468,8 @@
     transform: translate(-50%, -50%);
     pointer-events: none;
   }
+
+  .hold-menu:focus-visible { border-radius: var(--radius-round); }
 
   .map-center-crosshair {
     position: absolute;

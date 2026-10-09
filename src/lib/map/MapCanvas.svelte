@@ -3,7 +3,7 @@
   import { createMapController, type CameraTarget, type MapController } from './createMapController';
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
-  import type { HoldMode } from './createMapDrawingInteraction';
+  import type { HoldMode, CrosshairDrawingState } from './createMapDrawingInteraction';
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { GeographicVertex, Obstacle, ObstacleGeometryType } from '../reporting/obstacle';
   import type { RegisteredObstacle, ScreenPoint } from '../obstacles/registeredObstacles';
@@ -13,6 +13,7 @@
 
   interface Props {
     placementEditing?: PlacementEditingVariantId;
+    oncrosshairchange?: (state: CrosshairDrawingState) => void;
     onvertexhandleschange?: (handles: readonly EditableVertexHandle[]) => void;
     visible?: boolean;
     crosshairMode?: boolean;
@@ -35,14 +36,14 @@
     onpositiondragchange?: (dragging: boolean) => void;
   }
 
-  let { placementEditing = 'default', onvertexhandleschange, visible = true, crosshairMode = false, crosshairSize = 0, opacity, grayscale, holdMode = 'obstacle', registeredObstacles = [], bottomInset = 0, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered, onerrorcirclechange, onpositiondragchange }: Props = $props();
+  let { oncrosshairchange, placementEditing = 'default', onvertexhandleschange, visible = true, crosshairMode = false, crosshairSize = 0, opacity, grayscale, holdMode = 'obstacle', registeredObstacles = [], bottomInset = 0, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered, onerrorcirclechange, onpositiondragchange }: Props = $props();
   let mapContainer: HTMLDivElement;
   let controller = $state.raw<MapController | null>(null);
 
   export function vertexKeyDown(index: number, event: KeyboardEvent) { controller?.vertexKeyDown(index, event); }
   export function vertexKeyUp(event: KeyboardEvent) { controller?.vertexKeyUp(event); }
   export function finishKeyboardMove() { controller?.finishKeyboardMove(); }
-  export function movePersistentCenter(x: number, y: number) { controller?.movePersistentCenter(x, y); }
+  export function panPersistentMap(dx: number, dy: number) { controller?.panPersistentMap(dx, dy); }
   export function selectPersistentGeometry(type: ObstacleGeometryType) { controller?.selectPersistentGeometry(type); }
   export function cancelPlacement() { controller?.cancelPlacement(); }
 
@@ -56,6 +57,9 @@
   export function deleteDrawing() { controller?.deleteDrawing(); }
   export function completeDrawing() { controller?.completeDrawing(); }
   export function startAtCrosshair(type: ObstacleGeometryType) { controller?.startAtCrosshair(type); }
+  export function beginCrosshairEdit() { controller?.beginCrosshairEdit(); }
+  export function placeCrosshairEdit() { controller?.placeCrosshairEdit(); }
+  export function cancelCrosshairEdit() { controller?.cancelCrosshairEdit(); }
   export function appendAtCrosshair() { controller?.appendAtCrosshair(); }
   export function moveErrorCircle(x: number, y: number) { controller?.moveErrorCircle(x, y); }
   export function startPositionCorrection(origin: GeographicVertex, start: GeographicVertex) { controller?.startPositionCorrection(origin, start); }
@@ -68,6 +72,7 @@
   onMount(() => {
     const instance = createMapController(mapContainer, {
       placementEditing,
+      onCrosshairChange: (state) => oncrosshairchange?.(state),
       onVertexHandlesChange: (handles) => onvertexhandleschange?.(handles),
       initialOpacity: opacity,
       onGeolocationAccuracyChange: onaccuracychange,

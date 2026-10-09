@@ -1,14 +1,17 @@
 <script lang="ts">
-  import type { PlacementEditingVariantId } from './placementEditing';
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import GeometryIcon from './GeometryIcon.svelte';
   import { formatMeasurement, type DrawingState } from '../reporting/createDrawingController.js';
   import { obstacleGeometryChoices, type ObstacleGeometryType } from '../reporting/obstacle.js';
+  import type { CrosshairDrawingState } from './createMapDrawingInteraction';
 
-  let { placementEditing = 'default', state: drawingState, crosshairMode = false, geometryType = $bindable<ObstacleGeometryType>('Point'),
-    onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, helpVisible = false }: {
-    placementEditing?: PlacementEditingVariantId;
+  let { state: drawingState, crosshairMode = false, geometryType = $bindable<ObstacleGeometryType>('Point'),
+    crosshairState = { candidate: null, targetIndex: null, editing: false }, onedit, onplace, oncanceledit, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails }: {
     state: DrawingState;
+    crosshairState?: CrosshairDrawingState;
+    onedit?: () => void;
+    onplace?: () => void;
+    oncanceledit?: () => void;
     crosshairMode?: boolean;
     geometryType?: ObstacleGeometryType;
     onstart?: (type: ObstacleGeometryType) => void;
@@ -17,14 +20,33 @@
     ondelete: () => void;
     oncomplete: () => void;
     onresumedetails?: () => void;
-    helpVisible?: boolean;
   } = $props();
 
+  let editing = $derived(crosshairState.editing);
   let choice = $derived(obstacleGeometryChoices.find(({ type }) => type === drawingState.draft?.type));
   let crosshairDrawing = $derived(crosshairMode && drawingState.status === 'drawing');
   let deleteButton = $state<HTMLButtonElement>();
   let completeButton = $state<HTMLButtonElement>();
+  let editButton = $state<HTMLButtonElement>();
+  let placeButton = $state<HTMLButtonElement>();
+  let wasEditing = false;
+  let confirmed = false;
   let addButton = $state<HTMLButtonElement>();
+
+  $effect(() => {
+    const active = editing;
+    untrack(() => {
+      if (active) placeButton?.focus({ preventScroll: true });
+      else if (wasEditing && crosshairDrawing) {
+        const target = confirmed ? (drawingState.draft?.type === 'Point' ? completeButton : addButton) : editButton;
+        target?.focus({ preventScroll: true });
+      }
+      wasEditing = active;
+      confirmed = false;
+    });
+  });
+
+  function placePoint() { confirmed = true; onplace?.(); }
 
   async function startSelection() {
     onstart?.(geometryType);
@@ -45,7 +67,7 @@
 </script>
 
 {#if crosshairMode && drawingState.status === 'idle'}
-  <section class="drawing-toolbar crosshair-mode" class:help-visible={helpVisible} aria-label="Crosshair reporting">
+  <section class="drawing-toolbar crosshair-mode" aria-label="Crosshair reporting">
     <div class="details">
       <fieldset class="geometry-choices">
         <legend class="sr-only">Obstacle geometry</legend>
@@ -57,47 +79,49 @@
           </label>
         {/each}
       </fieldset>
-      <p id="crosshair-guidance">Move the map to position the crosshair over the obstacle.</p>
     </div>
     <div class="actions">
       <button type="button" class="button button--primary complete" onclick={startSelection}
-        disabled={!onstart} aria-describedby="crosshair-guidance">Report obstacle</button>
+        disabled={!onstart}>Report obstacle</button>
     </div>
   </section>
 {:else if drawingState.draft && choice}
-  <section class="drawing-toolbar" class:crosshair-mode={crosshairMode} class:help-visible={helpVisible} aria-label="Obstacle selection" style:--geometry-color={`var(${choice.colorToken})`}>
+  <section class="drawing-toolbar" class:crosshair-mode={crosshairMode} aria-label="Obstacle selection" style:--geometry-color={`var(${choice.colorToken})`}>
     <div class="details">
       {#if crosshairDrawing}
         <div class="commands" role="group" aria-label="Selection actions">
-          <button type="button" class="button" onclick={onundo} disabled={!drawingState.canUndo}>Undo</button>
+          <button type="button" class="button" onclick={onundo} disabled={crosshairState.editing || !drawingState.canUndo}>Undo</button>
           <button type="button" class="button button--danger delete" bind:this={deleteButton} onclick={ondelete}>Delete</button>
-          <button type="button" class="button button--primary" bind:this={completeButton} onclick={completeSelection} disabled={!drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete</button>
+          <button type="button" class="button button--primary" bind:this={completeButton} onclick={completeSelection} disabled={crosshairState.editing || !drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete</button>
         </div>
       {/if}
       <div class="summary" role="status" aria-atomic="true">
         <strong class="object-type">{choice.label}</strong>
+        {#if crosshairState.editing && crosshairState.targetIndex !== null}<strong>Editing point {crosshairState.targetIndex + 1}</strong>{/if}
         {#if drawingState.status === 'completed'}<strong>Selection complete</strong>{/if}
         <span>{drawingState.draft.vertices.length} {drawingState.draft.vertices.length === 1 ? 'point' : 'points'} placed</span>
         {#if drawingState.measurement}<span>{formatMeasurement(drawingState.measurement)}</span>{/if}
       </div>
-      {#if drawingState.status === 'drawing'}
-        {#if placementEditing !== 'default'}
-          <p>{placementEditing === 'two-finger' ? 'Drag placed points to edit.' : 'Hold placed points, then drag to edit.'} Arrow keys move focused points.</p>
-        {/if}
-        <p id="drawing-guidance" class:invalid={!drawingState.canComplete && drawingState.draft.vertices.length >= 3} role="status">
-          {drawingState.message || (drawingState.draft.type === 'Point' ? 'Adjust the point, then Complete to open the report form.' : crosshairMode
-            ? 'Move the map, then use Add point.'
-            : 'Click or tap the map to add a point, or complete your selection.')}
-        </p>
+      {#if drawingState.status === 'drawing' && drawingState.message}
+        <p id="drawing-guidance" class:invalid={!drawingState.canComplete && drawingState.draft.vertices.length >= 3} role="status">{drawingState.message}</p>
       {/if}
     </div>
     {#if crosshairDrawing}
-      {#if drawingState.draft.type !== 'Point'}
-      <div class="actions">
-        <button type="button" class="button button--primary complete" bind:this={addButton} onclick={addPoint}
-          disabled={!onaddpoint} aria-describedby="drawing-guidance">Add point</button>
+      <div class="actions placement-actions">
+        {#if crosshairState.editing}
+          <button type="button" class="button" onclick={oncanceledit}>Cancel</button>
+          <button type="button" class="button button--primary complete" bind:this={placeButton} onclick={placePoint}
+            disabled={!onplace || !crosshairState.candidate}>Place point</button>
+        {:else}
+          <button type="button" class="button" bind:this={editButton} onclick={onedit}
+            aria-label={crosshairState.targetIndex === null ? 'Edit point' : `Edit point ${crosshairState.targetIndex + 1}`}
+            disabled={!onedit || crosshairState.targetIndex === null}>Edit</button>
+          {#if drawingState.draft.type !== 'Point'}
+            <button type="button" class="button button--primary complete" bind:this={addButton} onclick={addPoint}
+              disabled={!onaddpoint}>Add point</button>
+          {/if}
+        {/if}
       </div>
-      {/if}
     {:else}
       <div class="actions" role="group" aria-label="Selection actions">
         <button type="button" class="button button--danger delete" bind:this={deleteButton} onclick={ondelete}>Delete</button>
@@ -105,8 +129,8 @@
           <button type="button" class="button button--primary" data-resume-details onclick={onresumedetails}>Resume details</button>
         {/if}
         {#if drawingState.status === 'drawing'}
-          <button type="button" class="button" onclick={onundo} disabled={!drawingState.canUndo}>Undo</button>
-          <button type="button" class="button button--primary complete" onclick={completeSelection} disabled={!drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete selection</button>
+          <button type="button" class="button" onclick={onundo} disabled={crosshairState.editing || !drawingState.canUndo}>Undo</button>
+          <button type="button" class="button button--primary complete" onclick={completeSelection} disabled={crosshairState.editing || !drawingState.canComplete} aria-describedby={drawingState.message ? 'drawing-guidance' : undefined}>Complete selection</button>
         {/if}
       </div>
     {/if}
@@ -134,15 +158,7 @@
     box-shadow: var(--shadow-control);
     font-size: var(--font-size-body-small);
   }
-  .drawing-toolbar.help-visible { bottom: var(--map-bottom-toolbar-help-inset); }
-  .drawing-toolbar.crosshair-mode {
-    max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--map-bottom-toolbar-inset) - var(--space-4)));
-    overflow-y: auto;
-  }
-  .drawing-toolbar.crosshair-mode.help-visible {
-    max-height: max(var(--control-height-large), calc(50dvh - var(--map-crosshair-size) / 2 - var(--map-bottom-toolbar-help-inset) - var(--space-4)));
-  }
-  .geometry-choices, .commands {
+  .commands {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
@@ -151,8 +167,18 @@
     padding: 0;
     border: 0;
   }
+  .geometry-choices {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
   .geometry-choice {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto auto;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
@@ -169,6 +195,7 @@
     background: var(--color-map-control-active);
   }
   .geometry-choice:focus-within { outline: var(--border-width-emphasis) solid var(--color-focus-ring); outline-offset: var(--space-1); }
+  .geometry-choice span { grid-column: 1 / -1; text-align: center; }
   .geometry-choice input { margin: 0; accent-color: var(--color-action-secondary); }
   .geometry-choice svg { width: var(--icon-size-default); height: var(--icon-size-default); }
   .details, .summary, .actions { display: flex; }
@@ -176,6 +203,10 @@
   .summary, .actions { flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
   .object-type { color: var(--geometry-color); }
   .actions { flex: none; gap: var(--space-2); }
+  .crosshair-mode { width: var(--layout-form-max); }
+  .crosshair-mode .details, .placement-actions { flex-basis: 100%; }
+  .placement-actions { flex-wrap: nowrap; }
+  .placement-actions .complete { flex: 1; }
   p { margin: 0; color: var(--color-text-secondary); line-height: var(--line-height-body); }
   .invalid { color: var(--color-status-error); }
   /* The action row needs its own line on portrait tablets and phones. */
