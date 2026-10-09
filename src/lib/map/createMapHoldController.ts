@@ -1,3 +1,5 @@
+import { defaultRadialMenuRadii } from '../radial-menu/radialMenu.js';
+
 export interface HoldOrigin {
   x: number;
   y: number;
@@ -95,7 +97,7 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
     opening = !open;
     centerDragged = false;
     panOffset = { x: 0, y: 0 };
-    centerPress = open && !!center && Math.hypot(event.clientX - rect.left - center.x, event.clientY - rect.top - center.y) <= 46;
+    centerPress = open && !!center && Math.hypot(event.clientX - rect.left - center.x, event.clientY - rect.top - center.y) <= defaultRadialMenuRadii.innerRadius;
     press = {
       id: event.pointerId,
       clientX: event.clientX,
@@ -189,7 +191,7 @@ export function createMapHoldController(canvas: HTMLCanvasElement, {
     if (release && persistent() && !opening && centerPress) {
       panFromCenter(event.clientX, event.clientY);
     }
-    if (release && persistent() && ((opening && Math.hypot(x, y) <= 46) || (!opening && centerPress && centerDragged))) {
+    if (release && persistent() && ((opening && Math.hypot(x, y) <= defaultRadialMenuRadii.innerRadius) || (!opening && centerPress && centerDragged))) {
       const id = press.id;
       press = undefined;
       if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);

@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { createRadialSegments, getHoveredRadialSegment, type RadialMenuProps } from './radialMenu';
+  import { createRadialSegments, defaultRadialMenuRadii, getHoveredRadialSegment, type RadialMenuProps } from './radialMenu';
 
   let {
     items,
-    innerRadius = 46,
-    outerRadius = 112,
+    innerRadius = defaultRadialMenuRadii.innerRadius,
+    outerRadius = defaultRadialMenuRadii.outerRadius,
     hoverExpansion = 12,
     pointer = null,
     label = 'Radial menu preview',

@@ -5,6 +5,8 @@ import { createMapDrawingInteraction } from '../src/lib/map/createMapDrawingInte
 import { createDrawingController } from '../src/lib/reporting/createDrawingController.js';
 import type { PlacementEditingVariantId } from '../src/lib/map/placementEditing.js';
 import type { HoldOrigin } from '../src/lib/map/createMapHoldController.js';
+import { defaultRadialMenuRadii, getHoveredRadialSegment } from '../src/lib/radial-menu/radialMenu.js';
+import { obstacleGeometryChoices } from '../src/lib/reporting/obstacle.js';
 import type { ObstacleGeometry } from '../src/lib/reporting/obstacle.js';
 
 function setup(t: TestContext, zoomEnabled = true, variant: PlacementEditingVariantId = 'default') {
@@ -236,6 +238,29 @@ for (const [name, x, y, type, status] of [
     assert.deepEqual(h.state().draft?.vertices, [[1, 1.5]]);
     assert.equal(h.completed.length, type === 'Point' ? 1 : 0);
   });
+}
+
+for (const mode of ['obstacle', 'error-report'] as const) {
+  for (const [x, y] of [[0, -70], [96, 0], [0, -97], [97, 0], [-97, 0]]) {
+    test(`${mode}: hover and release agree at offset ${x}, ${y} with the shared centre radius`, (t) => {
+      const h = setup(t);
+      h.interaction.setHoldMode(mode);
+      h.fire('pointerdown');
+      h.tick();
+      h.fire('pointermove', { clientX: 120 + x, clientY: 180 + y });
+      const pointer = h.moves.at(-1);
+      const index = getHoveredRadialSegment(pointer, mode === 'obstacle' ? 3 : 1, defaultRadialMenuRadii.innerRadius);
+      h.fire('pointerup', { clientX: 120 + x, clientY: 180 + y });
+      if (mode === 'error-report') {
+        assert.equal(h.placed.length, index === null ? 0 : 1);
+        assert.equal(h.state().status, 'idle');
+      } else {
+        assert.equal(h.state().draft?.type, index === null ? undefined : obstacleGeometryChoices[index].type);
+      }
+      assert.equal(index === null, Math.hypot(x, y) <= 96);
+      assert.equal(h.origins.at(-1), null);
+    });
+  }
 }
 
 test('returning from a hovered sector to the safe zone cancels without starting geometry', (t) => {
@@ -483,7 +508,7 @@ for (const pointerType of ['mouse', 'pen', 'touch']) {
   });
 }
 
-for (const offset of [0, 46]) {
+for (const offset of [0, 70, 96]) {
   test(`persistent opening release at center offset ${offset} keeps the menu open, including after returning from a sector`, (t) => {
     const h = setup(t, true, 'persistent-donut');
     h.fire('pointerdown');
@@ -500,12 +525,23 @@ for (const offset of [0, 46]) {
 
 test('persistent opening release just outside the center selects by angle', (t) => {
   const h = setup(t, true, 'persistent-donut');
-  h.select(167, 180);
+  h.select(217, 180);
   assert.equal(h.state().draft?.type, 'LineString');
   assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null]);
 });
 
-for (const offset of [0, 46]) {
+test('persistent drag starting at the 96 px centre boundary pans and retains the menu', (t) => {
+  const h = setup(t, true, 'persistent-donut');
+  h.select(120, 180);
+  h.fire('pointerdown', { clientX: 216 });
+  h.fire('pointermove', { clientX: 225 });
+  h.fire('pointerup', { clientX: 245 });
+  assert.deepEqual(h.map.pan, [-29, 0]);
+  assert.deepEqual(h.origins, [{ x: 100, y: 150 }]);
+  assert.equal(h.state().status, 'idle');
+});
+
+for (const offset of [0, 70, 96]) {
   test(`persistent center tap at offset ${offset} cancels, even if jitter leaves the hole`, (t) => {
     const h = setup(t, true, 'persistent-donut');
     h.select(120, 180);

@@ -1,12 +1,9 @@
 import type { PlacementEditingVariantId } from './placementEditing.js';
 import type { Map, MapLibreEvent } from 'maplibre-gl';
 import { createMapHoldController, type HoldOrigin } from './createMapHoldController.js';
-import { getHoveredRadialSegment } from '../radial-menu/radialMenu.js';
+import { defaultRadialMenuRadii, getHoveredRadialSegment } from '../radial-menu/radialMenu.js';
 import type { DrawingController, DrawingState } from '../reporting/createDrawingController.js';
 import { obstacleGeometryChoices, type GeographicVertex, type ObstacleGeometryType } from '../reporting/obstacle.js';
-
-export const obstacleMenuInnerRadius = 46;
-export const obstacleMenuOuterRadius = 112;
 
 /** What a released hold on the map does: start new geometry, or report an error on an existing obstacle. */
 export type HoldMode = 'obstacle' | 'error-report';
@@ -72,12 +69,12 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
     onRelease: (x, y) => {
       if (holdMode === 'error-report') {
         // Same rule as the obstacle menu: only a drag out of the centre into the ring confirms.
-        const confirmed = getHoveredRadialSegment({ x, y }, 1, obstacleMenuInnerRadius) !== null;
+        const confirmed = getHoveredRadialSegment({ x, y }, 1, defaultRadialMenuRadii.innerRadius) !== null;
         if (confirmed && initialVertex) options.onErrorReportPlace?.(initialVertex);
         initialVertex = undefined;
         return;
       }
-      const index = getHoveredRadialSegment({ x, y }, obstacleGeometryChoices.length, obstacleMenuInnerRadius);
+      const index = getHoveredRadialSegment({ x, y }, obstacleGeometryChoices.length, defaultRadialMenuRadii.innerRadius);
       if (index !== null && initialVertex) drawing.start(obstacleGeometryChoices[index].type, initialVertex);
       initialVertex = undefined;
     },

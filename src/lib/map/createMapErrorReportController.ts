@@ -1,7 +1,8 @@
 import type { Map } from 'maplibre-gl';
 import type { GeographicVertex } from '../reporting/obstacle.js';
 import { findObstacleInCircle, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles.js';
-import { obstacleMenuOuterRadius, type HoldMode } from './createMapDrawingInteraction.js';
+import type { HoldMode } from './createMapDrawingInteraction.js';
+import { defaultRadialMenuRadii } from '../radial-menu/radialMenu.js';
 import { positionHandleRadius } from './createPositionDragInteraction.js';
 
 export interface ErrorReportTarget {
@@ -53,7 +54,7 @@ export function createMapErrorReportController(map: ErrorReportMap, options: {
     }
     const match = center && !correction && (!crosshair || crosshairSize > 0)
       ? findObstacleInCircle(center, obstacles, (obstacle) => project([obstacle.lng, obstacle.lat]),
-        crosshair ? crosshairSize / 2 : obstacleMenuOuterRadius)
+        crosshair ? crosshairSize / 2 : defaultRadialMenuRadii.outerRadius)
       : null;
     const target: ErrorReportTarget = { center, match, position: center && position ? [...position] : null };
     if (!destroyed) {
@@ -77,7 +78,7 @@ export function createMapErrorReportController(map: ErrorReportMap, options: {
     const size = viewport();
     if (!size || crosshair || !correction || !position) return;
     const { x, y } = project(position);
-    if (x < 0 || y < 0 || x > size.width || y > size.height - bottomInset - obstacleMenuOuterRadius) {
+    if (x < 0 || y < 0 || x > size.width || y > size.height - bottomInset - defaultRadialMenuRadii.outerRadius) {
       options.onCameraChange();
       map.easeTo({ center: [...position], offset: [0, -bottomInset / 2] });
     }
@@ -99,7 +100,7 @@ export function createMapErrorReportController(map: ErrorReportMap, options: {
     if (!size || holdMode !== 'error-report' || crosshair) return;
     if (correction) {
       const maxX = Math.max(positionHandleRadius, size.width - positionHandleRadius);
-      const maxY = Math.max(positionHandleRadius, size.height - bottomInset - obstacleMenuOuterRadius);
+      const maxY = Math.max(positionHandleRadius, size.height - bottomInset - defaultRadialMenuRadii.outerRadius);
       x = Math.min(Math.max(x, positionHandleRadius), maxX);
       y = Math.min(Math.max(y, positionHandleRadius), maxY);
     }

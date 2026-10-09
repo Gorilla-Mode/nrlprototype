@@ -30,6 +30,12 @@ mode does not save its midpoint as an ordinary circle. Circle-only correction ca
 restores the prior circle. The error-report form keeps its own answers and the existing
 prototype completion handler.
 
+`radialMenu.ts` defines the shared 96 px inner and 154 px outer radii for geometry and
+error-report menus and placed circles. Hover and release exclude the inclusive inner
+boundary; circle matching and correction bottom clearance use the outer radius.
+Position correction retains a separate 56 px centre grab radius, leaving touches
+outside that target available for map navigation.
+
 ## Navigation and map lifecycle
 
 Routing uses browser history and hashes without a routing dependency. A hidden HomeMap
@@ -145,7 +151,7 @@ Pointer cancellation, lost capture, second touch, blur, hidden maps, resize, mod
 Delete and teardown cancel gestures. Typed projected handles expose keyboard editing.
 
 Persistent donut supports hover and angle-based geometry selection during its opening
-hold. Opening release within the 46 px center radius (boundary included) keeps it open.
+hold. Opening release within the shared 96 px center radius (boundary included) keeps it open.
 Subsequent presses beginning in the center pan the map after movement exceeds 8 px:
 the full accumulated displacement is applied at activation, then incremental deltas,
 including the final release position. The donut stays fixed and drag releases cannot

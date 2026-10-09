@@ -67,7 +67,7 @@ placement, with Point confirmation exposed only in Basic. Add point is unavailab
 its single Point vertex. Undo follows additions and moves, including moves of the initial vertex.
 
 Persistent donut allows sector hover and geometry selection on the opening hold's release.
-Releasing within the 46 px center radius, including its boundary, keeps it open. Later
+Releasing within the 96 px center radius, including its boundary, keeps it open. Later
 center drags beyond 8 px pan the map beneath the fixed donut; drag releases keep it open
 without selecting geometry. Later center taps cancel, and sector/outside taps choose by
 angle. Its wrapper is keyboard focusable and shows focus only for keyboard input: arrows

@@ -17,7 +17,7 @@
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
   import { obstacleGeometryChoices, type GeographicVertex, type Obstacle, type ObstacleGeometryType } from '../reporting/obstacle';
-  import { obstacleMenuInnerRadius, obstacleMenuOuterRadius, idleCrosshairDrawingState, type CrosshairDrawingState } from './createMapDrawingInteraction';
+  import { idleCrosshairDrawingState, type CrosshairDrawingState } from './createMapDrawingInteraction';
   import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
 
   import type { PlacementEditingVariantId } from './placementEditing';
@@ -227,8 +227,6 @@
   {#if errorReportMode && !crosshairMode && errorCircle && !holdOrigin}
     <ErrorReportCircle
       center={errorCircle}
-      innerRadius={obstacleMenuInnerRadius}
-      outerRadius={obstacleMenuOuterRadius}
       icon={errorReportIcon}
       handle={positionPick ? { dragging: positionDragging } : null}
       onmove={(x, y) => mapCanvas?.moveErrorCircle(x, y)}
@@ -357,15 +355,12 @@
       {#if errorReportMode}
         <RadialMenu
           pointer={holdPointer}
-          innerRadius={obstacleMenuInnerRadius}
-          outerRadius={obstacleMenuOuterRadius}
           label="Choose obstacle to report"
           items={[{ id: 'error-report', label: 'Report an error', color: 'var(--color-map-error-report)', icon: errorReportIcon }]}
         />
       {:else}
         <RadialMenu
           pointer={holdPointer}
-          innerRadius={obstacleMenuInnerRadius}
           label="Choose obstacle geometry"
           items={obstacleGeometryChoices.map((choice) => ({
             id: choice.id, label: choice.label, color: `var(${choice.colorToken})`,
