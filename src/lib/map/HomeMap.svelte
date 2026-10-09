@@ -170,7 +170,7 @@
     drawing = state;
   }
 
-  function movePersistentCenter(event: KeyboardEvent) {
+  function handlePersistentKeyDown(event: KeyboardEvent) {
     if (!holdOrigin || placementEditing !== 'persistent-donut' || errorReportMode) return;
     const choice = obstacleGeometryChoices[Number(event.key) - 1];
     if (choice && ['1', '2', '3'].includes(event.key)) {
@@ -187,7 +187,7 @@
     const offset = offsets[event.key];
     if (!offset) return;
     event.preventDefault();
-    mapCanvas?.movePersistentCenter(holdOrigin.x + offset[0], holdOrigin.y + offset[1]);
+    mapCanvas?.panPersistentMap(offset[0], offset[1]);
   }
 
   function handleHoldChange(origin: HoldOrigin | null) {
@@ -351,9 +351,9 @@
     <div class="hold-menu" role="group"
       tabindex={!errorReportMode && placementEditing === 'persistent-donut' ? 0 : undefined}
       aria-label={!errorReportMode && placementEditing === 'persistent-donut'
-        ? 'Obstacle placement. Arrow keys move; Shift moves faster; 1 Point, 2 Line, 3 Polygon; Escape cancels'
+        ? 'Obstacle placement. Release the opening hold in a sector to choose geometry, or in the center to keep open. Drag the center or use arrow keys to pan the map beneath the fixed donut; Shift pans faster. Tap the center or press Escape to cancel; 1 Point, 2 Line, 3 Polygon'
         : 'Obstacle placement'}
-      onkeydown={movePersistentCenter} style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}>
+      onkeydown={handlePersistentKeyDown} style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}>
       {#if errorReportMode}
         <RadialMenu
           pointer={holdPointer}

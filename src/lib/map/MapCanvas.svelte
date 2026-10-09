@@ -43,7 +43,7 @@
   export function vertexKeyDown(index: number, event: KeyboardEvent) { controller?.vertexKeyDown(index, event); }
   export function vertexKeyUp(event: KeyboardEvent) { controller?.vertexKeyUp(event); }
   export function finishKeyboardMove() { controller?.finishKeyboardMove(); }
-  export function movePersistentCenter(x: number, y: number) { controller?.movePersistentCenter(x, y); }
+  export function panPersistentMap(dx: number, dy: number) { controller?.panPersistentMap(dx, dy); }
   export function selectPersistentGeometry(type: ObstacleGeometryType) { controller?.selectPersistentGeometry(type); }
   export function cancelPlacement() { controller?.cancelPlacement(); }
 

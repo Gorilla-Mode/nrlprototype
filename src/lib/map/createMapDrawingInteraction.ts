@@ -60,12 +60,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
     onActivate: () => map.stop(),
     persistent: () => options.variant === 'persistent-donut' && holdMode === 'obstacle',
     twoFinger: () => options.variant === 'two-finger' && holdMode === 'obstacle',
-    onCenterMove: (origin) => {
-      menuCenter = origin;
-      initialVertex = coordinate(origin.x, origin.y);
-      options.onHoldChange(origin);
-    },
-    onTwoFingerPan: (dx, dy) => {
+    onMapPan: (dx, dy) => {
       controllerPan = true;
       try { map.panBy([-dx, -dy], { animate: false }); }
       finally { controllerPan = false; }
@@ -258,7 +253,7 @@ export function createMapDrawingInteraction(map: Map, drawing: DrawingController
     },
     cancelCrosshairEdit,
     setVisible(value: boolean) { visible = value; if (!value) cancel(); refreshCrosshair(); },
-    movePersistentCenter(x: number, y: number) { hold.moveCenter({ x, y }); },
+    panPersistentMap(dx: number, dy: number) { hold.panMap(dx, dy); },
     selectPersistentGeometry(type: ObstacleGeometryType) {
       if (options.variant !== 'persistent-donut' || !menuCenter || !initialVertex || !visible || holdMode !== 'obstacle') return;
       const vertex = initialVertex;

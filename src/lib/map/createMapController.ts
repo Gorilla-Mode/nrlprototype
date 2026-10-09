@@ -62,7 +62,7 @@ export interface MapController {
   vertexKeyDown: (index: number, event: KeyboardEvent) => void;
   vertexKeyUp: (event: KeyboardEvent) => void;
   finishKeyboardMove: () => void;
-  movePersistentCenter: (x: number, y: number) => void;
+  panPersistentMap: (dx: number, dy: number) => void;
   selectPersistentGeometry: (type: ObstacleGeometryType) => void;
   cancelPlacement: () => void;
   setSatelliteOpacity: (opacity: number) => void;
@@ -292,7 +292,7 @@ export function createMapController(
     vertexKeyDown: vertexEditing.keyDown,
     vertexKeyUp: vertexEditing.keyUp,
     finishKeyboardMove: vertexEditing.finishKeyboardMove,
-    movePersistentCenter: drawingInteraction.movePersistentCenter,
+    panPersistentMap: drawingInteraction.panPersistentMap,
     selectPersistentGeometry: drawingInteraction.selectPersistentGeometry,
     cancelPlacement: () => { drawingInteraction.cancel(); vertexEditing.cancel(); },
     focus: () => map.getCanvas().focus({ preventScroll: true }),

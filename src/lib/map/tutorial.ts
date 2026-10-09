@@ -11,7 +11,7 @@ export const reportingGuideRoute = '#/Help/ReportObstacle';
 
 export function reportingGuideBlocks(variant: PlacementEditingVariantId): readonly TutorialEntry[] {
   const placement = variant === 'persistent-donut'
-    ? 'Press and hold on the map to open the donut. Releasing keeps it open. Drag its center to move placement, tap the center to cancel, or tap a sector to choose Point, Line or Polygon. With the donut focused, arrows move its center, Shift moves faster, 1/2/3 choose Point/Line/Polygon, and Escape cancels.'
+    ? 'Press and hold on the map to open the donut. Move into a Point, Line or Polygon sector and release to choose it, or release in the center to keep it open. Once open, drag its center to pan the map beneath the fixed donut. Later center taps cancel; tap a sector or outside the donut to choose by angle. With the donut focused, arrows pan the map in the arrow direction by 16 px, or 64 px with Shift; 1/2/3 choose Point/Line/Polygon, and Escape cancels. Geometry is placed at the updated map position beneath the donut center.'
     : variant === 'two-finger'
       ? 'Press and hold on the map to open the donut. Keep holding, move into a Point, Line or Polygon sector, and release to choose it. A second finger lets you pan the map beneath the fixed donut; lift the second finger before choosing a sector. Lifting the original finger first cancels.'
       : 'Press and hold on the map to open the donut. Move into a Point, Line or Polygon sector, and release to choose it. Release in the center or press Escape to cancel.';

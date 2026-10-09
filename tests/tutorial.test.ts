@@ -10,7 +10,10 @@ import { reportingGuideRoute, reportingGuideBlocks, tutorialBlocks, type Tutoria
 test('reporting guide has a public hash route and describes the active placement variant', () => {
   assert.equal(reportingGuideRoute, '#/Help/ReportObstacle');
   const answers = (variant: Parameters<typeof reportingGuideBlocks>[0]) => reportingGuideBlocks(variant).map(b => b.answer).join(' ');
-  assert.match(answers('persistent-donut'), /Releasing keeps it open/);
+  assert.match(answers('persistent-donut'), /release to choose it, or release in the center to keep it open/);
+  assert.match(answers('persistent-donut'), /pan the map beneath the fixed donut/);
+  assert.match(answers('persistent-donut'), /Later center taps cancel/);
+  assert.match(answers('persistent-donut'), /16 px, or 64 px with Shift/);
   assert.match(answers('persistent-donut'), /1\/2\/3/);
   assert.match(answers('basic'), /100 ms with touch, or 200 ms with a mouse or pen/);
   assert.match(answers('basic'), /72 px across/);

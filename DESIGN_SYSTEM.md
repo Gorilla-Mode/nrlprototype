@@ -66,10 +66,14 @@ for touch or 200 ms for mouse/pen; Two-finger uses immediate dragging. Complete 
 placement, with Point confirmation exposed only in Basic. Add point is unavailable for
 its single Point vertex. Undo follows additions and moves, including moves of the initial vertex.
 
-Persistent donut retains its opening release, center dragging and center-tap cancellation.
-Tap a sector/outside to choose by angle. Its wrapper is keyboard focusable and shows focus
-only for keyboard input: arrows move its center, Shift moves faster, 1/2/3 select geometry,
-and Escape cancels. No separate center button or tutorial panel is displayed.
+Persistent donut allows sector hover and geometry selection on the opening hold's release.
+Releasing within the 46 px center radius, including its boundary, keeps it open. Later
+center drags beyond 8 px pan the map beneath the fixed donut; drag releases keep it open
+without selecting geometry. Later center taps cancel, and sector/outside taps choose by
+angle. Its wrapper is keyboard focusable and shows focus only for keyboard input: arrows
+pan map content in the arrow direction by 16 CSS px (64 with Shift), 1/2/3 select geometry,
+and Escape cancels. Placement uses the updated geographic coordinate beneath the donut.
+No separate center button or tutorial panel is displayed.
 Guidance lives in the public How to Report an Obstacle page, including the active placement
 variant, crosshair placement, editing and session-only draft/report behavior.
 Drawing footers retain labels, counts, measurements, completion and validation feedback.

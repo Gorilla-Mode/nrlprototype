@@ -144,19 +144,25 @@ gestures and restore their original enabled states. Cancellation restores coordi
 Pointer cancellation, lost capture, second touch, blur, hidden maps, resize, mode changes,
 Delete and teardown cancel gestures. Typed projected handles expose keyboard editing.
 
-Persistent donut ignores its opening release. Subsequent center drags beyond 8 px move
-its screen and geographic center together, leaving the map stationary and the donut open.
-Center taps cancel; sector and outside taps use the existing angle selection. A focusable
-donut wrapper supports keyboard arrows to move the center, Shift for faster movement,
-1/2/3 to choose Point/Line/Polygon, and Escape to cancel. There are no separate geometry
-buttons, center button or tutorial panels.
+Persistent donut supports hover and angle-based geometry selection during its opening
+hold. Opening release within the 46 px center radius (boundary included) keeps it open.
+Subsequent presses beginning in the center pan the map after movement exceeds 8 px:
+the full accumulated displacement is applied at activation, then incremental deltas,
+including the final release position. The donut stays fixed and drag releases cannot
+select geometry. Later center taps cancel; sector and outside taps use angle selection.
+A focusable donut wrapper forwards `panPersistentMap(dx, dy)` for keyboard arrows to pan
+map content by 16 CSS px in the arrow direction, or 64 with Shift; 1/2/3 choose geometry
+at the updated coordinate, and Escape cancels. There are no separate geometry buttons,
+center button or tutorial panels.
 Two-finger placement keeps ordinary hold/release selection, but adding a second touch to
 an open donut pans the map using touch-centroid deltas and MapLibre `panBy` without
 animation. Zoom, bearing and pitch stay unchanged, and placement is sampled under the
-fixed donut center. Controller-driven camera events bypass ordinary hold cancellation.
-Selection is suspended until the second finger lifts. Lifting the original finger first
-cancels. Normal pinch and pan remain available outside this gesture. Error reporting and
-registered-obstacle position correction retain their existing gesture paths.
+fixed donut center. Persistent center drags and keyboard pans share this nonanimated
+`panBy([-dx, -dy])` path and resample placement after each pan. Camera events bypass
+ordinary hold cancellation only during controller-owned panning.
+Two-finger selection is suspended until the second finger lifts. Lifting the original
+finger first cancels. Normal pinch and pan remain available outside this gesture. Error
+reporting and registered-obstacle position correction retain their existing gesture paths.
 
 ## External data and geolocation
 
