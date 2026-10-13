@@ -61,10 +61,17 @@ reporting parameter is missing or invalid. Explicit `reporting` overrides requir
 `debug=1`, which also exposes the menu selector. It offers `one-step-keypad`,
 `one-step` (“One step — scrolling”), `two-step` and `two-step-keypad`.
 Combine query parameters with `&` before any route hash.
+The map's `?` user-test task button and dialog require both `debug=1` and `help=1`,
+as linked in the README (`?debug=1&help=1`). Each flag must have the exact value `1`;
+missing or other values disable the task guide.
+
+The `?` user-test help button and menu must always require both `debug=1` and `help=1`.
+This is a fixed compatibility contract: do not rename or replace either flag, change
+their required values, or bypass the requirement that both are enabled.
+
 How to Report an Obstacle is a public page at `#/Help/ReportObstacle`, reachable from
 Menu, FAQ drawing instructions and Settings support. It uses the normal history, page
-focus and inert-map lifecycle and describes the active placement variant. Legacy `help`
-parameters are ignored and do not affect map layout.
+focus and inert-map lifecycle and describes the active placement variant.
 Changing the debug selector replaces the current URL and reloads the application,
 clearing the drawing, draft, map view and other session state. Selecting the current
 variant does nothing. The URL keeps its deployment path, unrelated query parameters
