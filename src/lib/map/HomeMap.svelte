@@ -2,6 +2,7 @@
   import { onMount, tick, type Snippet } from 'svelte';
   import type { SettingsSection } from '../settings/settings';
   import MenuDrawer from './MenuDrawer.svelte';
+  import UserTestTasks from '../usertest/UserTestTasks.svelte';
   import GeometryIcon from './GeometryIcon.svelte';
   import MapCanvas from './MapCanvas.svelte';
   import MapToolbar from './MapToolbar.svelte';
@@ -23,13 +24,15 @@
   import type { PlacementEditingVariantId } from './placementEditing';
   import type { EditableVertexHandle } from './createVertexEditingInteraction';
 
-  let { placementEditing = 'default', oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, onguide, onfaq, onnotifications, onreports, onsettings,
+  let { placementEditing = 'default', userTest = false, oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, onguide, onfaq, onnotifications, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
     selectedObstacle = $bindable<RegisteredObstacle | null>(null),
   }: {
     placementEditing?: PlacementEditingVariantId;
+    /** Shows the task button for user-test participants. */
+    userTest?: boolean;
     oncomplete?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
     onreportstart?: () => void;
     debugContent?: Snippet;
@@ -53,6 +56,7 @@
   let mapWrapper: HTMLElement;
 
   let isLayerFadeOpen = $state(false);
+  let userTasksOpen = $state(false);
   let crosshairMode = $state(false);
   let crosshairState = $state.raw<CrosshairDrawingState>(idleCrosshairDrawingState);
   let crosshairSize = $state(0);
@@ -245,6 +249,8 @@
     {crosshairMode}
     oncrosshairtoggle={toggleCrosshairMode}
     ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
+    onusertasks={userTest ? () => { userTasksOpen = true; } : undefined}
+    {userTasksOpen}
   />
   <MapCanvas
     visible={visible && !menuOpen && (!selectedObstacle || !!positionPick)}
@@ -341,6 +347,8 @@
 
   <MenuDrawer bind:open={menuOpen} {onguide} {onfaq} {onnotifications} {onsettings} {debugContent}
     ondismiss={() => mapWrapper.querySelector<HTMLButtonElement>('[aria-label="Menu"]')?.focus({ preventScroll: true })} />
+
+  {#if userTest}<UserTestTasks bind:open={userTasksOpen} />{/if}
 
   {#if holdOrigin}
     {@const geometryIcons = { point: pointIcon, line: lineIcon, polygon: polygonIcon }}
