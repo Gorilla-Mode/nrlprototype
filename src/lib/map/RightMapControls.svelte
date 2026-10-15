@@ -19,6 +19,9 @@
     ongeolocationclick: () => void;
     crosshairMode: boolean;
     oncrosshairtoggle: () => void;
+    /** Opens the user-test task list; the button is absent outside user testing. */
+    onusertasks?: () => void;
+    userTasksOpen?: boolean;
   }
 
   let {
@@ -34,6 +37,8 @@
     ongeolocationclick,
     crosshairMode,
     oncrosshairtoggle,
+    onusertasks,
+    userTasksOpen = false,
   }: Props = $props();
 </script>
 
@@ -75,6 +80,16 @@
       </svg>
     </MapButton>
   </div>
+  {#if onusertasks}
+    <div class:covered={open} inert={open}>
+      <MapButton class="user-test-button" aria-label="Vis oppgaver for brukertest" aria-haspopup="dialog" aria-expanded={userTasksOpen}
+        title="Vis oppgaver for brukertest" onclick={onusertasks}>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M8 8a4 4 0 0 1 8 0c0 3-4 3-4 6M12 18v1" />
+        </svg>
+      </MapButton>
+    </div>
+  {/if}
 </aside>
 
 <style>
@@ -92,6 +107,18 @@
     align-items: flex-end;
     gap: var(--map-control-gap);
     transform: translateY(-50%);
+  }
+
+  /* Filled so test participants can find the task guide among the neutral map controls. */
+  .right-map-controls :global(.map-button.user-test-button) {
+    border-color: var(--color-action-secondary);
+    background: var(--color-action-secondary);
+    color: var(--color-text-inverse);
+  }
+
+  .right-map-controls :global(.map-button.user-test-button:not(:disabled):hover) {
+    border-color: var(--color-action-secondary-hover);
+    background: var(--color-action-secondary-hover);
   }
 
   /* Leave room for bottom selection actions on short portrait viewports. */

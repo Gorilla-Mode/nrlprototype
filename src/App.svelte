@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { placementEditingSettings, placementEditingVariantUrl } from './lib/map/placementEditing';
+  import { userTestEnabled } from './lib/usertest/userTestSettings';
   import HomeMap from './lib/map/HomeMap.svelte';
   import FaqPage from './lib/faq/FaqPage.svelte';
   import ReportsPage from './lib/reports/ReportsPage.svelte';
@@ -36,6 +37,7 @@
   let search = $state(typeof window !== 'undefined' ? window.location.search : '');
   let reporting = $derived(reportingSettings(search, reportingVariants));
   let placementEditing = $derived(placementEditingSettings(search));
+  let userTest = $derived(userTestEnabled(search));
   let guideOpen = $derived(hash === reportingGuideRoute);
   let ActiveReportingView = $derived(reportingVariants.find(({ id }) => id === details.variant?.id)?.component);
   let faqOpen = $derived(hash === '#/FAQ');
@@ -210,7 +212,7 @@
 
 <div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || reportOpen} aria-hidden={pageOpen || reportOpen}>
   <HomeMap bind:this={homeMap} bind:menuOpen bind:opacity bind:isGrayscale={grayscale}
-    {placementEditing}
+    {placementEditing} {userTest}
     bind:geolocationState={locationState} bind:locationMessage bind:accuracy
     onguide={() => openPage(reportingGuideRoute)} onfaq={() => openPage('#/FAQ')} onnotifications={() => openPage(notificationsRoute)} onreports={() => openPage(reportsRoute)}
     onsettings={(section) => openPage('#/Settings/' + section)} visible={!pageOpen && !reportOpen}
