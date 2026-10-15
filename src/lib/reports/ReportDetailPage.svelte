@@ -1,10 +1,20 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import StatusBadge from './StatusBadge.svelte';
-  import type { Report } from './reportsData';
-  import { geometryTypeFor, lightingSummary, formatToday } from '../drafts/types';
+  import ReportSentDialog from './ReportSentDialog.svelte';
+  import { formatLongDate, type Report } from './reportsData';
+  import { lightingOptions, lightingSummary, lightingValueLabel, formatToday } from '../drafts/types';
+  import MiniMap from '../map/MiniMap.svelte';
+  import PhotoField from './PhotoField.svelte';
+  import Dropdown from './Dropdown.svelte';
+  import { obstacleTypeChoices, obstacleTypeLabel } from '../reporting/obstacle';
+  import { geometryCameraTarget, geometryKind, locationCaption as captionFor, type GeometryCameraTarget } from './reportGeometry';
+
+  const typeOptions = obstacleTypeChoices.map(({ type, label }) => ({ value: type, label }));
 
   export let report: Report;
   export let onback: () => void = () => {};
+  export let onshowonmap: ((target: GeometryCameraTarget) => void) | undefined = undefined;
 
   let editing = false;
 
@@ -27,14 +37,30 @@
     report.status = 'pending';
     report.secondaryDate = formatToday();
     editing = false;
+    // Confirmation only; the moment is read here because reports store no time of day.
+    sentAt = new Date();
   }
 
-  $: geometryType = geometryTypeFor(report.obstacleType);
+  let scrollArea: HTMLDivElement;
+  let sentAt: Date | null = null;
+
+  // The page always opens at its top, and returns there to show the "sent" banner.
+  onMount(() => { scrollArea.scrollTop = 0; });
+
+  function closeSentDialog() {
+    sentAt = null;
+    scrollArea.scrollTop = 0;
+  }
+
+  $: geometryType = geometryKind(report.geometry);
+
+  function showOnMap() {
+    if (report.geometry) onshowonmap?.(geometryCameraTarget(report.geometry));
+  }
+  $: typeLabel = obstacleTypeLabel(report.obstacleType);
   $: heightDisplay = `${report.heightFeet} ft (${report.heightMeters} m)`;
 
-  $: locationCaption = report.coordinates
-    ? `${report.coordinates.lat.toFixed(4)}° N, ${report.coordinates.lng.toFixed(4)}° E · ${report.vertexCount} ${report.vertexCount === 1 ? 'vertex' : 'vertices'}`
-    : 'Location not set';
+  $: locationCaption = captionFor(report.geometry);
 
   $: descriptionStatus = report.pilotReportText.trim() ? 'Added' : 'Not added';
 
@@ -45,26 +71,40 @@
 </script>
 
 <section class="page">
-  <header class="top-bar">
-    <div class="top-bar-inner">
-      <button class="back" on:click={onback}>‹ Reports</button>
+  <header class="top-bar reports-topbar">
+    <div class="reports-header-row reports-topbar-content">
+      <button class="reports-back" type="button" aria-label="Back to Reports" on:click={onback}>
+        <svg viewBox="0 0 8 14" fill="none" aria-hidden="true"><path d="M7 1 1 7l6 6" /></svg>
+        <span>Reports</span>
+      </button>
       <StatusBadge status={report.status} />
-    </div>
-    <div class="top-bar-inner title-row">
-      <div>
-        <h1>{report.name}</h1>
-        <div class="subtitle">{geometryType} · <strong class="type-highlight">{report.obstacleType}</strong> · {heightDisplay}</div>
-      </div>
     </div>
   </header>
 
-  <div class="scroll-area">
+  <div class="scroll-area" bind:this={scrollArea}>
     <div class="safe-area">
+      {#if isPending}
+        <div class="sent-banner" role="status">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12 21 4l-6 17-3-7-9-2ZM12 14l3-3" /></svg>
+          <p><strong>Sent for review on {formatLongDate(report.secondaryDate)}.</strong> This report can no longer be edited.</p>
+        </div>
+      {/if}
+      <div class="title-block">
+        <h1>{report.name}</h1>
+        <div class="subtitle">{#if geometryType}{geometryType} ·{' '}{/if}<strong class="type-highlight">{typeLabel}</strong> · {heightDisplay}</div>
+      </div>
       <div class="fields-row">
         <div class="field-box">
-          <div class="field-label">TYPE</div>
-          <div class="field-value">{report.obstacleType}</div>
-          <div class="field-caption muted">{geometryType} geometry</div>
+          {#if editing}
+            <div class="field-label" id="report-type-label">TYPE</div>
+            <div class="field-value">
+              <Dropdown id="report-type" labelledby="report-type-label" options={typeOptions} bind:value={report.obstacleType} />
+            </div>
+          {:else}
+            <div class="field-label">TYPE</div>
+            <div class="field-value">{typeLabel}</div>
+          {/if}
+          <div class="field-caption muted">{geometryType ?? 'No'} geometry</div>
         </div>
 
         <div class="field-box">
@@ -88,16 +128,24 @@
         </div>
 
         <div class="field-box">
-          <div class="field-label">LIGHTING</div>
+          <div class="field-label" id="report-lighting-label">LIGHTING</div>
           {#if editing}
-            <div class="lighting-toggle">
-              <button type="button" class:active={report.lighting === 'Yes'} on:click={() => report.lighting = 'Yes'}>Yes</button>
-              <button type="button" class:active={report.lighting === 'No'} on:click={() => report.lighting = 'No'}>No</button>
+            <div class="lighting-toggle" role="group" aria-labelledby="report-lighting-label">
+              {#each lightingOptions as option (option.value)}
+                <!-- Pressing the chosen answer again clears it: lighting is optional. -->
+                <button type="button" aria-pressed={report.lighting === option.value} class:active={report.lighting === option.value}
+                  on:click={() => report.lighting = report.lighting === option.value ? null : option.value}>{option.label}</button>
+              {/each}
             </div>
           {:else}
-            <div class="field-value">{report.lighting === 'Yes' ? 'Lit' : report.lighting === 'No' ? 'Not lit' : report.lighting}</div>
+            <div class="field-value">{lightingValueLabel(report.lighting)}</div>
           {/if}
           <div class="field-caption muted">Marking on the obstacle</div>
+        </div>
+
+        <div class="field-box">
+          <div class="field-label">PHOTO</div>
+          <PhotoField bind:photos={report.photos} editable={editing} label={report.name} />
         </div>
       </div>
 
@@ -106,7 +154,7 @@
           <div class="ready-title">Ready to send for review</div>
           <div class="ready-desc muted">Everything the reviewer needs is filled in.</div>
         {:else if isPending}
-          <div class="ready-title">Pending review</div>
+          <div class="ready-title">Sent for review</div>
           <div class="ready-desc muted">Sent to the NRL reviewer. You'll be notified about the outcome.</div>
         {:else if isApproved}
           <div class="ready-title">Approved</div>
@@ -157,17 +205,9 @@
       <div class="two-col">
         <div class="panel">
           <div class="field-label">LOCATION</div>
-          <div class="map-preview">
-            {#if geometryType === 'Line'}
-              <svg class="route-line" viewBox="0 0 200 120" preserveAspectRatio="none" aria-hidden="true">
-                <path d="M10 95 C 55 105, 85 45, 130 55 S 175 25, 195 12" />
-              </svg>
-            {/if}
-            {#if report.coordinates}
-              <span class="pin">📍</span>
-            {/if}
-          </div>
-          <div class="map-caption muted">{locationCaption}</div>
+          <MiniMap geometry={report.geometry} label={report.name}
+            onshowonmap={onshowonmap ? showOnMap : undefined} />
+          {#if report.geometry}<div class="map-caption muted">{locationCaption}</div>{/if}
         </div>
 
         <div class="panel">
@@ -200,32 +240,32 @@
     </div>
   </div>
 
-  <footer class="bottom-bar">
-    <div class="actions">
-      {#if isReady}
-        <button class="secondary" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
-        <div class="primary-wrap">
-          <button class="primary" on:click={sendForReview}>
+  <!-- Sent reports explain their state in the banner at the top instead. -->
+  {#if !isPending}
+    <footer class="bottom-bar">
+      <div class="actions">
+        {#if isReady}
+          <button class="button" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
+          <button class="button button--primary" on:click={sendForReview}>
             <span class="paper-plane">➤</span> Send for Review
           </button>
           <div class="primary-note">
             <div class="note-strong">Goes straight to the NRL reviewer</div>
             <div class="muted">You cannot edit the report after sending</div>
           </div>
-        </div>
-      {:else if isPending}
-        <div class="pending-note">
-          <div class="note-strong">Sent for review</div>
-          <div class="muted">This report can no longer be edited</div>
-        </div>
-      {:else}
-        <div class="pending-note">
-          <div class="note-strong">{isApproved ? 'Approved' : 'Declined'} by {report.reviewer}</div>
-          <div class="muted">This report has been reviewed and closed</div>
-        </div>
-      {/if}
-    </div>
-  </footer>
+        {:else}
+          <div class="pending-note">
+            <div class="note-strong">{isApproved ? 'Approved' : 'Declined'} by {report.reviewer}</div>
+            <div class="muted">This report has been reviewed and closed</div>
+          </div>
+        {/if}
+      </div>
+    </footer>
+  {/if}
+
+  {#if sentAt}
+    <ReportSentDialog {report} {sentAt} onbacktoreports={onback} onclose={closeSentDialog} />
+  {/if}
 </section>
 
 <style>
@@ -235,21 +275,26 @@
     background: var(--color-background-page);
   }
 
-  .top-bar { flex-shrink: 0; background: var(--color-background-raised); border-bottom: var(--border-default); }
-  .top-bar-inner { width:100%; max-width:1100px; margin:0 auto; padding:20px 32px 0; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between; }
-  .top-bar-inner.title-row { padding-top:4px; padding-bottom:20px; display:block }
+  .top-bar { flex-shrink: 0; background: var(--color-background-raised); padding-top: var(--safe-area-top); }
 
-  .back { background:transparent; border:0; color:var(--color-action-secondary); font-weight:600; font-size:15px; cursor:pointer; padding:0 }
-
-  h1 { margin:0 0 4px; font-size:26px; color:var(--color-text-primary) }
-  .subtitle { color:var(--color-text-secondary); font-size:14px }
+  .sent-banner { display:flex; align-items:flex-start; gap:var(--space-3); margin-bottom:var(--space-5); padding:var(--space-3) var(--space-4); border:var(--border-default); border-left:var(--border-width-emphasis) solid var(--color-status-info); border-radius:var(--radius-control); background:var(--color-status-info-surface); color:var(--color-text-primary) }
+  .sent-banner svg { flex:none; width:var(--icon-size-default); height:var(--icon-size-default); margin-top:var(--space-1); color:var(--color-status-info); stroke:currentColor; stroke-width:var(--icon-stroke-width); stroke-linecap:round; stroke-linejoin:round }
+  .sent-banner p { margin:0; font-size:var(--font-size-body); line-height:var(--line-height-body) }
+  .sent-banner strong { font-weight:var(--font-weight-semibold) }
+  .title-block { margin-bottom: var(--space-6) }
+  h1 { margin:0 0 var(--space-1); font-size:var(--reports-title-size); font-weight:var(--font-weight-semibold); letter-spacing:var(--faq-title-tracking); line-height:var(--line-height-tight); color:var(--color-text-primary) }
+  .subtitle { color:var(--color-text-secondary); font-size:var(--font-size-body-small) }
   .type-highlight { font-weight:700; color:var(--color-text-primary) }
   .muted { color:var(--color-text-secondary) }
 
   .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; }
-  .safe-area { width:100%; max-width:1100px; margin:0 auto; padding:24px 32px 32px; box-sizing:border-box; }
+  .safe-area { width:100%; max-width:var(--layout-content-max); margin:0 auto; padding:var(--space-6) var(--map-control-inset-right) var(--space-8) var(--map-control-inset-left); box-sizing:border-box; }
 
-  .fields-row { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:14px; margin-bottom:16px }
+  /* Four cards in a row on large screens, 2 × 2 on iPad and phones. */
+  .fields-row { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:14px; margin-bottom:16px }
+  @media (min-width:68.75rem) { .fields-row { grid-template-columns: repeat(4, minmax(0,1fr)) } }
+  /* Phone-width cards are too narrow for three answers side by side. */
+  @media (max-width:37.499rem) { .lighting-toggle { flex-direction:column } }
   .field-box { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
   .field-label { font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-bottom:6px }
   .field-value { font-size:17px; font-weight:700; color:var(--color-text-primary) }
@@ -266,10 +311,11 @@
   .height-input-wrap input:focus { outline:none }
   .height-input-wrap .unit { color:var(--color-text-secondary); font-weight:600; font-size:14px }
 
-  .lighting-toggle { display:flex; gap:8px }
+
+  .lighting-toggle { display:flex; gap:var(--space-1) }
   .lighting-toggle button {
-    flex:1; padding:8px 0; border-radius:10px; border:var(--border-default);
-    background:var(--color-background-raised); font-weight:700; font-size:15px;
+    flex:1; min-width:0; min-height:var(--target-size-min); padding:0; border-radius:10px; border:var(--border-default);
+    background:var(--color-background-raised); font-weight:700; font-size:var(--font-size-body-small);
     color:var(--color-text-primary); cursor:pointer;
   }
   .lighting-toggle button.active {
@@ -300,10 +346,6 @@
   .two-col { display:grid; grid-template-columns: 1fr 1fr; gap:16px }
   .panel { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
 
-  .map-preview { position:relative; margin-top:8px; height:120px; border-radius:10px; overflow:hidden; background: linear-gradient(135deg, var(--color-status-info-surface) 0%, var(--color-status-warning-surface) 100%); display:flex; align-items:center; justify-content:center }
-  .route-line { position:absolute; inset:0; width:100%; height:100%; }
-  .route-line path { fill:none; stroke: var(--color-map-line); stroke-width:4; stroke-linecap:round; }
-  .pin { font-size:28px; position:relative; }
   .map-caption { font-size:12px; margin-top:8px }
 
   .activity-list { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:14px }
@@ -313,17 +355,14 @@
   .activity-date { font-size:12px; margin-top:2px }
 
   .bottom-bar { flex-shrink:0; background:var(--color-background-raised); border-top:var(--border-default); }
-  .actions { width:100%; max-width:1100px; margin:0 auto; padding:16px 32px; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px }
-  .secondary { background:var(--color-background-raised); border:var(--border-default); border-radius:10px; padding:12px 20px; font-weight:600; cursor:pointer; color:var(--color-text-primary) }
-  .primary-wrap { display:flex; flex-direction:column; align-items:flex-end; gap:8px }
-  .primary { background:var(--color-action-primary); color:var(--color-action-primary-text); border:0; border-radius:10px; padding:12px 22px; font-weight:700; display:flex; align-items:center; gap:8px; cursor:pointer }
+  .actions { width:100%; max-width:var(--layout-content-max); margin:0 auto; padding:var(--space-4) var(--map-control-inset-right) max(var(--space-4), var(--safe-area-bottom)) var(--map-control-inset-left); box-sizing:border-box; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-3) var(--space-4) }
   .paper-plane { transform:rotate(45deg); display:inline-block }
-  .primary-note { text-align:right; font-size:12px }
+  /* Full-width row under both buttons, so the note never shifts them. */
+  .primary-note { flex-basis:100%; text-align:center; font-size:12px }
   .pending-note { font-size:12px }
   .note-strong { font-weight:700; color:var(--color-text-primary) }
 
   @media (max-width:800px) {
-    .fields-row { grid-template-columns: 1fr }
     .two-col { grid-template-columns: 1fr }
     .summary-grid { grid-template-columns: 1fr }
   }

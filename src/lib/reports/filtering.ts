@@ -1,9 +1,10 @@
 export type GeometryKey = 'Point' | 'Line';
 export type HeightFilterKey = 'any' | 'under30' | '30to60' | 'over60';
 
-export function matchesGeometryFilter(geometry: GeometryKey, selected: Set<GeometryKey>): boolean {
+/** Items without geometry yet only show when no geometry filter is applied. */
+export function matchesGeometryFilter(geometry: GeometryKey | null, selected: Set<GeometryKey>): boolean {
   if (selected.size === 0) return true;
-  return selected.has(geometry);
+  return geometry !== null && selected.has(geometry);
 }
 
 export function matchesHeightFilter(meters: number | null, filter: HeightFilterKey): boolean {

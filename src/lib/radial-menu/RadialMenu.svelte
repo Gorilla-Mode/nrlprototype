@@ -1,4 +1,4 @@
-<script lang="ts">
+men <script lang="ts">
   import { createRadialSegments, defaultRadialMenuRadii, getHoveredRadialSegment, type RadialMenuProps } from './radialMenu';
 
   let {

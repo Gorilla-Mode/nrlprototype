@@ -91,7 +91,8 @@
 
   .reports-filter-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
   .reports-filter-header h2 { margin: 0; font-size: var(--font-size-heading-small); font-weight: var(--font-weight-semibold); }
-  .reports-filter-reset { background: transparent; border: 0; color: var(--color-action-secondary); font-weight: var(--font-weight-semibold); font-size: var(--font-size-body-small); cursor: pointer; padding: 0; }
+  .reports-filter-reset { min-height: var(--target-size-min); margin-right: calc(-1 * var(--space-2)); padding: 0 var(--space-2); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-action-secondary); font-weight: var(--font-weight-semibold); font-size: var(--font-size-body-small); cursor: pointer; }
+  .reports-filter-reset:hover { background: var(--color-map-control-hover); }
 
   .reports-filter-section-label {
     font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold);
@@ -107,6 +108,7 @@
     background: var(--color-background-raised); border: var(--border-default); border-radius: var(--radius-control);
     padding: var(--space-3); cursor: pointer; box-sizing: border-box;
   }
+  .reports-filter-option:not(.selected):hover { background: var(--color-map-control-hover); }
   .reports-filter-option-radio { justify-content: space-between; }
   .reports-filter-option.selected { background: var(--color-action-selected); border-color: var(--color-action-secondary); color: var(--color-action-secondary); font-weight: var(--font-weight-semibold); }
   .reports-filter-option-radio.selected svg { flex: none; width: var(--space-4); height: var(--space-4); color: var(--color-action-secondary); }

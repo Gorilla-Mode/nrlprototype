@@ -1,7 +1,11 @@
+import type { ObstacleType } from '../reporting/obstacle.js';
+import type { ReportGeometry } from '../reports/reportGeometry.js';
+import type { ReportPhoto } from '../reports/photos.js';
+
 export type Draft = {
   id: string;
   title: string;
-  category: string;
+  category: ObstacleType;
   value: string;
   currentStep: number;
   totalSteps: number;
@@ -11,24 +15,44 @@ export type Draft = {
   // detail-page fields
   createdDate: string;
   heightAboveGround: string;
-  lighting: string;
+  /** Pilot's answer; optional, so null means not answered. */
+  lighting: Lighting | null;
   pilotReportText: string;
   reportedByName: string;
   reportedByOrg: string;
-  coordinates: { lat: number; lng: number } | null;
-  vertexCount: number;
+  /** Drawn obstacle geometry; null until a location is set. */
+  geometry: ReportGeometry | null;
+  /** Optional photos, downscaled; at most maxPhotos. */
+  photos: ReportPhoto[];
 };
 
-const lineCategories = new Set(['Bridge', 'Aerial span']);
+/** Whether the obstacle is lit. Optional: pilots cannot always tell. */
+export type Lighting = 'yes' | 'no' | 'unknown';
 
-export function geometryTypeFor(category: string): 'Line' | 'Point' {
-  return lineCategories.has(category) ? 'Line' : 'Point';
+export const lightingOptions: readonly { value: Lighting; label: string }[] = [
+  { value: 'yes', label: 'Yes' },
+  { value: 'no', label: 'No' },
+  { value: 'unknown', label: 'Unknown' },
+];
+
+/** Field value shown outside edit mode. */
+export function lightingValueLabel(lighting: Lighting | null): string {
+  if (lighting === 'yes') return 'Lit';
+  if (lighting === 'no') return 'Not lit';
+  if (lighting === 'unknown') return 'Unknown';
+  return 'Not set';
 }
 
-export function lightingSummary(lighting: string): string {
-  if (lighting === 'Yes') return 'Lit — reported by pilot';
-  if (lighting === 'No') return 'Not lit — reported by pilot';
+export function lightingSummary(lighting: Lighting | null): string {
+  if (lighting === 'yes') return 'Lit — reported by pilot';
+  if (lighting === 'no') return 'Not lit — reported by pilot';
+  if (lighting === 'unknown') return 'Unknown';
   return 'Not set';
+}
+
+/** Fields that block sending a draft for review. Lighting is optional and never listed. */
+export function missingDraftFields(draft: Draft): string[] {
+  return draft.heightAboveGround === 'Not set' ? ['height above ground'] : [];
 }
 
 export function heightInMeters(value: string): number | null {

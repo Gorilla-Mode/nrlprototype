@@ -1,12 +1,20 @@
 <script lang="ts">
   import type { Draft } from './types';
-  import { geometryTypeFor, heightInMeters, formatHeightFromMeters, formatToday } from './types';
+  import { heightInMeters, formatHeightFromMeters, formatToday, lightingOptions, missingDraftFields } from './types';
+  import MiniMap from '../map/MiniMap.svelte';
+  import PhotoField from '../reports/PhotoField.svelte';
+  import Dropdown from '../reports/Dropdown.svelte';
+  import { obstacleTypeChoices, obstacleTypeLabel } from '../reporting/obstacle';
+  import { geometryCameraTarget, geometryKind, locationCaption as captionFor, type GeometryCameraTarget } from '../reports/reportGeometry';
   import { drafts } from './mockData';
   import { reports } from '../reports/reportsData';
+
+  const typeOptions = obstacleTypeChoices.map(({ type, label }) => ({ value: type, label }));
 
   export let draft: Draft;
   export let onBack: () => void = () => {};
   export let onSend: () => void = () => {};
+  export let onShowOnMap: ((target: GeometryCameraTarget) => void) | undefined = undefined;
 
   function updateHeight(raw: string) {
     if (raw.trim() === '') {
@@ -40,42 +48,43 @@
       pilotReportText: draft.pilotReportText,
       reportedByName: draft.reportedByName,
       reportedByOrg: draft.reportedByOrg,
-      coordinates: draft.coordinates,
-      vertexCount: draft.vertexCount
+      geometry: draft.geometry,
+      photos: draft.photos
     });
     onSend();
   }
 
-  $: geometryType = geometryTypeFor(draft.category);
+  $: geometryType = geometryKind(draft.geometry);
+  $: typeLabel = obstacleTypeLabel(draft.category);
 
-  $: missingFields = [
-    { label: 'height above ground', missing: draft.heightAboveGround === 'Not set' },
-    { label: 'lighting', missing: draft.lighting === 'Not set' }
-  ].filter(f => f.missing);
+  function showOnMap() {
+    if (draft.geometry) onShowOnMap?.(geometryCameraTarget(draft.geometry));
+  }
+
+  $: missingFields = missingDraftFields(draft);
 
   $: canSend = missingFields.length === 0;
 
-  $: locationCaption = draft.coordinates
-    ? `${draft.coordinates.lat.toFixed(4)}° N, ${draft.coordinates.lng.toFixed(4)}° E · ${draft.vertexCount} ${draft.vertexCount === 1 ? 'vertex' : 'vertices'}`
-    : 'Location not set';
+  $: locationCaption = captionFor(draft.geometry);
 </script>
 
 <section class="page">
-  <header class="top-bar">
-    <div class="top-bar-inner">
-      <button class="back" on:click={onBack}>‹ Reports</button>
-      <span class="badge">Draft</span>
-    </div>
-    <div class="top-bar-inner title-row">
-      <div>
-        <h1>{draft.title}</h1>
-        <div class="subtitle">{geometryType} · <strong class="type-highlight">{draft.category}</strong> · {draft.value}</div>
-      </div>
+  <header class="top-bar reports-topbar">
+    <div class="reports-header-row reports-topbar-content">
+      <button class="reports-back" type="button" aria-label="Back to Reports" on:click={onBack}>
+        <svg viewBox="0 0 8 14" fill="none" aria-hidden="true"><path d="M7 1 1 7l6 6" /></svg>
+        <span>Reports</span>
+      </button>
+      <span class="reports-status-badge" data-status="draft">Draft</span>
     </div>
   </header>
 
   <div class="scroll-area">
     <div class="safe-area">
+      <div class="title-block">
+        <h1>{draft.title}</h1>
+        <div class="subtitle">{#if geometryType}{geometryType} ·{' '}{/if}<strong class="type-highlight">{typeLabel}</strong> · {draft.value}</div>
+      </div>
       {#if !canSend}
         <div class="needed-box">
           <div class="needed-title">{missingFields.length} {missingFields.length === 1 ? 'field' : 'fields'} still needed</div>
@@ -85,9 +94,11 @@
 
       <div class="fields-row">
         <div class="field-box">
-          <div class="field-label">TYPE</div>
-          <div class="field-value">{draft.category}</div>
-          <div class="field-caption muted">{geometryType} geometry</div>
+          <div class="field-label" id="draft-type-label">TYPE</div>
+          <div class="field-value">
+            <Dropdown id="draft-type" labelledby="draft-type-label" options={typeOptions} bind:value={draft.category} />
+          </div>
+          <div class="field-caption muted">{geometryType ?? 'No'} geometry</div>
         </div>
 
         <div class="field-box" class:missing={draft.heightAboveGround === 'Not set'}>
@@ -106,13 +117,21 @@
           <div class="field-caption muted">Highest point reported</div>
         </div>
 
-        <div class="field-box" class:missing={draft.lighting === 'Not set'}>
-          <div class="field-label">LIGHTING</div>
-          <div class="lighting-toggle">
-            <button type="button" class:active={draft.lighting === 'Yes'} on:click={() => draft.lighting = 'Yes'}>Yes</button>
-            <button type="button" class:active={draft.lighting === 'No'} on:click={() => draft.lighting = 'No'}>No</button>
+        <div class="field-box">
+          <div class="field-label" id="draft-lighting-label">LIGHTING</div>
+          <div class="lighting-toggle" role="group" aria-labelledby="draft-lighting-label">
+            {#each lightingOptions as option (option.value)}
+              <!-- Pressing the chosen answer again clears it: lighting is optional. -->
+              <button type="button" aria-pressed={draft.lighting === option.value} class:active={draft.lighting === option.value}
+                on:click={() => draft.lighting = draft.lighting === option.value ? null : option.value}>{option.label}</button>
+            {/each}
           </div>
           <div class="field-caption muted">Marking on the obstacle</div>
+        </div>
+
+        <div class="field-box">
+          <div class="field-label">PHOTO</div>
+          <PhotoField bind:photos={draft.photos} editable={true} label={draft.title} />
         </div>
       </div>
 
@@ -132,12 +151,9 @@
       <div class="two-col">
         <div class="panel">
           <div class="field-label">LOCATION</div>
-          <div class="map-preview">
-            {#if draft.coordinates}
-              <span class="pin">📍</span>
-            {/if}
-          </div>
-          <div class="map-caption muted">{locationCaption}</div>
+          <MiniMap geometry={draft.geometry} label={draft.title}
+            onshowonmap={onShowOnMap ? showOnMap : undefined} />
+          {#if draft.geometry}<div class="map-caption muted">{locationCaption}</div>{/if}
         </div>
 
         <div class="panel">
@@ -165,15 +181,13 @@
 
   <footer class="bottom-bar">
     <div class="actions">
-      <button class="secondary" on:click={saveDraft}>Save draft</button>
-      <div class="primary-wrap">
-        <button class="primary" disabled={!canSend} on:click={sendReport}>
-          <span class="paper-plane">➤</span> Send for Review
-        </button>
-        <div class="primary-note">
-          <div class="note-strong">Goes straight to the NRL reviewer</div>
-          <div class="muted">You cannot edit the report after sending</div>
-        </div>
+      <button class="button" on:click={saveDraft}>Save draft</button>
+      <button class="button button--primary" disabled={!canSend} on:click={sendReport}>
+        <span class="paper-plane">➤</span> Send for Review
+      </button>
+      <div class="primary-note">
+        <div class="note-strong">Goes straight to the NRL reviewer</div>
+        <div class="muted">You cannot edit the report after sending</div>
       </div>
     </div>
   </footer>
@@ -186,22 +200,22 @@
     background: var(--color-background-page);
   }
 
-  .top-bar { flex-shrink: 0; background: var(--color-background-raised); border-bottom: var(--border-default); }
-  .top-bar-inner { width:100%; max-width:1100px; margin:0 auto; padding:20px 32px 0; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between; }
-  .top-bar-inner.title-row { padding-top:4px; padding-bottom:20px; display:block }
+  .top-bar { flex-shrink: 0; background: var(--color-background-raised); padding-top: var(--safe-area-top); }
 
-  .back { background:transparent; border:0; color:var(--color-action-secondary); font-weight:600; font-size:15px; cursor:pointer; padding:0 }
-  .badge { background:var(--color-background-subtle); color:var(--color-text-secondary); padding:6px 10px; border-radius:999px; font-size:12px }
-
-  h1 { margin:0 0 4px; font-size:26px; color:var(--color-text-primary) }
-  .subtitle { color:var(--color-text-secondary); font-size:14px }
+  .title-block { margin-bottom: var(--space-6) }
+  h1 { margin:0 0 var(--space-1); font-size:var(--reports-title-size); font-weight:var(--font-weight-semibold); letter-spacing:var(--faq-title-tracking); line-height:var(--line-height-tight); color:var(--color-text-primary) }
+  .subtitle { color:var(--color-text-secondary); font-size:var(--font-size-body-small) }
   .type-highlight { font-weight:700; color:var(--color-text-primary) }
   .muted { color:var(--color-text-secondary) }
 
   .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; }
-  .safe-area { width:100%; max-width:1100px; margin:0 auto; padding:24px 32px 32px; box-sizing:border-box; }
+  .safe-area { width:100%; max-width:var(--layout-content-max); margin:0 auto; padding:var(--space-6) var(--map-control-inset-right) var(--space-8) var(--map-control-inset-left); box-sizing:border-box; }
 
-  .fields-row { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:14px; margin-bottom:16px }
+  /* Four cards in a row on large screens, 2 × 2 on iPad and phones. */
+  .fields-row { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:14px; margin-bottom:16px }
+  @media (min-width:68.75rem) { .fields-row { grid-template-columns: repeat(4, minmax(0,1fr)) } }
+  /* Phone-width cards are too narrow for three answers side by side. */
+  @media (max-width:37.499rem) { .lighting-toggle { flex-direction:column } }
   .field-box { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
   .field-box.missing { border-color: var(--color-status-error) }
   .field-label { font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-bottom:6px }
@@ -219,10 +233,11 @@
   .height-input-wrap input:focus { outline:none }
   .height-input-wrap .unit { color:var(--color-text-secondary); font-weight:600; font-size:14px }
 
-  .lighting-toggle { display:flex; gap:8px }
+
+  .lighting-toggle { display:flex; gap:var(--space-1) }
   .lighting-toggle button {
-    flex:1; padding:8px 0; border-radius:10px; border:var(--border-default);
-    background:var(--color-background-raised); font-weight:700; font-size:15px;
+    flex:1; min-width:0; min-height:var(--target-size-min); padding:0; border-radius:10px; border:var(--border-default);
+    background:var(--color-background-raised); font-weight:700; font-size:var(--font-size-body-small);
     color:var(--color-text-primary); cursor:pointer;
   }
   .lighting-toggle button.active {
@@ -247,8 +262,6 @@
   .two-col { display:grid; grid-template-columns: 1fr 1fr; gap:16px }
   .panel { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
 
-  .map-preview { margin-top:8px; height:120px; border-radius:10px; background: linear-gradient(135deg, var(--color-status-info-surface) 0%, var(--color-status-warning-surface) 100%); display:flex; align-items:center; justify-content:center }
-  .pin { font-size:28px }
   .map-caption { font-size:12px; margin-top:8px }
 
   .activity-list { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:14px }
@@ -258,17 +271,13 @@
   .activity-date { font-size:12px; margin-top:2px }
 
   .bottom-bar { flex-shrink:0; background:var(--color-background-raised); border-top:var(--border-default); }
-  .actions { width:100%; max-width:1100px; margin:0 auto; padding:16px 32px; box-sizing:border-box; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px }
-  .secondary { background:var(--color-background-raised); border:var(--border-default); border-radius:10px; padding:12px 20px; font-weight:600; cursor:pointer; color:var(--color-text-primary) }
-  .primary-wrap { display:flex; flex-direction:column; align-items:flex-end; gap:8px }
-  .primary { background:var(--color-action-primary); color:var(--color-action-primary-text); border:0; border-radius:10px; padding:12px 22px; font-weight:700; display:flex; align-items:center; gap:8px; cursor:pointer }
-  .primary:disabled { opacity:0.5; cursor:not-allowed }
+  .actions { width:100%; max-width:var(--layout-content-max); margin:0 auto; padding:var(--space-4) var(--map-control-inset-right) max(var(--space-4), var(--safe-area-bottom)) var(--map-control-inset-left); box-sizing:border-box; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-3) var(--space-4) }
   .paper-plane { transform:rotate(45deg); display:inline-block }
-  .primary-note { text-align:right; font-size:12px }
+  /* Full-width row under both buttons, so the note never shifts them. */
+  .primary-note { flex-basis:100%; text-align:center; font-size:12px }
   .note-strong { font-weight:700; color:var(--color-text-primary) }
 
   @media (max-width:800px) {
-    .fields-row { grid-template-columns: 1fr }
     .two-col { grid-template-columns: 1fr }
   }
 </style>

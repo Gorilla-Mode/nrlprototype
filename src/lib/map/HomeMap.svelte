@@ -5,6 +5,7 @@
   import UserTestTasks from '../usertest/UserTestTasks.svelte';
   import GeometryIcon from './GeometryIcon.svelte';
   import MapCanvas from './MapCanvas.svelte';
+  import type { CameraTarget } from './createMapController';
   import MapToolbar from './MapToolbar.svelte';
   import RightMapControls from './RightMapControls.svelte';
   import ErrorReportCircle from './ErrorReportCircle.svelte';
@@ -155,6 +156,7 @@
   let holdPointer = $state<{ x: number; y: number } | null>(null);
   export function toggleGeolocation() { mapCanvas?.toggleGeolocation(); }
   export function clearSelection() { mapCanvas?.deleteDrawing(); }
+  export function flyToLocation(target: CameraTarget) { mapCanvas?.flyToLocation(target); }
   export function focusDetails() {
     const resume = mapWrapper.querySelector<HTMLButtonElement>('[data-resume-details]');
     if (resume) resume.focus({ preventScroll: true });

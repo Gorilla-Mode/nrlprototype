@@ -7,6 +7,7 @@ import type { Component } from 'svelte';
 import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
 import type { LocationSuggestion } from '../src/lib/map/locationSearch.js';
+import { compileSvelteComponent } from './helpers/svelte-server.js';
 
 const filename = pathToFileURL(resolve('src/lib/map/SearchBar.svelte'));
 const source = await readFile(filename, 'utf8');
@@ -17,6 +18,7 @@ for (const specifier of ['svelte/internal/server', 'svelte/internal/flags/legacy
 for (const file of ['createLocationSearchController', 'locationSearch']) {
   code = code.replaceAll(`'./${file}.js'`, JSON.stringify(new URL(`../src/lib/map/${file}.js`, import.meta.url).href));
 }
+code = code.replaceAll(`'../components/SearchField.svelte'`, JSON.stringify(await compileSvelteComponent('src/lib/components/SearchField.svelte')));
 const { default: SearchBar } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`) as {
   default: Component<{ onselect: (suggestion: LocationSuggestion) => void }>;
 };
