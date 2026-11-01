@@ -1,7 +1,6 @@
 <script lang="ts">
   import StatusBadge from './StatusBadge.svelte';
-  import { isoDate, reportActionLabel, reportActivity, reportProgressLine, type Report } from './reportsData';
-  import { obstacleTypeLabel } from '../reporting/obstacle';
+  import { formatShortDate, reportActionLabel, reportActivity, reportHeading, reportProgressLine, type Report } from './reportsData';
 
   let { report, onopen, selectMode = false, selected = false, ontoggleselect, justSent = false, unavailableHint }: {
     report: Report;
@@ -46,21 +45,18 @@
           {/if}
         </span>
       {/if}
-      <span class="reports-card-name">{report.name}</span>
+      <span class="reports-card-name">{reportHeading(report)}</span>
       <StatusBadge status={report.status} />
     </div>
 
-    <div class="reports-card-info">
-      <span>{obstacleTypeLabel(report.obstacleType)}</span>
-      <span class="reports-card-dot" aria-hidden="true">·</span>
-      <span>{report.heightFeet} ft ({report.heightMeters} m)</span>
-    </div>
+    <!-- The optional name; empty when the pilot gave none. -->
+    <div class="reports-card-info">{report.name}</div>
     <div class="reports-card-step">{reportProgressLine(report)}</div>
   </div>
 
   <div class="reports-card-bottom">
     <span class="reports-card-meta">
-      {#if activity.date}<time datetime={isoDate(activity.date)} title={activity.date}>{activity.text}</time>{:else}{activity.text}{/if}
+      {#if activity.date}<time datetime={activity.date} title={formatShortDate(activity.date)}>{activity.text}</time>{:else}{activity.text}{/if}
     </span>
     {#if !selectMode}
       <span class="reports-card-cta card-cta-link">

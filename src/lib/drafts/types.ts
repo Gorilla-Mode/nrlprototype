@@ -4,16 +4,18 @@ import type { ReportPhoto } from '../reports/photos.js';
 
 export type Draft = {
   id: string;
+  /** Optional obstacle name; empty when none was given. */
   title: string;
   category: ObstacleType;
   value: string;
   currentStep: number;
   totalSteps: number;
   stepLabel: string;
-  editedDate: string;
+  /** ISO 8601 timestamps. */
+  createdAt: string;
+  updatedAt: string;
 
   // detail-page fields
-  createdDate: string;
   heightAboveGround: string;
   /** Pilot's answer; optional, so null means not answered. */
   lighting: Lighting | null;
@@ -55,20 +57,15 @@ export function missingDraftFields(draft: Draft): string[] {
   return draft.heightAboveGround === 'Not set' ? ['height above ground'] : [];
 }
 
+/** Metres from "30 m (98 ft)", or from the earlier stored "98 ft (30 m)"; null when not set. */
 export function heightInMeters(value: string): number | null {
-  const match = value.match(/\(([\d.]+)\s*m\)/);
+  const match = value.match(/^([\d.]+)\s*m\b/) ?? value.match(/\(([\d.]+)\s*m\)/);
   return match ? parseFloat(match[1]) : null;
 }
 
+/** "30 m (98 ft)", or "Not set". */
 export function formatHeightFromMeters(meters: number | null): string {
   if (meters === null || Number.isNaN(meters)) return 'Not set';
   const feet = Math.round(meters * 3.28084);
-  return `${feet} ft (${meters} m)`;
-}
-
-export function formatToday(): string {
-  const now = new Date();
-  const day = String(now.getDate()).padStart(2, '0');
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  return `${day}.${month}.${now.getFullYear()}`;
+  return `${meters} m (${feet} ft)`;
 }

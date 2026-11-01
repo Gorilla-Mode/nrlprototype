@@ -1,17 +1,20 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import StatusBadge from './StatusBadge.svelte';
   import ReportSentDialog from './ReportSentDialog.svelte';
-  import { formatLongDate, type Report } from './reportsData';
-  import { lightingOptions, lightingSummary, lightingValueLabel, formatToday } from '../drafts/types';
+  import { formatLongDate, formatShortDate, reportHeading, type Report } from './reportsData';
+  import { reportStore, reportToDraft } from './reportStore';
+  import { formatHeightFromMeters, lightingOptions, lightingSummary, lightingValueLabel } from '../drafts/types';
   import MiniMap from '../map/MiniMap.svelte';
+  import LocationEditor from '../map/LocationEditor.svelte';
   import PhotoField from './PhotoField.svelte';
   import Dropdown from './Dropdown.svelte';
   import { obstacleTypeChoices, obstacleTypeLabel } from '../reporting/obstacle';
-  import { geometryCameraTarget, geometryKind, locationCaption as captionFor, type GeometryCameraTarget } from './reportGeometry';
+  import { geometryCameraTarget, geometryKind, locationCaption as captionFor, type GeometryCameraTarget, type ReportGeometry } from './reportGeometry';
 
   const typeOptions = obstacleTypeChoices.map(({ type, label }) => ({ value: type, label }));
 
+  /** A working copy; edits are saved to the report store when the page closes. */
   export let report: Report;
   export let onback: () => void = () => {};
   export let onshowonmap: ((target: GeometryCameraTarget) => void) | undefined = undefined;
@@ -22,9 +25,13 @@
     editing = !editing;
   };
 
+  // Clearing the height leaves a Ready report incomplete.
+  let heightCleared = false;
+
   function updateHeight(raw: string) {
     const meters = Number(raw);
-    if (raw.trim() === '' || Number.isNaN(meters)) {
+    heightCleared = raw.trim() === '' || Number.isNaN(meters);
+    if (heightCleared) {
       report.heightMeters = 0;
       report.heightFeet = 0;
       return;
@@ -34,12 +41,20 @@
   }
 
   function sendForReview() {
-    report.status = 'pending';
-    report.secondaryDate = formatToday();
+    reportStore.updateReport(report);
+    const sent = reportStore.submitReport(report.id);
+    if (!sent) return;
+    report = structuredClone(sent);
     editing = false;
-    // Confirmation only; the moment is read here because reports store no time of day.
-    sentAt = new Date();
+    sentAt = new Date(sent.sentAt ?? sent.updatedAt);
   }
+
+  // Only Ready reports can be edited. One left without a height goes back to Drafts.
+  onDestroy(() => {
+    if (report.status !== 'ready') return;
+    if (heightCleared) reportStore.saveDraft(reportToDraft(report, false));
+    else reportStore.updateReport(report);
+  });
 
   let scrollArea: HTMLDivElement;
   let sentAt: Date | null = null;
@@ -57,8 +72,33 @@
   function showOnMap() {
     if (report.geometry) onshowonmap?.(geometryCameraTarget(report.geometry));
   }
+
+  // The location editor opens over this page; only "Use this location" changes the working copy.
+  let editingLocation = false;
+  let editLocationButton: HTMLButtonElement | undefined;
+
+  function openLocationEditor() {
+    editingLocation = true;
+  }
+
+  async function closeLocationEditor() {
+    editingLocation = false;
+    await tick();
+    editLocationButton?.focus({ preventScroll: true });
+  }
+
+  // Saved with the report's other edits when the page closes or the report is sent.
+  function useLocation(geometry: ReportGeometry) {
+    report.geometry = geometry;
+    void closeLocationEditor();
+  }
+
+  // Only a Ready report's location can change; a sent one keeps "Show on map".
+  $: locationEditable = report.status === 'ready' && !!report.geometry;
   $: typeLabel = obstacleTypeLabel(report.obstacleType);
-  $: heightDisplay = `${report.heightFeet} ft (${report.heightMeters} m)`;
+  $: heightDisplay = formatHeightFromMeters(report.heightMeters);
+  // The name is optional; without one the page is titled like its card.
+  $: title = report.name || reportHeading(report);
 
   $: locationCaption = captionFor(report.geometry);
 
@@ -86,11 +126,11 @@
       {#if isPending}
         <div class="sent-banner" role="status">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12 21 4l-6 17-3-7-9-2ZM12 14l3-3" /></svg>
-          <p><strong>Sent for review on {formatLongDate(report.secondaryDate)}.</strong> This report can no longer be edited.</p>
+          <p><strong>Sent for review on {formatLongDate(report.sentAt)}.</strong> This report can no longer be edited.</p>
         </div>
       {/if}
       <div class="title-block">
-        <h1>{report.name}</h1>
+        <h1>{title}</h1>
         <div class="subtitle">{#if geometryType}{geometryType} ·{' '}{/if}<strong class="type-highlight">{typeLabel}</strong> · {heightDisplay}</div>
       </div>
       <div class="fields-row">
@@ -145,7 +185,7 @@
 
         <div class="field-box">
           <div class="field-label">PHOTO</div>
-          <PhotoField bind:photos={report.photos} editable={editing} label={report.name} />
+          <PhotoField bind:photos={report.photos} editable={editing} label={title} />
         </div>
       </div>
 
@@ -204,9 +244,15 @@
 
       <div class="two-col">
         <div class="panel">
-          <div class="field-label">LOCATION</div>
-          <MiniMap geometry={report.geometry} label={report.name}
-            onshowonmap={onshowonmap ? showOnMap : undefined} />
+          <div class="location-heading">
+            <div class="field-label">LOCATION</div>
+            {#if locationEditable}<button type="button" class="card-cta-link edit-location" bind:this={editLocationButton} on:click={openLocationEditor}>Edit location</button>{/if}
+          </div>
+          {#if locationEditable}
+            <MiniMap geometry={report.geometry} label={title} onedit={openLocationEditor} />
+          {:else}
+            <MiniMap geometry={report.geometry} label={title} onshowonmap={onshowonmap ? showOnMap : undefined} />
+          {/if}
           {#if report.geometry}<div class="map-caption muted">{locationCaption}</div>{/if}
         </div>
 
@@ -217,7 +263,7 @@
               <span class="dot"></span>
               <div>
                 <div class="activity-title">Report created</div>
-                <div class="activity-date muted">{report.createdDate}</div>
+                <div class="activity-date muted">{formatShortDate(report.createdAt)}</div>
               </div>
             </li>
             <li>
@@ -225,10 +271,10 @@
               <div>
                 {#if isReady}
                   <div class="activity-title">Last edited</div>
-                  <div class="activity-date muted">{report.secondaryDate}</div>
+                  <div class="activity-date muted">{formatShortDate(report.updatedAt)}</div>
                 {:else if isPending}
                   <div class="activity-title">Sent for review</div>
-                  <div class="activity-date muted">{report.secondaryDate}</div>
+                  <div class="activity-date muted">{formatShortDate(report.sentAt)}</div>
                 {:else}
                   <div class="activity-title">Reviewed by {report.reviewer}</div>
                 {/if}
@@ -265,6 +311,9 @@
 
   {#if sentAt}
     <ReportSentDialog {report} {sentAt} onbacktoreports={onback} onclose={closeSentDialog} />
+  {/if}
+  {#if editingLocation && report.geometry}
+    <LocationEditor geometry={report.geometry} onuse={useLocation} oncancel={closeLocationEditor} />
   {/if}
 </section>
 
@@ -347,6 +396,9 @@
   .panel { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
 
   .map-caption { font-size:12px; margin-top:8px }
+  .location-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2) }
+  .location-heading .field-label { margin-bottom:0 }
+  .edit-location { min-height:var(--target-size-min); margin-block:calc(-1 * var(--space-3)); padding:0; border:0; background:none; font-size:var(--font-size-body-small); cursor:pointer }
 
   .activity-list { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:14px }
   .activity-list li { display:flex; align-items:flex-start; gap:10px }

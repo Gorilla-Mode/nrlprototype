@@ -1,20 +1,22 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type { Draft } from './types';
-  import { heightInMeters, formatHeightFromMeters, formatToday, lightingOptions, missingDraftFields } from './types';
+  import { heightInMeters, formatHeightFromMeters, lightingOptions, missingDraftFields } from './types';
   import MiniMap from '../map/MiniMap.svelte';
+  import LocationEditor from '../map/LocationEditor.svelte';
   import PhotoField from '../reports/PhotoField.svelte';
   import Dropdown from '../reports/Dropdown.svelte';
   import { obstacleTypeChoices, obstacleTypeLabel } from '../reporting/obstacle';
-  import { geometryCameraTarget, geometryKind, locationCaption as captionFor, type GeometryCameraTarget } from '../reports/reportGeometry';
-  import { drafts } from './mockData';
-  import { reports } from '../reports/reportsData';
+  import { geometryKind, locationCaption as captionFor, type ReportGeometry } from '../reports/reportGeometry';
+  import { draftToReport, reportStore } from '../reports/reportStore';
+  import { formatShortDate, obstacleHeading, type Report } from '../reports/reportsData';
 
   const typeOptions = obstacleTypeChoices.map(({ type, label }) => ({ value: type, label }));
 
+  /** A working copy; edits reach the report store only through Save draft or Send. */
   export let draft: Draft;
   export let onBack: () => void = () => {};
-  export let onSend: () => void = () => {};
-  export let onShowOnMap: ((target: GeometryCameraTarget) => void) | undefined = undefined;
+  export let onSend: (report: Report) => void = () => {};
 
   function updateHeight(raw: string) {
     if (raw.trim() === '') {
@@ -25,40 +27,42 @@
     draft.heightAboveGround = formatHeightFromMeters(Number.isNaN(meters) ? null : meters);
   }
 
+  // A draft with every required field filled in is complete, so saving makes it Ready to send.
   function saveDraft() {
-    draft.editedDate = formatToday();
+    if (canSend) reportStore.markReady(draftToReport(draft));
+    else reportStore.saveDraft(draft);
     onBack();
   }
 
   function sendReport() {
     if (!canSend) return;
-    const index = drafts.findIndex(d => d.id === draft.id);
-    if (index !== -1) drafts.splice(index, 1);
-    const meters = heightInMeters(draft.heightAboveGround) ?? 0;
-    reports.push({
-      id: draft.id,
-      name: draft.title,
-      obstacleType: draft.category,
-      heightFeet: Math.round(meters * 3.28084),
-      heightMeters: meters,
-      status: 'pending',
-      createdDate: draft.createdDate,
-      secondaryDate: formatToday(),
-      lighting: draft.lighting,
-      pilotReportText: draft.pilotReportText,
-      reportedByName: draft.reportedByName,
-      reportedByOrg: draft.reportedByOrg,
-      geometry: draft.geometry,
-      photos: draft.photos
-    });
-    onSend();
+    const ready = reportStore.markReady(draftToReport(draft));
+    const sent = ready && reportStore.submitReport(ready.id);
+    if (sent) onSend(sent);
   }
 
   $: geometryType = geometryKind(draft.geometry);
   $: typeLabel = obstacleTypeLabel(draft.category);
+  // The name is optional; without one the page is titled like its card.
+  $: title = draft.title || obstacleHeading(draft.category, heightInMeters(draft.heightAboveGround));
 
-  function showOnMap() {
-    if (draft.geometry) onShowOnMap?.(geometryCameraTarget(draft.geometry));
+  // The location editor opens over this page; only "Use this location" changes the working copy.
+  let editingLocation = false;
+  let editLocationButton: HTMLButtonElement | undefined;
+
+  function openLocationEditor() {
+    editingLocation = true;
+  }
+
+  async function closeLocationEditor() {
+    editingLocation = false;
+    await tick();
+    editLocationButton?.focus({ preventScroll: true });
+  }
+
+  function useLocation(geometry: ReportGeometry) {
+    draft.geometry = geometry;
+    void closeLocationEditor();
   }
 
   $: missingFields = missingDraftFields(draft);
@@ -82,7 +86,7 @@
   <div class="scroll-area">
     <div class="safe-area">
       <div class="title-block">
-        <h1>{draft.title}</h1>
+        <h1>{title}</h1>
         <div class="subtitle">{#if geometryType}{geometryType} ·{' '}{/if}<strong class="type-highlight">{typeLabel}</strong> · {draft.value}</div>
       </div>
       {#if !canSend}
@@ -131,7 +135,7 @@
 
         <div class="field-box">
           <div class="field-label">PHOTO</div>
-          <PhotoField bind:photos={draft.photos} editable={true} label={draft.title} />
+          <PhotoField bind:photos={draft.photos} editable={true} label={title} />
         </div>
       </div>
 
@@ -150,9 +154,11 @@
 
       <div class="two-col">
         <div class="panel">
-          <div class="field-label">LOCATION</div>
-          <MiniMap geometry={draft.geometry} label={draft.title}
-            onshowonmap={onShowOnMap ? showOnMap : undefined} />
+          <div class="location-heading">
+            <div class="field-label">LOCATION</div>
+            {#if draft.geometry}<button type="button" class="card-cta-link edit-location" bind:this={editLocationButton} on:click={openLocationEditor}>Edit location</button>{/if}
+          </div>
+          <MiniMap geometry={draft.geometry} label={title} onedit={draft.geometry ? openLocationEditor : undefined} />
           {#if draft.geometry}<div class="map-caption muted">{locationCaption}</div>{/if}
         </div>
 
@@ -163,14 +169,14 @@
               <span class="dot"></span>
               <div>
                 <div class="activity-title">Report created</div>
-                <div class="activity-date muted">{draft.createdDate}</div>
+                <div class="activity-date muted">{formatShortDate(draft.createdAt)}</div>
               </div>
             </li>
             <li>
               <span class="dot"></span>
               <div>
                 <div class="activity-title">Last edited</div>
-                <div class="activity-date muted">{draft.editedDate}</div>
+                <div class="activity-date muted">{formatShortDate(draft.updatedAt)}</div>
               </div>
             </li>
           </ul>
@@ -191,6 +197,9 @@
       </div>
     </div>
   </footer>
+  {#if editingLocation && draft.geometry}
+    <LocationEditor geometry={draft.geometry} onuse={useLocation} oncancel={closeLocationEditor} />
+  {/if}
 </section>
 
 <style>
@@ -263,6 +272,9 @@
   .panel { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
 
   .map-caption { font-size:12px; margin-top:8px }
+  .location-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2) }
+  .location-heading .field-label { margin-bottom:0 }
+  .edit-location { min-height:var(--target-size-min); margin-block:calc(-1 * var(--space-3)); padding:0; border:0; background:none; font-size:var(--font-size-body-small); cursor:pointer }
 
   .activity-list { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:14px }
   .activity-list li { display:flex; align-items:flex-start; gap:10px }

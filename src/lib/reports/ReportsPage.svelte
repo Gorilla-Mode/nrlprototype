@@ -6,13 +6,13 @@
   import ReportDetailPage from './ReportDetailPage.svelte';
   import ReportSentDialog from './ReportSentDialog.svelte';
   import BulkSendDialog from './BulkSendDialog.svelte';
-  import { markSent, sendToKartverket, type ReportSender } from './bulkSend';
-  import { isSent, reports, type Report, type StatusTabKey } from './reportsData';
+  import { sendToKartverket, type ReportSender } from './bulkSend';
+  import { isSent, type Report, type StatusTabKey } from './reportsData';
+  import { reportStore } from './reportStore';
   import DraftCard from '../drafts/DraftCard.svelte';
   import DraftDetailPage from '../drafts/DraftDetailPage.svelte';
-  import { drafts } from '../drafts/mockData';
   import type { Draft } from '../drafts/types';
-  import { formatToday, heightInMeters } from '../drafts/types';
+  import { heightInMeters } from '../drafts/types';
   import { geometryKind, type GeometryCameraTarget } from './reportGeometry';
   import { obstacleTypeLabel } from '../reporting/obstacle';
   import { matchesGeometryFilter, matchesHeightFilter, type GeometryKey, type HeightFilterKey } from './filtering';
@@ -36,24 +36,22 @@
   let pendingGeometries = $state<Set<GeometryKey>>(new Set());
   let pendingHeightFilter = $state<HeightFilterKey>('any');
 
+  let reports = $derived($reportStore.reports);
+  let drafts = $derived($reportStore.drafts);
+
   let view = $state<'list' | 'report-detail' | 'draft-detail'>('list');
-  // .raw: these hold a plain reference into the reports/drafts arrays, mutated
-  // in place by the (legacy, non-runes) detail pages below. A deep $state proxy
-  // here would let those mutations land on a disconnected copy instead.
+  // .raw: the (legacy, non-runes) detail pages edit a working copy in place and
+  // save it through the report store, so stored data only changes on save.
   let selectedReport = $state.raw<Report | null>(null);
   let selectedDraft = $state.raw<Draft | null>(null);
-  // Bumped whenever we return to the list, so it re-reads reports/drafts fresh:
-  // those mutate in place from the (non-runes) detail pages, which the plain
-  // module-level arrays don't otherwise signal to this component.
-  let refreshTick = $state(0);
 
   function openReport(report: Report) {
-    selectedReport = report;
+    selectedReport = structuredClone(report);
     view = 'report-detail';
   }
 
   function openDraft(draft: Draft) {
-    selectedDraft = draft;
+    selectedDraft = structuredClone(draft);
     view = 'draft-detail';
   }
 
@@ -61,15 +59,13 @@
     view = 'list';
     selectedReport = null;
     selectedDraft = null;
-    refreshTick++;
   }
 
   // Confirmation after a draft is sent: the new report and when sending succeeded.
   let sentConfirmation = $state.raw<{ report: Report; at: Date } | null>(null);
 
-  function draftSent() {
-    const sent = reports.find((report) => report.id === selectedDraft?.id);
-    if (sent) sentConfirmation = { report: sent, at: new Date() };
+  function draftSent(sent: Report) {
+    sentConfirmation = { report: sent, at: new Date(sent.sentAt ?? sent.updatedAt) };
     statusFilter = 'sent';
     backToList();
   }
@@ -99,12 +95,10 @@
     bulkReports = reports.filter((report) => selectedIds.has(report.id) && report.status === 'ready');
   }
 
-  // Delivered reports change status at once, so the data stays true even if the page
-  // closes; the list behind the modal only re-reads it when the dialog closes.
+  // Delivered reports change status at once, so the data stays true even if the page closes.
   function bulkSent(sent: readonly Report[]) {
-    const today = formatToday();
     for (const report of sent) {
-      markSent(report, today);
+      reportStore.submitReport(report.id);
       bulkSentIds.add(report.id);
     }
   }
@@ -118,7 +112,6 @@
     clearTimeout(justSentTimer);
     const duration = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--report-sent-highlight-duration')) * 1000;
     justSentTimer = setTimeout(() => { justSentIds = new Set(); }, Number.isFinite(duration) ? duration : 0);
-    refreshTick++;
   }
 
   function viewSentReports() {
@@ -175,12 +168,10 @@
     return report.status === key;
   }
 
-  /** dd.mm.yyyy -> a comparable number, for "most recent first" sorting across reports and drafts. */
-  function dateSortValue(date: string | undefined): number {
-    if (!date) return 0;
-    const [day, month, year] = date.split('.').map(Number);
-    if (!day || !month || !year) return 0;
-    return year * 10000 + month * 100 + day;
+  /** ISO timestamp -> a comparable number, for "most recent first" sorting across reports and drafts. */
+  function dateSortValue(timestamp: string): number {
+    const value = Date.parse(timestamp);
+    return Number.isNaN(value) ? 0 : value;
   }
 
   type ListItem =
@@ -196,7 +187,7 @@
         if (key !== 'all' && !matchesStatus(report, key)) continue;
         if (!matchesGeometryFilter(geometryKind(report.geometry), geometries)) continue;
         if (!matchesHeightFilter(report.heightMeters, heightFilter)) continue;
-        items.push({ kind: 'report', id: report.id, report, sort: dateSortValue(report.secondaryDate ?? report.createdDate) });
+        items.push({ kind: 'report', id: report.id, report, sort: dateSortValue(report.updatedAt) });
       }
     }
 
@@ -205,7 +196,7 @@
         if (!matchesDraftQuery(draft, q)) continue;
         if (!matchesGeometryFilter(geometryKind(draft.geometry), geometries)) continue;
         if (!matchesHeightFilter(heightInMeters(draft.heightAboveGround), heightFilter)) continue;
-        items.push({ kind: 'draft', id: draft.id, draft, sort: dateSortValue(draft.editedDate) });
+        items.push({ kind: 'draft', id: draft.id, draft, sort: dateSortValue(draft.updatedAt) });
       }
     }
 
@@ -213,12 +204,9 @@
     return items;
   }
 
-  // reports/drafts mutate in place from detail pages and bulk actions, which
-  // plain (non-$state) module arrays don't signal on their own: read
-  // refreshTick here so these explicitly recompute whenever it's bumped.
-  let draftsCount = $derived.by(() => { refreshTick; return drafts.length; });
-  let items = $derived.by(() => { refreshTick; return buildItems(statusFilter, query, appliedGeometries, appliedHeightFilter); });
-  let pendingResultCount = $derived.by(() => { refreshTick; return buildItems(statusFilter, query, pendingGeometries, pendingHeightFilter).length; });
+  let draftsCount = $derived(drafts.length);
+  let items = $derived(buildItems(statusFilter, query, appliedGeometries, appliedHeightFilter));
+  let pendingResultCount = $derived(buildItems(statusFilter, query, pendingGeometries, pendingHeightFilter).length);
   let filterActive = $derived(appliedGeometries.size > 0 || appliedHeightFilter !== 'any');
   let noun = $derived(statusFilter === 'draft' ? 'drafts' : statusFilter === 'all' ? 'items' : 'reports');
   let subtitle = $derived.by(() => {
@@ -232,51 +220,54 @@
 {#if view === 'report-detail' && selectedReport}
   <ReportDetailPage report={selectedReport} onback={backToList} {onshowonmap} />
 {:else if view === 'draft-detail' && selectedDraft}
-  <DraftDetailPage draft={selectedDraft} onBack={backToList} onSend={draftSent} onShowOnMap={onshowonmap} />
+  <DraftDetailPage draft={selectedDraft} onBack={backToList} onSend={draftSent} />
 {:else}
-  {#key refreshTick}
-    <main class="reports-page" class:reports-select-active={selectMode} aria-label="Reports">
-      <ReportsHeader {onback} {subtitle}>
-        <ReportsToolbar
-          bind:query
-          {selectMode} ontoggleselect={toggleSelectMode}
-          filterOpen={filterPanelOpen} {filterActive}
-          bind:pendingGeometries bind:pendingHeightFilter {pendingResultCount}
-          onopenfilter={openFilterPanel} onresetfilter={resetPendingFilters} onapplyfilter={applyFilters} ondismissfilter={dismissFilterPanel}
-        />
-        <StatusTabs {reports} {draftsCount} active={statusFilter} onselect={(key) => statusFilter = key} />
-      </ReportsHeader>
+  <main class="reports-page" class:reports-select-active={selectMode} aria-label="Reports">
+    <ReportsHeader {onback} {subtitle}>
+      <ReportsToolbar
+        bind:query
+        {selectMode} ontoggleselect={toggleSelectMode}
+        filterOpen={filterPanelOpen} {filterActive}
+        bind:pendingGeometries bind:pendingHeightFilter {pendingResultCount}
+        onopenfilter={openFilterPanel} onresetfilter={resetPendingFilters} onapplyfilter={applyFilters} ondismissfilter={dismissFilterPanel}
+      />
+      <StatusTabs {reports} {draftsCount} active={statusFilter} onselect={(key) => statusFilter = key} />
+    </ReportsHeader>
 
-      <div class="reports-content">
-        {#if items.length === 0}
-          <p class="reports-empty">No {noun} match your search.</p>
-        {:else}
-          <div class="reports-card-grid">
-            {#each items as item (item.kind + '-' + item.id)}
-              {#if item.kind === 'report'}
-                <ReportCard report={item.report} onopen={openReport} {selectMode} selected={selectedIds.has(item.report.id)} ontoggleselect={toggleSelected}
-                  justSent={justSentIds.has(item.report.id)} unavailableHint="reports-select-hint" />
-              {:else}
-                <DraftCard draft={item.draft} onEdit={openDraft} {selectMode} unavailableHint="reports-select-hint" />
-              {/if}
-            {/each}
-          </div>
-        {/if}
-      </div>
-
-      {#if selectMode}
-        <p id="reports-select-hint" class="sr-only">Only reports that are Ready to send can be selected.</p>
-        <div class="reports-select-bar" role="region" aria-label="Selection">
-          <div class="reports-select-bar-content">
-            <span class="reports-select-count" aria-live="polite">{readySelectedCount} selected</span>
-            <button type="button" class="button button--primary reports-select-send" disabled={readySelectedCount === 0} onclick={sendSelected}>
-              Send ({readySelectedCount})
-            </button>
-          </div>
+    <div class="reports-content">
+      {#if reports.length + drafts.length === 0}
+        <div class="reports-empty">
+          <p>No reports yet</p>
+          <button type="button" class="button" onclick={onback}>Back to map</button>
+        </div>
+      {:else if items.length === 0}
+        <p class="reports-empty">No {noun} match your search.</p>
+      {:else}
+        <div class="reports-card-grid">
+          {#each items as item (item.kind + '-' + item.id)}
+            {#if item.kind === 'report'}
+              <ReportCard report={item.report} onopen={openReport} {selectMode} selected={selectedIds.has(item.report.id)} ontoggleselect={toggleSelected}
+                justSent={justSentIds.has(item.report.id)} unavailableHint="reports-select-hint" />
+            {:else}
+              <DraftCard draft={item.draft} onEdit={openDraft} {selectMode} unavailableHint="reports-select-hint" />
+            {/if}
+          {/each}
         </div>
       {/if}
-    </main>
-  {/key}
+    </div>
+
+    {#if selectMode}
+      <p id="reports-select-hint" class="sr-only">Only reports that are Ready to send can be selected.</p>
+      <div class="reports-select-bar" role="region" aria-label="Selection">
+        <div class="reports-select-bar-content">
+          <span class="reports-select-count" aria-live="polite">{readySelectedCount} selected</span>
+          <button type="button" class="button button--primary reports-select-send" disabled={readySelectedCount === 0} onclick={sendSelected}>
+            Send ({readySelectedCount})
+          </button>
+        </div>
+      </div>
+    {/if}
+  </main>
   {#if bulkReports}
     <BulkSendDialog reports={bulkReports} send={sendreport} onsent={bulkSent} onclose={closeBulkSend} onviewsent={viewSentReports} />
   {/if}

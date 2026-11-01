@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { isReportsHash, reportsRoute } from '../src/lib/reports/reports.js';
 import { settingsSectionFromHash } from '../src/lib/settings/settings.js';
-import { countForStatusTab, formatLongDate, formatSentAt, isSent, isoDate, relativeDate, reportActionLabel, reportActivity, reportProgressLine, reportSecondaryLine, reports, statusTabs } from '../src/lib/reports/reportsData.js';
-import { drafts } from '../src/lib/drafts/mockData.js';
+import { countForStatusTab, formatLongDate, formatSentAt, formatShortDate, isSent, relativeDate, reportActionLabel, reportActivity, reportProgressLine, reportSecondaryLine, statusTabs } from '../src/lib/reports/reportsData.js';
+import { drafts, reports } from './helpers/reportFixtures.js';
 import { lightingOptions, lightingSummary, lightingValueLabel, missingDraftFields } from '../src/lib/drafts/types.js';
 import { PHOTO_MAX_EDGE, scaledSize } from '../src/lib/reports/photos.js';
 import { ObstacleType, obstacleTypeChoices, obstacleTypeLabel } from '../src/lib/reporting/obstacle.js';
@@ -28,7 +28,7 @@ test('status tab counts are derived from the report data, with Sent covering eve
 });
 
 test('sent dates read as full dates, with the time of sending in the confirmation', () => {
-  assert.equal(formatLongDate('14.10.2024'), '14 October 2024');
+  assert.equal(formatLongDate('2024-10-14T12:00:00'), '14 October 2024');
   assert.equal(formatLongDate(undefined), '');
   assert.equal(formatSentAt(new Date(2026, 9, 9, 14, 32)), '9 Oct 2026, 14:32');
 });
@@ -38,10 +38,10 @@ test('each report card follows the status rules for its second line and action l
     const secondary = reportSecondaryLine(report);
     const action = reportActionLabel(report);
     if (report.status === 'ready') {
-      assert.equal(secondary, `Edited ${report.secondaryDate}`);
+      assert.equal(secondary, `Edited ${formatShortDate(report.updatedAt)}`);
       assert.equal(action, 'Review and send');
     } else if (report.status === 'pending') {
-      assert.equal(secondary, `Sent ${report.secondaryDate}`);
+      assert.equal(secondary, `Sent ${formatShortDate(report.sentAt)}`);
       assert.equal(action, 'Open');
     } else {
       assert.equal(secondary, `Reviewer ${report.reviewer}`);
@@ -69,7 +69,7 @@ test('lighting is optional: yes, no, unknown or not answered, each with its own 
 test('only height blocks sending a draft; any lighting answer, or none, can be sent', () => {
   const base = drafts[0];
   for (const lighting of [...lightingOptions.map((option) => option.value), null]) {
-    assert.deepEqual(missingDraftFields({ ...base, heightAboveGround: '95 ft (29 m)', lighting }), [], `lighting ${lighting}`);
+    assert.deepEqual(missingDraftFields({ ...base, heightAboveGround: '29 m (95 ft)', lighting }), [], `lighting ${lighting}`);
     assert.deepEqual(missingDraftFields({ ...base, heightAboveGround: 'Not set', lighting }), ['height above ground']);
   }
 });
@@ -90,30 +90,30 @@ test('photos are downscaled to fit the longest edge, keeping aspect ratio and ne
 test('photos are optional: every item starts with a photo list, and photos never block sending', () => {
   for (const item of [...reports, ...drafts]) assert.ok(Array.isArray(item.photos));
   const photo = { id: 'p1', name: 'mast.jpg', url: 'blob:x', width: 1600, height: 1200 };
-  const ready = { ...drafts[1], heightAboveGround: '95 ft (29 m)' };
+  const ready = { ...drafts[1], heightAboveGround: '29 m (95 ft)' };
   assert.deepEqual(missingDraftFields({ ...ready, photos: [] }), []);
   assert.deepEqual(missingDraftFields({ ...ready, photos: [photo] }), []);
 });
 
 test('cards show relative edit times, keeping the exact date available', () => {
   const now = new Date(2026, 9, 9, 15, 30);
-  assert.equal(relativeDate('09.10.2026', now), 'today');
-  assert.equal(relativeDate('08.10.2026', now), 'yesterday');
-  assert.equal(relativeDate('06.10.2026', now), '3 days ago');
-  assert.equal(relativeDate('25.09.2026', now), '2 weeks ago');
-  assert.equal(relativeDate('09.07.2026', now), '3 months ago');
-  assert.equal(relativeDate('14.10.2024', now), '2 years ago');
+  assert.equal(relativeDate(new Date(2026, 9, 9, 8, 0).toISOString(), now), 'today');
+  assert.equal(relativeDate(new Date(2026, 9, 8, 23, 59).toISOString(), now), 'yesterday');
+  assert.equal(relativeDate('2026-10-06T12:00:00', now), '3 days ago');
+  assert.equal(relativeDate('2026-09-25T12:00:00', now), '2 weeks ago');
+  assert.equal(relativeDate('2026-07-09T12:00:00', now), '3 months ago');
+  assert.equal(relativeDate('2024-10-14T12:00:00', now), '2 years ago');
   assert.equal(relativeDate('not a date', now), 'not a date');
-  assert.equal(isoDate('14.10.2024'), '2024-10-14');
-  assert.equal(isoDate(undefined), undefined);
+  assert.equal(formatShortDate('2024-10-14T12:00:00'), '14.10.2024');
+  assert.equal(formatShortDate(undefined), '');
 });
 
 test('each card shows one activity line: edited or sent with relative time, or the reviewer', () => {
   const now = new Date(2026, 9, 9);
   for (const report of reports) {
     const activity = reportActivity(report, now);
-    if (report.status === 'ready') assert.deepEqual(activity, { text: `Edited ${relativeDate(report.secondaryDate!, now)}`, date: report.secondaryDate });
-    else if (report.status === 'pending') assert.deepEqual(activity, { text: `Sent ${relativeDate(report.secondaryDate!, now)}`, date: report.secondaryDate });
+    if (report.status === 'ready') assert.deepEqual(activity, { text: `Edited ${relativeDate(report.updatedAt, now)}`, date: report.updatedAt });
+    else if (report.status === 'pending') assert.deepEqual(activity, { text: `Sent ${relativeDate(report.sentAt!, now)}`, date: report.sentAt });
     else assert.deepEqual(activity, { text: `Reviewer ${report.reviewer}` });
     assert.doesNotMatch(activity.text, /Created/);
   }

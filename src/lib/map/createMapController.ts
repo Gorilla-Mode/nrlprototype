@@ -20,6 +20,8 @@ import type { GeographicVertex, Obstacle, ObstacleGeometryType } from '../report
 import { createReportController } from '../reporting/createReportController';
 import { createDrawingDisplay } from './createDrawingDisplay';
 import { createObstacleDisplay } from './createObstacleDisplay';
+import { createReportDisplay } from './createReportDisplay';
+import type { ReportGeometry } from '../reports/reportGeometry';
 import { createPositionCorrectionDisplay } from './createPositionCorrectionDisplay';
 import { createPositionDragInteraction } from './createPositionDragInteraction';
 import type { RegisteredObstacle, ScreenPoint } from '../obstacles/registeredObstacles';
@@ -69,6 +71,8 @@ export interface MapController {
   setGrayscale: (grayscale: boolean) => void;
   setHoldMode: (mode: HoldMode) => void;
   setRegisteredObstacles: (obstacles: readonly RegisteredObstacle[]) => void;
+  /** The user's own Draft and Ready report locations. */
+  setReports: (geometries: readonly ReportGeometry[]) => void;
   moveErrorCircle: (x: number, y: number) => void;
   /** Reuses the error circle to pick a corrected position, starting at `start`. */
   startPositionCorrection: (origin: GeographicVertex, start: GeographicVertex) => void;
@@ -179,6 +183,7 @@ export function createMapController(
     // Marker radius 7 px plus a generous 24 px touch margin.
     isOnObstacle: (origin) => errorReporting.isOnObstacle(origin, 7 + 24),
   });
+  const reportDisplay = createReportDisplay(map);
   const obstacleDisplay = createObstacleDisplay(map);
   const correctionDisplay = createPositionCorrectionDisplay(map);
   const positionDrag = createPositionDragInteraction(map, {
@@ -301,6 +306,7 @@ export function createMapController(
     setGrayscale,
     setHoldMode,
     setRegisteredObstacles: errorReporting.setRegisteredObstacles,
+    setReports: reportDisplay.show,
     moveErrorCircle: errorReporting.moveCircle,
     startPositionCorrection: errorReporting.startPositionCorrection,
     endPositionCorrection: errorReporting.endPositionCorrection,
@@ -335,6 +341,7 @@ export function createMapController(
       drawingInteraction.destroy();
       drawingDisplay.destroy();
       obstacleDisplay.destroy();
+      reportDisplay.destroy();
       correctionDisplay.destroy();
       reporting.destroy();
       geolocation.destroy();

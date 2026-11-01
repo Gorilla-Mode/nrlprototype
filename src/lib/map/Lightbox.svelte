@@ -8,9 +8,11 @@
     /** The opener closes the dialog and returns focus to its own trigger. */
     onclose: () => void;
     children: Snippet;
+    /** Actions under the body, such as Cancel and a primary action. */
+    footer?: Snippet;
   }
 
-  let { title, closeLabel, onclose, children }: Props = $props();
+  let { title, closeLabel, onclose, children, footer }: Props = $props();
   const titleId = $props.id();
   let dialog: HTMLDialogElement;
   let closeButton: HTMLButtonElement;
@@ -51,6 +53,7 @@
   <div class="lightbox-body">
     {@render children()}
   </div>
+  {#if footer}<footer class="lightbox-footer">{@render footer()}</footer>{/if}
 </dialog>
 
 <style>
@@ -79,4 +82,5 @@
   .lightbox-header svg { width: var(--icon-size-large); height: var(--icon-size-large); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; }
 
   .lightbox-body { position: relative; flex: 1; min-height: 0; }
+  .lightbox-footer { flex: none; padding: var(--space-3) var(--dialog-padding-inline) max(var(--space-3), var(--safe-area-bottom)); border-top: var(--border-default); }
 </style>

@@ -1,7 +1,8 @@
 <script lang="ts">
   import Dialog from '../components/Dialog.svelte';
   import { obstacleTypeLabel } from '../reporting/obstacle';
-  import { formatSentAt, type Report } from './reportsData';
+  import { formatSentAt, reportHeading, type Report } from './reportsData';
+  import { formatHeightFromMeters } from '../drafts/types';
   import { bulkSendAnnouncement, bulkSendTitle, mergeRetry, reportCount, sendReports, type BulkSendResult, type ReportSender } from './bulkSend';
 
   interface Props {
@@ -38,8 +39,8 @@
 </script>
 
 {#snippet details(report: Report)}
-  <span class="report-sent-item-name">{report.name}</span>
-  <span class="report-sent-item-meta">{obstacleTypeLabel(report.obstacleType)} · {report.heightFeet} ft ({report.heightMeters} m)</span>
+  <span class="report-sent-item-name">{report.name || reportHeading(report)}</span>
+  <span class="report-sent-item-meta">{obstacleTypeLabel(report.obstacleType)} · {formatHeightFromMeters(report.heightMeters)}</span>
 {/snippet}
 
 {#snippet confirmSubtitle()}<p>Sent reports can't be edited.</p>{/snippet}

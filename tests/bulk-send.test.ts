@@ -3,8 +3,10 @@ import { test } from 'node:test';
 import type { Component } from 'svelte';
 import { render } from 'svelte/server';
 import { bulkSendAnnouncement, bulkSendTitle, markSent, mergeRetry, reportCount, sendReports, sendToKartverket, type ReportSender } from '../src/lib/reports/bulkSend.js';
-import { countForStatusTab, reports, type Report } from '../src/lib/reports/reportsData.js';
+import { countForStatusTab, type Report } from '../src/lib/reports/reportsData.js';
+import { reports } from './helpers/reportFixtures.js';
 import { obstacleTypeLabel } from '../src/lib/reporting/obstacle.js';
+import { formatHeightFromMeters } from '../src/lib/drafts/types.js';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
 
 const ready = () => reports.filter((report) => report.status === 'ready').map((report) => ({ ...report }));
@@ -49,9 +51,13 @@ test('one failure never blocks the others; failures keep their reason and a fall
 test('only delivered reports move to Sent for review; failed ones stay Ready and the tab counts follow', () => {
   const copies: Report[] = reports.map((report) => ({ ...report }));
   const [first, second] = copies.filter((report) => report.status === 'ready');
-  markSent(first, '09.10.2026');
-  assert.equal(first.status, 'pending');
-  assert.equal(first.secondaryDate, '09.10.2026');
+  const at = new Date(2026, 9, 9, 14, 32);
+  const sent = markSent(first, at);
+  copies[copies.indexOf(first)] = sent;
+  assert.equal(sent.status, 'pending');
+  assert.equal(sent.sentAt, at.toISOString());
+  assert.equal(sent.updatedAt, at.toISOString());
+  assert.equal(first.status, 'ready', 'the original is left unchanged');
   assert.equal(second.status, 'ready');
   assert.equal(countForStatusTab(copies, 'ready'), 3);
   assert.equal(countForStatusTab(copies, 'sent'), 7);
@@ -68,6 +74,7 @@ const dialogUrl = await compileSvelteComponent('src/lib/reports/BulkSendDialog.s
   '../reporting/obstacle': new URL('../src/lib/reporting/obstacle.js', import.meta.url).href,
   './reportsData': new URL('../src/lib/reports/reportsData.js', import.meta.url).href,
   './bulkSend': new URL('../src/lib/reports/bulkSend.js', import.meta.url).href,
+  '../drafts/types': new URL('../src/lib/drafts/types.js', import.meta.url).href,
   '../components/Dialog.svelte': await compileSvelteComponent('src/lib/components/Dialog.svelte', {
     './DialogActions.svelte': await compileSvelteComponent('src/lib/components/DialogActions.svelte'),
   }),
@@ -89,7 +96,7 @@ test('the confirmation asks before sending and lists name, type and height of ea
   assert.doesNotMatch(html, /app-dialog-icon/);
   for (const report of selected) {
     assert.ok(html.includes(`>${report.name}<`));
-    assert.ok(html.includes(`${obstacleTypeLabel(report.obstacleType)} · ${report.heightFeet} ft (${report.heightMeters} m)`));
+    assert.ok(html.includes(`${obstacleTypeLabel(report.obstacleType)} · ${formatHeightFromMeters(report.heightMeters)}`));
   }
   assert.match(html, /class="button dialog-action-primary"[^>]*>\s*Send 2 reports\s*<\/button>/);
   assert.match(html, /class="button dialog-action-secondary"[^>]*>Cancel<\/button>/);

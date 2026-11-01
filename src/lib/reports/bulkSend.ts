@@ -36,10 +36,10 @@ export function mergeRetry(previous: BulkSendResult, retry: BulkSendResult): Bul
   return { sent: [...previous.sent, ...retry.sent], failed: retry.failed };
 }
 
-/** Marks a delivered report as awaiting review, sent today (dd.mm.yyyy). */
-export function markSent(report: Report, today: string): void {
-  report.status = 'pending';
-  report.secondaryDate = today;
+/** A delivered report, awaiting review from the moment it was sent. */
+export function markSent(report: Report, at: Date): Report {
+  const timestamp = at.toISOString();
+  return { ...report, status: 'pending', sentAt: timestamp, updatedAt: timestamp };
 }
 
 /** "1 report" or "n reports". */

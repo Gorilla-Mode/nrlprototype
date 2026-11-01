@@ -34,7 +34,10 @@ export function readPreviewVisuals(element: HTMLElement): PreviewVisuals {
     return {
       point: color('--color-map-point'),
       line: color('--color-map-line'),
+      area: color('--color-map-area'),
       casing: color('--color-drawing-casing'),
+      fillOpacity: number('--map-drawing-fill-opacity'),
+      dashLength: number('--map-drawing-dash-length'),
       lineWidth: number('--map-drawing-line-width'),
       casingThickness: number('--map-drawing-casing-thickness'),
       radius: number('--map-drawing-vertex-radius'),

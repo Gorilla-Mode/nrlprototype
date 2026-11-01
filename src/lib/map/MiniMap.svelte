@@ -12,9 +12,11 @@
     label: string;
     /** Opens the geometry on the main map; only the "Show on map" button does this. */
     onshowonmap?: () => void;
+    /** When set, the preview opens the location editor instead of the enlarged map. */
+    onedit?: () => void;
   }
 
-  let { geometry, label, onshowonmap }: Props = $props();
+  let { geometry, label, onshowonmap, onedit }: Props = $props();
 
   let frame = $state<HTMLElement | undefined>();
   let host = $state<HTMLDivElement | undefined>();
@@ -81,7 +83,8 @@
   <div class="mini-map mini-map-empty">No location set</div>
 {:else}
   <div class="mini-map" bind:this={frame}>
-    <button bind:this={enlargeButton} type="button" class="mini-map-enlarge" aria-label={`Enlarge map of ${label}`} aria-haspopup="dialog" onclick={() => (enlarged = true)}>
+    <button bind:this={enlargeButton} type="button" class="mini-map-enlarge" aria-label={onedit ? `Edit location of ${label}` : `Enlarge map of ${label}`} aria-haspopup="dialog"
+      onclick={() => { if (onedit) onedit(); else enlarged = true; }}>
       {#if snapshot}
         <img class="mini-map-image" src={snapshot} alt="" />
       {:else}

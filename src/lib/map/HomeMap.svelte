@@ -21,6 +21,8 @@
   import { obstacleGeometryChoices, type GeographicVertex, type Obstacle, type ObstacleGeometryType } from '../reporting/obstacle';
   import { idleCrosshairDrawingState, type CrosshairDrawingState } from './createMapDrawingInteraction';
   import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
+  import { reportStore } from '../reports/reportStore';
+  import type { ReportGeometry } from '../reports/reportGeometry';
 
   import type { PlacementEditingVariantId } from './placementEditing';
   import type { EditableVertexHandle } from './createVertexEditingInteraction';
@@ -64,6 +66,9 @@
   let geometryType = $state<ObstacleGeometryType>('Point');
   let errorReportMode = $state(false);
   let registeredObstacles = $state.raw<RegisteredObstacle[]>([]);
+  // The user's own unsent reports: drafts and Ready reports that have a location.
+  let reportGeometries = $derived<ReportGeometry[]>([...$reportStore.drafts, ...$reportStore.reports.filter((report) => report.status === 'ready')]
+    .flatMap(({ geometry }) => (geometry ? [geometry] : [])));
   let errorCircle = $state<ScreenPoint | null>(null);
   let errorMatch = $state.raw<RegisteredObstacle | null>(null);
   let errorCirclePosition = $state.raw<GeographicVertex | null>(null);
@@ -266,6 +271,7 @@
     grayscale={isGrayscale}
     holdMode={errorReportMode ? 'error-report' : 'obstacle'}
     {registeredObstacles}
+    reports={reportGeometries}
     bottomInset={positionPick ? positionPanelHeight : 0}
     onerrorcirclechange={(center, match, position) => { errorCircle = center; errorMatch = match; errorCirclePosition = position; }}
     onpositiondragchange={(dragging) => { positionDragging = dragging; }}

@@ -20,18 +20,52 @@
   import ReportingDebug from './lib/reporting/ReportingDebug.svelte';
   import ObstacleReportSummary from './lib/reporting/ObstacleReportSummary.svelte';
   import type { Obstacle } from './lib/reporting/obstacle';
+  import type { CompleteReport, DetailsPayload } from './lib/reporting/createDetailsController';
+  import { reportStore } from './lib/reports/reportStore';
+  import { detailsToDraft, detailsToReport } from './lib/reports/detailsReport';
+  import { downscalePhoto, type ReportPhoto } from './lib/reports/photos';
 
   let { onSaveDraft, onContinue, onFinish }: DetailsHooks = $props();
   let details = $state.raw<DetailsState>(initialDetailsState);
   const detailsController = createDetailsController({
     onChange: (state) => { details = state; },
-    // The prototype itself is a session-only consumer. Optional integrations are awaited.
+    // Saved drafts and finished reports go to the report store; optional integrations are awaited after.
     getHooks: () => ({
-      onSaveDraft: (payload, reason) => onSaveDraft?.(payload, reason),
+      onSaveDraft: async (payload, reason) => { await storeDraft(payload); await onSaveDraft?.(payload, reason); },
       onContinue,
-      onFinish: (payload, context) => onFinish?.(payload, context),
+      onFinish: async (payload, context) => { await storeReady(payload); await onFinish?.(payload, context); },
     }),
   });
+
+  // Each attached file is downscaled once, however often the draft is saved.
+  const reportPhotoCache = new WeakMap<File, Promise<ReportPhoto>>();
+  async function reportPhotos(files: readonly File[]): Promise<ReportPhoto[]> {
+    const results = await Promise.allSettled(files.map((file) => {
+      let photo = reportPhotoCache.get(file);
+      if (!photo) reportPhotoCache.set(file, photo = downscalePhoto(file));
+      return photo;
+    }));
+    return results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
+  }
+
+  function storedRecord(id: string) {
+    const { drafts, reports } = reportStore.getState();
+    const draft = drafts.find((item) => item.id === id);
+    if (draft) return { name: draft.title, createdAt: draft.createdAt };
+    const report = reports.find((item) => item.id === id);
+    return report && { name: report.name, createdAt: report.createdAt };
+  }
+
+  async function storeDraft(payload: DetailsPayload) {
+    const { step, variant } = detailsController.getState();
+    const draft = detailsToDraft(payload, { step, totalSteps: variant?.stepRoutes.length ?? 1, photos: await reportPhotos(payload.photos), existing: storedRecord(payload.id) });
+    if (!reportStore.saveDraft(draft)) throw new Error('This report has already been sent.');
+  }
+
+  async function storeReady(payload: CompleteReport) {
+    const report = detailsToReport(payload, { photos: await reportPhotos(payload.photos), existing: storedRecord(payload.id) });
+    if (!reportStore.markReady(report)) throw new Error('This report has already been sent.');
+  }
   let returnFocus: HTMLElement | null = null;
   let hash = $state(typeof window !== 'undefined' ? window.location.hash : '');
   let search = $state(typeof window !== 'undefined' ? window.location.search : '');

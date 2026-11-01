@@ -1,9 +1,9 @@
 <script lang="ts">
   import Dialog from '../components/Dialog.svelte';
   import { obstacleTypeLabel } from '../reporting/obstacle';
-  import { lightingValueLabel } from '../drafts/types';
+  import { formatHeightFromMeters, lightingValueLabel } from '../drafts/types';
   import { coordinateLabel } from './reportGeometry';
-  import { formatSentAt, type Report } from './reportsData';
+  import { formatSentAt, reportHeading, type Report } from './reportsData';
 
   interface Props {
     report: Report;
@@ -19,14 +19,14 @@
   // A null value is shown as a muted "Not set".
   let rows = $derived([
     { label: 'Obstacle type', value: obstacleTypeLabel(report.obstacleType) },
-    { label: 'Height', value: `${report.heightFeet} ft (${report.heightMeters} m)` },
+    { label: 'Height', value: formatHeightFromMeters(report.heightMeters) },
     { label: 'Lighting', value: report.lighting === null ? null : lightingValueLabel(report.lighting) },
     { label: 'Location', value: coordinateLabel(report.geometry) },
   ]);
 </script>
 
 {#snippet subtitle()}
-  <p class="report-sent-name">{report.name}</p>
+  <p class="report-sent-name">{report.name || reportHeading(report)}</p>
   <p>{formatSentAt(sentAt)}</p>
 {/snippet}
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Draft } from './types';
-  import { obstacleTypeLabel } from '../reporting/obstacle';
-  import { isoDate, relativeDate } from '../reports/reportsData';
+  import { heightInMeters } from './types';
+  import { formatShortDate, obstacleHeading, relativeDate } from '../reports/reportsData';
 
   export let draft: Draft;
   export let onEdit: (draft: Draft) => void = () => {};
@@ -17,21 +17,18 @@
   aria-disabled={selectMode ? true : undefined} aria-describedby={selectMode ? unavailableHint : undefined}>
   <div class="reports-card-main">
     <div class="reports-card-top">
-      <span class="reports-card-name">{draft.title}</span>
+      <span class="reports-card-name">{obstacleHeading(draft.category, heightInMeters(draft.heightAboveGround))}</span>
       <span class="reports-status-badge" data-status="draft">Draft</span>
     </div>
 
-    <div class="reports-card-info">
-      <span>{obstacleTypeLabel(draft.category)}</span>
-      <span class="reports-card-dot" aria-hidden="true">·</span>
-      <span>{draft.value}</span>
-    </div>
+    <!-- The optional name; empty when the pilot gave none. -->
+    <div class="reports-card-info">{draft.title}</div>
     <div class="reports-card-step">Step {draft.currentStep} of {draft.totalSteps} · {draft.stepLabel}</div>
   </div>
 
   <div class="reports-card-bottom">
     <span class="reports-card-meta">
-      <time datetime={isoDate(draft.editedDate)} title={draft.editedDate}>Edited {relativeDate(draft.editedDate)}</time>
+      <time datetime={draft.updatedAt} title={formatShortDate(draft.updatedAt)}>Edited {relativeDate(draft.updatedAt)}</time>
     </span>
     {#if !selectMode}
       <span class="reports-card-cta card-cta-link">
