@@ -18,8 +18,7 @@ export const faqSections: readonly FaqSection[] = [
       {
         id: 'possible-obstacle',
         question: 'What should I do if I see a possible obstacle?',
-        answer: 'If it is safe to use the app, open New report from the map. Choose Point, Line or Area, place or draw the geometry, add the information you know, review the observation and submit it for registrar review.',
-        link: 'View the full reporting guide',
+        answer: 'Press and hold on the map where the obstacle is, then drag to choose Point, Line or Polygon. Add the information you know, such as type and height, and save the report as a draft. To send it, open the draft in Reports, review it and tap Send report. You can then find it under Sent reports.',
       },
       {
         id: 'direct-nrl',
@@ -88,11 +87,20 @@ export const faqSections: readonly FaqSection[] = [
   },
 ];
 
+/** Search words, lower-cased; spaces around and between them do not matter. */
+export function faqSearchTerms(query: string): string[] {
+  return query.toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+/** Questions whose question, answer or note contain every search word, in any order and case. */
 export function filterFaq(query: string): FaqSection[] {
-  const search = query.toLowerCase();
+  const terms = faqSearchTerms(query);
+  if (terms.length === 0) return faqSections.map(section => ({ ...section }));
   return faqSections.map(section => ({
     ...section,
-    questions: section.questions.filter(question =>
-      [question.question, question.answer, question.note ?? ''].some(text => text.toLowerCase().includes(search))),
+    questions: section.questions.filter(question => {
+      const text = [question.question, question.answer, question.note ?? ''].join(' ').toLowerCase();
+      return terms.every(term => text.includes(term));
+    }),
   })).filter(section => section.questions.length > 0);
 }

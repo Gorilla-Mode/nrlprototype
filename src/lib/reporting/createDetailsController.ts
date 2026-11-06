@@ -173,6 +173,16 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
       publish({ ...initialDetailsState, result, summaryOpen: true });
       return true;
     },
+    /** Replaces the finished report's location shown in the summary; the caller stores it. */
+    setResultGeometry(geometry: Obstacle['obstacle_position']) {
+      const result = state.result;
+      if (!result || !state.summaryOpen) return;
+      publish({ result: {
+        ...result,
+        report: { ...result.report, obstacle_position: geometry },
+        draft: { ...result.draft, report: { ...result.draft.report, obstacle_position: geometry } },
+      } });
+    },
     setType(type: ObstacleType) { if (obstacleTypeChoices.some((choice) => choice.type === type)) edit({ type }); },
     setHeight(height: number) {
       if (!Number.isFinite(height)) return;

@@ -106,7 +106,9 @@
       </section>
     {:else}
       <section class="faq-empty" aria-labelledby="faq-empty-heading">
-        <h2 id="faq-empty-heading">No questions found</h2>
+        <h2 id="faq-empty-heading">No questions match “{query.trim()}”</h2>
+        <p class="faq-empty-hint">Check the spelling or try other words.</p>
+        <button type="button" class="faq-link faq-empty-clear" onclick={() => { searchQuestions(''); search.focus(); }}>Clear search</button>
         {@render unavailableAction('Contact support', 'faq-empty-unavailable')}
       </section>
     {/each}

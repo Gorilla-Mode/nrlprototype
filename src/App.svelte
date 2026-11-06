@@ -223,6 +223,18 @@
     syncRoute();
   }
 
+  // The report is already saved; a new location from the summary is stored the same way.
+  async function editSummaryGeometry(geometry: Obstacle['obstacle_position']) {
+    const result = details.result;
+    if (!result) return;
+    try {
+      await storeReady({ ...result.report, obstacle_position: geometry });
+    } catch {
+      return;
+    }
+    if (details.result?.report.id === result.report.id) detailsController.setResultGeometry(geometry);
+  }
+
   function summaryToReports() {
     pendingPage = { hash: reportsRoute, highlightReportId: details.result?.report.id ?? null };
     closeSummary();
@@ -303,7 +315,7 @@
 {/if}
 {#if details.summaryOpen && details.result}
   <ObstacleReportSummary report={details.result.report} totalSteps={details.result.variant.stepRoutes.length}
-    onedit={editSummary} onreports={summaryToReports} onreportanother={reportAnother} onclose={closeSummary} />
+    onedit={editSummary} ongeometry={editSummaryGeometry} onreports={summaryToReports} onreportanother={reportAnother} onclose={closeSummary} />
 {:else if !details.open && details.error}
   <p class="details-error" role="alert">{details.error}</p>
 {/if}

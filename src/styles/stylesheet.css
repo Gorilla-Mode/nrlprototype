@@ -954,6 +954,9 @@ button {
 .faq-primary { min-height: var(--faq-control-height); max-width: 100%; padding: var(--space-3) var(--space-6); border: var(--border-default); border-radius: var(--radius-pill); background: var(--color-background-subtle); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
 .faq-help .faq-availability { margin-top: var(--space-2); }
 .faq-empty { margin-top: var(--faq-section-gap); padding: var(--faq-panel-padding); text-align: center; }
+.faq-empty h2 { overflow-wrap: anywhere; }
+.faq-empty .faq-empty-hint { margin-top: var(--faq-heading-gap); color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: var(--faq-answer-leading); }
+.faq-empty-clear { margin-top: var(--space-2); }
 .faq-page :focus-visible, .reports-page :focus-visible, .notifications-page :focus-visible { outline-offset: var(--faq-focus-offset); }
 .faq-question:focus-visible { outline-offset: calc(-1 * var(--border-width-emphasis)); }
 @keyframes faq-reveal { from { opacity: 0; transform: translateY(var(--space-1)); } to { opacity: 1; transform: translateY(0); } }

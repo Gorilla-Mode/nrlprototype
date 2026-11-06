@@ -213,3 +213,24 @@ test('leaving an edit through navigation discards it without saving a draft', as
   assert.equal(controller.getState().editing, null);
   assert.equal(controller.editResult(1), false);
 });
+
+test('a new location from the summary replaces the finished report and draft geometry', async () => {
+  const controller = createDetailsController({ onChange: () => {}, getHooks: () => ({ onFinish: () => {} }) });
+  controller.begin(report, oneStep);
+  controller.setType(ObstacleType.Bridge);
+  assert.equal(await controller.finish(), true);
+  const moved = { type: 'Point' as const, coordinates: [10.5, 59.9] };
+  controller.setResultGeometry(moved);
+  let state = controller.getState();
+  assert.deepEqual(state.result?.report.obstacle_position, moved);
+  assert.deepEqual(state.result?.draft.report.obstacle_position, moved);
+  assert.equal(state.summaryOpen, true);
+  // Editing another row afterwards keeps the new location.
+  controller.editResult(1);
+  assert.deepEqual(controller.getState().draft?.report.obstacle_position, moved);
+  controller.cancelEdit();
+  controller.closeSummary();
+  controller.setResultGeometry(report.obstacle_position);
+  state = controller.getState();
+  assert.equal(state.result, null);
+});

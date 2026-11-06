@@ -16,9 +16,11 @@
     children: Snippet;
     primary: Snippet;
     secondary?: Snippet;
+    /** Stack the actions in full width at every width, not only on narrow screens. */
+    stackedActions?: boolean;
   }
 
-  let { title, icon, subtitle, role = 'dialog', busy = false, onclose, children, primary, secondary }: Props = $props();
+  let { title, icon, subtitle, role = 'dialog', busy = false, onclose, children, primary, secondary, stackedActions = false }: Props = $props();
   const id = $props.id();
   let dialog: HTMLDialogElement;
   let footer: HTMLElement;
@@ -66,7 +68,7 @@
   <div class="app-dialog-body">{@render children()}</div>
 
   <footer class="app-dialog-footer" bind:this={footer}>
-    <DialogActions {primary} {secondary} />
+    <DialogActions {primary} {secondary} stacked={stackedActions} />
   </footer>
 </dialog>
 

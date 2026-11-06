@@ -23,7 +23,8 @@ aliases and breakpoints; inspect it instead of copying those details here.
 - Respect reduced motion while preserving state feedback. Dialogs manage initial and
   return focus and make their background inert.
 - Dialog actions put the primary action right of the secondary one, right-aligned with
-  label-based widths; below 30rem they stack full width with the primary on top.
+  label-based widths; below 30rem they stack full width with the primary on top. The
+  report summary always stacks its large-target actions.
   DialogActions keeps DOM and Tab order equal to the visual order; focus starts on the
   primary action. The secondary action is a borderless text button of the same height.
   Report dialogs use the shared Dialog: left-aligned title on the X's line, an optional
