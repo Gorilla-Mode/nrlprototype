@@ -4,8 +4,8 @@
   let { status }: { status: ReportStatus } = $props();
 
   const labels: Record<ReportStatus, string> = {
-    ready: 'Ready',
-    pending: 'Sent for review',
+    ready: 'Not sent',
+    pending: 'Sent',
     approved: 'Approved',
     declined: 'Declined',
   };

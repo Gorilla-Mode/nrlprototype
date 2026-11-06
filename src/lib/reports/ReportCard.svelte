@@ -2,7 +2,7 @@
   import StatusBadge from './StatusBadge.svelte';
   import { formatShortDate, reportActionLabel, reportActivity, reportHeading, reportProgressLine, type Report } from './reportsData';
 
-  let { report, onopen, selectMode = false, selected = false, ontoggleselect, justSent = false, unavailableHint }: {
+  let { report, onopen, selectMode = false, selected = false, ontoggleselect, justSent = false, justSaved = false, unavailableHint }: {
     report: Report;
     onopen: (report: Report) => void;
     selectMode?: boolean;
@@ -10,6 +10,8 @@
     ontoggleselect?: (report: Report) => void;
     /** Briefly tints the card after it was sent from select mode. */
     justSent?: boolean;
+    /** Briefly tints the card after the reporting flow saved it. */
+    justSaved?: boolean;
     /** Id of the page's text explaining why a card cannot be selected. */
     unavailableHint?: string;
   } = $props();
@@ -31,6 +33,7 @@
   class:reports-card-selected={selectMode && selectable && selected}
   class:reports-card-dimmed={selectMode && !selectable}
   class:reports-card-just-sent={justSent}
+  class:reports-card-just-saved={justSaved}
   aria-pressed={selectMode && selectable ? selected : undefined}
   aria-disabled={selectMode && !selectable ? true : undefined}
   aria-describedby={selectMode && !selectable ? unavailableHint : undefined}

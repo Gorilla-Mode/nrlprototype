@@ -53,7 +53,7 @@ test('all types are selectable; required whole-metre height is bounded and rejec
   const payload = detailsPayload(draft());
   assert.equal(payload.notPresent, false);
   if (!payload.notPresent) {
-    const requiredHeight: number = payload.height;
+    const requiredHeight: number | null = payload.height;
     assert.equal(requiredHeight, 0);
   }
   assert.equal(draft().dirty, true);

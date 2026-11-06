@@ -1,61 +1,81 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import Dialog from '../components/Dialog.svelte';
   import { obstacleGeometryChoices, obstacleTypeChoices, ObstacleType } from './obstacle';
   import { illuminationLabels, type CompleteReport } from './createDetailsController';
 
-  let { report, onclose }: { report: CompleteReport; onclose: () => void } = $props();
-  let dialog: HTMLDialogElement;
-  let heading: HTMLHeadingElement;
-  onMount(() => {
-    dialog.showModal();
-    heading.focus({ preventScroll: true });
-    return () => { if (dialog.open) dialog.close(); };
-  });
+  let { report, totalSteps, onedit, onreports, onreportanother, onclose }: {
+    report: CompleteReport;
+    /** Steps in the flow that produced the report; optional details are on the last one. */
+    totalSteps: number;
+    /** Reopens the reporting step that holds a row's value. */
+    onedit: (step: number) => void;
+    onreports: () => void;
+    onreportanother: () => void;
+    /** X and Escape: back to the map; the report stays saved. */
+    onclose: () => void;
+  } = $props();
   let geometryChoice = $derived(obstacleGeometryChoices.find((choice) => choice.type === report.obstacle_position.type));
   let typeChoice = $derived(obstacleTypeChoices.find((choice) => choice.type === report.type));
-  let rows = $derived([
+  // Geometry is drawn on the map, not in a reporting step, so it has no edit action.
+  let rows = $derived<{ label: string; value: string; step?: number }[]>([
     { label: 'Geometry', value: geometryChoice?.label ?? '—' },
-    { label: 'Obstacle type', value: report.type === ObstacleType.Other ? (report.customType || 'Other') : (typeChoice?.label ?? '—') },
-    { label: 'Height', value: report.notPresent ? '—' : report.height + ' m' },
-    { label: 'Lighting', value: report.notPresent ? '—' : illuminationLabels[report.illumination] },
-    { label: 'Description', value: report.description || 'Not added' },
-    { label: 'Not present', value: report.notPresent ? 'Yes' : 'No' },
-    { label: 'Photos', value: report.photos.length ? report.photos.map((photo) => photo.name).join(', ') : 'Not added' },
+    { label: 'Obstacle type', value: report.type === ObstacleType.Other ? (report.customType || 'Other') : (typeChoice?.label ?? '—'), step: 1 },
+    { label: 'Height', value: report.notPresent ? '—' : report.height + ' m', step: 1 },
+    { label: 'Lighting', value: report.notPresent ? '—' : illuminationLabels[report.illumination], step: 1 },
+    { label: 'Description', value: report.description || 'Not added', step: totalSteps },
+    { label: 'Photos', value: report.photos.length ? report.photos.map((photo) => photo.name).join(', ') : 'Not added', step: totalSteps },
   ]);
 </script>
 
-<dialog class="obstacle-report-dialog dialog-shell summary-panel" bind:this={dialog} aria-labelledby="summary-heading" oncancel={(event) => { event.preventDefault(); onclose(); }}>
-  <header class="dialog-header">
-    <h2 id="summary-heading" bind:this={heading} tabindex="-1">Report completed</h2>
-    <p class="summary-note">Session-only summary — not saved or submitted.</p>
-  </header>
+{#snippet subtitle()}
+  <p>Your report is saved as a draft under Reports. For safety, reports are not sent automatically. Review it and send it from Reports when you're ready.</p>
+{/snippet}
 
-  <div class="dialog-content">
-    <table class="summary-table">
-      <tbody>
-        {#each rows as row (row.label)}
-          <tr>
-            <th scope="row">{row.label}</th>
-            <td>{row.value}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+{#snippet goToReports()}
+  <button type="button" class="button button--primary" onclick={onreports}>Go to Reports</button>
+{/snippet}
 
-  <footer class="dialog-footer summary-footer">
-    <button type="button" class="button button--primary" onclick={onclose}>Close</button>
-  </footer>
-</dialog>
+{#snippet reportAnother()}
+  <button type="button" class="button dialog-action-secondary" onclick={onreportanother}>Report another obstacle</button>
+{/snippet}
+
+<Dialog title="Report saved – not sent yet" {subtitle} primary={goToReports} secondary={reportAnother} {onclose}>
+  <table class="summary-table">
+    <tbody>
+      {#each rows as row (row.label)}
+        <tr>
+          <th scope="row">{row.label}</th>
+          <td>{row.value}</td>
+          <td class="summary-edit-cell">
+            {#if row.step !== undefined}
+              {@const step = row.step}
+              <button type="button" class="summary-edit" aria-label={`Edit ${row.label.toLowerCase()}`} onclick={() => onedit(step)}>
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4" /></svg>
+              </button>
+            {/if}
+          </td>
+        </tr>
+      {/each}
+    </tbody>
+  </table>
+</Dialog>
 
 <style>
-  .summary-panel { width: min(var(--report-panel-max), calc(100dvw - var(--map-control-inset-left) - var(--map-control-inset-right))); max-height: calc(100dvh - var(--map-control-inset-top) - var(--map-control-inset-bottom)); overflow-y: auto; margin: auto; padding: 0; border: var(--border-default); }
-  .summary-panel h2 { margin: 0; font-size: var(--font-size-heading-small); }
-  .summary-note { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
   .summary-table { width: 100%; border-collapse: collapse; }
   .summary-table tr + tr { border-top: var(--border-default); }
-  .summary-table th, .summary-table td { padding: var(--space-3) 0; text-align: left; font-weight: var(--font-weight-regular); vertical-align: top; }
-  .summary-table th { width: 40%; color: var(--color-text-secondary); font-weight: var(--font-weight-medium); }
+  .summary-table th, .summary-table td { padding: var(--space-1) 0; text-align: left; font-weight: var(--font-weight-regular); vertical-align: middle; }
+  .summary-table th { width: 40%; padding-right: var(--space-3); color: var(--color-text-secondary); font-weight: var(--font-weight-medium); }
   .summary-table td { color: var(--color-text-primary); overflow-wrap: anywhere; }
-  .summary-footer { display: flex; justify-content: flex-end; }
+  .summary-table .summary-edit-cell { width: var(--target-size-min); padding-left: var(--space-2); }
+  .summary-edit {
+    display: grid; place-items: center;
+    width: var(--target-size-min); height: var(--target-size-min); padding: 0;
+    border: 0; border-radius: var(--radius-round); background: transparent;
+    color: var(--color-action-secondary); cursor: pointer;
+  }
+  .summary-edit:hover { background: var(--color-map-control-hover); }
+  .summary-edit svg {
+    width: var(--icon-size-default); height: var(--icon-size-default);
+    stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round;
+  }
 </style>

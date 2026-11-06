@@ -4,9 +4,9 @@ import { detailsRoute, additionalInformationRoute, type ReportingVariant } from 
 import type { ReportingVariantProps } from '../../src/lib/reporting/reportingVariantProps.js';
 
 export const oneStep: ReportingVariant = { id: 'one-step', label: 'One step — scrolling', stepRoutes: [detailsRoute] };
-export const oneStepKeypad: ReportingVariant = { id: 'one-step-keypad', label: 'One step — keypad', stepRoutes: [detailsRoute] };
+export const oneStepKeypad: ReportingVariant = { id: 'one-step-keypad', label: 'One step — keypad', stepRoutes: [detailsRoute], initialHeightMeters: null };
 export const twoStep: ReportingVariant = { id: 'two-step', label: 'Two steps', stepRoutes: [detailsRoute, additionalInformationRoute] };
-export const twoStepKeypad: ReportingVariant = { id: 'two-step-keypad', label: 'Two steps — keypad', stepRoutes: [detailsRoute, additionalInformationRoute] };
+export const twoStepKeypad: ReportingVariant = { id: 'two-step-keypad', label: 'Two steps — keypad', stepRoutes: [detailsRoute, additionalInformationRoute], initialHeightMeters: null };
 export const report: Obstacle = {
   id: 'test-report', type: ObstacleType.Other, description: '', height: 0,
   gps_position: null, timestamp: new Date('2026-09-18T10:00:00Z'),

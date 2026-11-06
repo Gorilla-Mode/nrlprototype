@@ -93,6 +93,9 @@
   // Camera requested from a full-screen page; applied once that page has closed so an
   // inert, hidden map is never moved.
   let pendingCamera: CameraTarget | null = null;
+  // Page requested from the summary; opened once its report history entries are gone.
+  let pendingPage: { hash: string; highlightReportId: string | null } | null = null;
+  let highlightReportId = $state<string | null>(null);
 
   function restoreMapFocus() {
     void tick().then(() => {
@@ -127,6 +130,13 @@
       menuOpen = false;
     } else if (wasPageOpen) menuOpen = menuWasOpen;
     if ((wasReportOpen && !reportOpen) || (wasPageOpen && !pageOpen)) restoreMapFocus();
+    if (!reportsOpen) highlightReportId = null;
+    if (pendingPage && !pageOpen && !reportOpen) {
+      const page = pendingPage;
+      pendingPage = null;
+      highlightReportId = page.highlightReportId;
+      openPage(page.hash);
+    }
     if (pendingCamera && !pageOpen) {
       const target = pendingCamera;
       pendingCamera = null;
@@ -200,6 +210,30 @@
     closeDetails();
   }
 
+  function editSummary(step: number) {
+    if (!detailsController.editResult(step) || !details.variant) return;
+    history.replaceState(history.state, '', details.variant.stepRoutes[details.step - 1]);
+    syncRoute();
+  }
+
+  // Closing a form opened from the summary returns to the summary, not the map.
+  function dismissDetails() {
+    if (!detailsController.cancelEdit()) { closeDetails(); return; }
+    history.replaceState(history.state, '', summaryRoute);
+    syncRoute();
+  }
+
+  function summaryToReports() {
+    pendingPage = { hash: reportsRoute, highlightReportId: details.result?.report.id ?? null };
+    closeSummary();
+  }
+
+  // The map is where a report starts: hold it, or use Report obstacle in crosshair mode.
+  function reportAnother() {
+    returnFocus = null;
+    closeSummary();
+  }
+
   function openPage(nextHash: string) {
     if (!pageOpen) {
       returnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
@@ -264,17 +298,18 @@
     oncustomtype={detailsController.setCustomType} ondescription={detailsController.setDescription}
     onphotos={detailsController.addPhotos} onremovephoto={detailsController.removePhoto}
     onsave={saveDetails} oncontinue={continueDetails} onfinish={finishDetails}
-    onback={previousDetailsStep} ondismiss={closeDetails} />
+    onback={previousDetailsStep} ondismiss={dismissDetails} />
   {/key}
 {/if}
 {#if details.summaryOpen && details.result}
-  <ObstacleReportSummary report={details.result.report} onclose={closeSummary} />
+  <ObstacleReportSummary report={details.result.report} totalSteps={details.result.variant.stepRoutes.length}
+    onedit={editSummary} onreports={summaryToReports} onreportanother={reportAnother} onclose={closeSummary} />
 {:else if !details.open && details.error}
   <p class="details-error" role="alert">{details.error}</p>
 {/if}
 {#if guideOpen}<ReportObstacleGuide onback={backToMap} onclose={backToMap} />{/if}
 {#if faqOpen}<FaqPage onback={backToMap} onguide={() => openPage(reportingGuideRoute)} />{/if}
-{#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} />{/if}
+{#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} highlightId={highlightReportId} />{/if}
 {#if notificationsOpen}
   <NotificationsPage {notifications} onback={backToMap} onmarkallread={() => { notifications = markAllRead(notifications); }} />
 {/if}

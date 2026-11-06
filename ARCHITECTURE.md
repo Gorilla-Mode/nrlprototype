@@ -103,10 +103,14 @@ All views use canonical metres, the same six obstacle types, and original photo 
 Absent-obstacle results omit height and illumination; Other alone includes custom type.
 
 Close and successful Save Draft return to the map with Resume details. Delete discards
-the active draft. Finish clears the map selection and opens a shared, session-only result
-summary; closing it releases that result. Reload loses drafts and results. These actions
-do not write to the mock report lists or provide durable saving or submission. Browser
-history cannot restore a report route without its matching in-memory draft or result.
+the active draft. Save Draft stores a draft and Finish stores a Ready ("Not sent") report
+in the report store; nothing is sent automatically. Finish clears the map selection and
+opens the shared result summary. Its edit actions reopen the step holding a value with
+the finished draft: Finish saves again and returns to the summary, while closing the form
+discards the edit and returns to it. Go to Reports opens the list with that report first
+and briefly highlighted; Report another obstacle returns to the map. Closing the summary
+releases its result. Browser history cannot restore a report route without its matching
+in-memory draft or result.
 
 ## Placement editing variants
 

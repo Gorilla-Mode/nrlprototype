@@ -1141,13 +1141,13 @@ button {
 
 .reports-status-badge { flex: none; display: inline-flex; align-items: center; min-height: var(--space-6); padding-inline: var(--space-3); border-radius: var(--radius-small); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); }
 .reports-status-badge[data-status='ready'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
-/* Shown as "Sent for review": a neutral blue, not a warning. */
+/* Shown as "Sent": a neutral blue, not a warning. */
 .reports-status-badge[data-status='pending'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
 .reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
 .reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
 .reports-status-badge[data-status='draft'] { background: var(--color-background-subtle); color: var(--color-text-secondary); }
-/* In list cards the title is the only bold text and each status has a fixed colour: Ready
-   turns green, "Sent for review" is a neutral blue. Detail pages keep the shared badge. */
+/* In list cards the title is the only bold text and each status has a fixed colour: "Not sent"
+   turns green, "Sent" is a neutral blue. Detail pages keep the shared badge. */
 .reports-card .reports-status-badge { font-weight: var(--font-weight-medium); }
 .reports-card .reports-status-badge[data-status='ready'],
 .reports-card .reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
@@ -1245,7 +1245,6 @@ button {
   --error-report-obstacle-type-size: 1.0625rem;
   --error-report-position-size: 0.9375rem;
   --error-report-position-detail-size: 0.8125rem;
-  --error-report-keypad-key-size: 3.5rem;
   --report-button-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large));
   --report-height-item-size: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default));
   /* Fluid width: tracks viewport width continuously (no breakpoint jump) between a
@@ -1304,6 +1303,7 @@ button {
    these classes style the content of the one-report and bulk dialogs alike. */
 :root {
   --report-sent-highlight-duration: 1.5s;
+  --report-saved-highlight-duration: 2s;
 }
 .report-sent-name { color: var(--color-text-primary); font-size: var(--font-size-body); }
 
@@ -1364,4 +1364,6 @@ button {
 .reports-card-just-sent { animation: reports-just-sent var(--report-sent-highlight-duration) var(--ease-standard); }
 @keyframes reports-just-sent { from { background: var(--color-status-success-surface); } to { background: var(--color-background-raised); } }
 /* Reduced motion: the tint holds, then ends in one step instead of fading. */
-@media (prefers-reduced-motion: reduce) { .reports-card-just-sent { animation-timing-function: steps(1, end); } }
+/* A report just saved from the reporting flow fades from the same tint. */
+.reports-card-just-saved { animation: reports-just-sent var(--report-saved-highlight-duration) var(--ease-standard); }
+@media (prefers-reduced-motion: reduce) { .reports-card-just-sent, .reports-card-just-saved { animation-timing-function: steps(1, end); } }

@@ -1,18 +1,20 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import HeightKeypad from './HeightKeypad.svelte';
-  import { maxObstacleHeightMeters } from './reporting';
+  import { defaultObstacleHeightMeters, maxObstacleHeightMeters } from './reporting';
   import HeightWheel from './HeightWheel.svelte';
-  import { illuminationLabels, maxPhotos } from './createDetailsController';
+  import { detailsComplete, illuminationLabels, maxPhotos } from './createDetailsController';
   import { obstacleGeometryChoices, obstacleTypeChoices } from './obstacle';
   import ObstacleTypeIcon from './ObstacleTypeIcon.svelte';
   import type { ReportingVariantProps } from './reportingVariantProps';
 
-  let { heightControl = 'wheel', draft, open, step, totalSteps, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, onsave, oncontinue, onfinish, ondismiss }: ReportingVariantProps & { heightControl?: 'wheel' | 'keypad' } = $props();
+  let { heightControl = 'wheel', draft, open, step, totalSteps, busy, error, ontype, onheight, onillumination, oncustomtype, ondescription, onphotos, onremovephoto, onsave, oncontinue, onfinish, ondismiss }: ReportingVariantProps & { heightControl?: 'wheel' | 'keypad' } = $props();
   let dialog: HTMLDialogElement;
   let heading: HTMLHeadingElement;
   let heightTrigger = $state<HTMLButtonElement>();
   let heightInputOpen = $state(false);
+  let complete = $derived(detailsComplete(draft));
+  let heightLabel = $derived(draft.height === null ? 'Not set' : `${draft.height} m`);
   function closeHeightInput() {
     heightInputOpen = false;
     void tick().then(() => { if (open && step === 1) heightTrigger?.focus({ preventScroll: true }); });
@@ -85,10 +87,10 @@
       <h2 id="height-title">Approx Height - Required</h2>
       {#if heightControl === 'keypad'}
         <button bind:this={heightTrigger} type="button" class="button height-button"
-          aria-label={`Obstacle height: ${draft.height} metres. Edit height`} aria-haspopup="dialog"
-          disabled={draft.notPresent || busy} onclick={() => { heightInputOpen = true; }}>{draft.height} m</button>
+          aria-label={`Obstacle height: ${draft.height === null ? 'not set' : `${draft.height} metres`}. Edit height`} aria-haspopup="dialog"
+          disabled={draft.notPresent || busy} onclick={() => { heightInputOpen = true; }}>{heightLabel}</button>
       {:else}
-        <HeightWheel value={draft.height} disabled={draft.notPresent || busy} onchange={onheight} />
+        <HeightWheel value={draft.height ?? defaultObstacleHeightMeters} disabled={draft.notPresent || busy} onchange={onheight} />
       {/if}
     </section>
     <section aria-labelledby="options-title">
@@ -100,10 +102,6 @@
             {:else}<path d="M9 18h6m-6 3h6M8 14a6 6 0 1 1 8 0l-1 2H9l-1-2Z" />{#if draft.illumination === 'not-illuminated'}<path d="m3 3 18 18" />{/if}{/if}
           </svg>
           <span aria-live="polite" aria-atomic="true">{illuminationLabels[draft.illumination]}</span>
-        </button>
-        <button type="button" class="button absence" aria-pressed={draft.notPresent} disabled={busy} onclick={() => onabsence(!draft.notPresent)}>
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 14a6 6 0 1 1 9-2M8 14l4 7 3-5M3 3l18 18" /></svg>
-          Not present
         </button>
       </div>
     </section>
@@ -149,14 +147,15 @@
     {#if error}<p role="alert" class="error">{error}</p>{/if}
     <p id="details-availability" class="sr-only">
       {#if !draft.type}Choose an obstacle type to continue. {/if}
+      {#if draft.height === null && !draft.notPresent}Enter a height to continue. {/if}
       Details and photos stay in memory for this session.
     </p>
     <div class="footer-actions" aria-busy={busy}>
       <button type="button" class="button" disabled={busy} aria-describedby="details-availability" onclick={onsave}>Save Draft</button>
       {#if step < totalSteps}
-        <button type="button" class="button continue" disabled={!draft.type || busy} aria-describedby="details-availability" onclick={oncontinue}>Continue</button>
+        <button type="button" class="button continue" disabled={!complete || busy} aria-describedby="details-availability" onclick={oncontinue}>Continue</button>
       {:else}
-        <button type="button" class="button continue" disabled={!draft.type || busy} aria-describedby="details-availability" onclick={onfinish}>Finish Report</button>
+        <button type="button" class="button continue" disabled={!complete || busy} aria-describedby="details-availability" onclick={onfinish}>Finish Report</button>
       {/if}
     </div>
   </footer>
@@ -211,8 +210,6 @@
   .filename { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .button.remove-photo { flex: none; width: var(--details-close-size); min-height: var(--details-close-size); padding: 0; border: 0; }
   .options-row .button { background: var(--color-background-subtle); }
-  .button.absence[aria-pressed='true'] { border-color: var(--color-status-warning); color: var(--color-status-warning); background: var(--color-status-warning-surface); }
-  .button.absence[aria-pressed='true']:hover { border-color: var(--color-text-primary); }
   .button.continue { background: var(--details-action-background); border-color: var(--details-action-background); color: var(--details-action-text); }
   .button.continue:not(:disabled):hover { background: var(--details-action-hover); }
   .button.continue:not(:disabled):active { background: var(--details-action-background); }

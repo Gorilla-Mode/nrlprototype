@@ -9,7 +9,6 @@ import type { ReportingVariantProps } from '../src/lib/reporting/reportingVarian
 import { draft as makeDraft, viewProps } from './helpers/reporting.js';
 const emptyDetailsDraft = makeDraft();
 const setObstacleType = (draft: DetailsDraft, type: ObstacleType): DetailsDraft => ({ ...draft, type });
-const toggleNotPresent = (draft: DetailsDraft): DetailsDraft => ({ ...draft, notPresent: !draft.notPresent });
 
 const obstacleModuleUrl = new URL('../src/lib/reporting/obstacle.js', import.meta.url).href;
 const draftModuleUrl = new URL('../src/lib/reporting/obstacleReportDraft.js', import.meta.url).href;
@@ -121,14 +120,19 @@ test('Save draft is never disabled, even on an empty draft', () => {
   assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /disabled[^>]*>Save draft/);
 });
 
-test('Not present relabels required height as disabled, greys out the picker, and shows the warning note', () => {
-  const draft = toggleNotPresent(emptyDetailsDraft);
-  const html = body(pointObstacle, draft);
-  assert.match(html, /Obstacle Height - Disabled/);
-  assert.match(html, /aria-disabled="true"/);
-  assert.match(html, /This obstacle no longer exists in reality\./);
-  assert.match(body(pointObstacle, emptyDetailsDraft), /Obstacle Height - Required/);
-  assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /This obstacle no longer exists in reality\./);
+test('the form offers no Not present control and height stays required', () => {
+  for (const html of [body(pointObstacle, emptyDetailsDraft), render(KeypadPanel, { props: viewProps(emptyDetailsDraft) }).body]) {
+    assert.doesNotMatch(html, /Not present|no longer exists in reality/);
+    assert.match(html, /Obstacle Height - Required/);
+  }
+});
+
+test('one-step keypad shows an unset height as Not set and blocks Finish until one is entered', () => {
+  const unset = render(KeypadPanel, { props: viewProps(makeDraft({ type: ObstacleType.Pole, height: null })) }).body;
+  assert.match(unset, />Not set<\/button>/);
+  assert.equal(finishReportDisabled(unset), true);
+  const set = render(KeypadPanel, { props: viewProps(makeDraft({ type: ObstacleType.Pole, height: 0 })) }).body;
+  assert.equal(finishReportDisabled(set), false);
 });
 
 test('lighting label and state follow the three-stage cycle', () => {

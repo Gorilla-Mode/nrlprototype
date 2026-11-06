@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import ReportsHeader from './ReportsHeader.svelte';
   import ReportsToolbar from './ReportsToolbar.svelte';
   import StatusTabs from './StatusTabs.svelte';
@@ -17,9 +18,11 @@
   import { obstacleTypeLabel } from '../reporting/obstacle';
   import { matchesGeometryFilter, matchesHeightFilter, type GeometryKey, type HeightFilterKey } from './filtering';
 
-  let { onback, onshowonmap, sendreport = sendToKartverket }: {
+  let { onback, onshowonmap, sendreport = sendToKartverket, highlightId = null }: {
     onback: () => void;
     onshowonmap?: (target: GeometryCameraTarget) => void;
+    /** A report just saved elsewhere: listed first and briefly tinted when the page opens. */
+    highlightId?: string | null;
     /** Delivers one selected report; the prototype default always succeeds. */
     sendreport?: ReportSender;
   } = $props();
@@ -121,6 +124,15 @@
 
   $effect(() => () => clearTimeout(justSentTimer));
 
+  // Read once: the tint marks what was just saved, not every later visit.
+  let justSavedId = $state(untrack(() => highlightId));
+  $effect(() => {
+    if (!justSavedId) return;
+    const duration = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--report-saved-highlight-duration')) * 1000;
+    const timer = setTimeout(() => { justSavedId = null; }, Number.isFinite(duration) ? duration : 0);
+    return () => clearTimeout(timer);
+  });
+
   function openFilterPanel() {
     pendingGeometries = new Set(appliedGeometries);
     pendingHeightFilter = appliedHeightFilter;
@@ -200,7 +212,8 @@
       }
     }
 
-    items.sort((a, b) => b.sort - a.sort);
+    const pinned = untrack(() => justSavedId);
+    items.sort((a, b) => Number(b.id === pinned) - Number(a.id === pinned) || b.sort - a.sort);
     return items;
   }
 
@@ -247,7 +260,7 @@
           {#each items as item (item.kind + '-' + item.id)}
             {#if item.kind === 'report'}
               <ReportCard report={item.report} onopen={openReport} {selectMode} selected={selectedIds.has(item.report.id)} ontoggleselect={toggleSelected}
-                justSent={justSentIds.has(item.report.id)} unavailableHint="reports-select-hint" />
+                justSent={justSentIds.has(item.report.id)} justSaved={item.report.id === justSavedId} unavailableHint="reports-select-hint" />
             {:else}
               <DraftCard draft={item.draft} onEdit={openDraft} {selectMode} unavailableHint="reports-select-hint" />
             {/if}

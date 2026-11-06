@@ -7,7 +7,7 @@
   import LitIcon from '../icons/LitIcon.svelte';
   import MicIcon from '../icons/MicIcon.svelte';
   import SendIcon from '../icons/SendIcon.svelte';
-  import ErrorHeightKeypad from './ErrorHeightKeypad.svelte';
+  import HeightKeypad from '../reporting/HeightKeypad.svelte';
   import type { RegisteredObstacle } from './registeredObstacles';
   import { describeMove, type GeoPosition } from './position';
   import {
@@ -51,6 +51,8 @@
   let descriptionField = $state<HTMLTextAreaElement>();
   let heightButton = $state<HTMLButtonElement>();
   let keypadOpen = $state(false);
+  // Four digits, as the error flow has always accepted; validation stays in isErrorReportValid.
+  const maxHeightM = 9999;
   let backdropPress = false;
 
   function closeKeypad(value?: number) {
@@ -221,7 +223,7 @@
   </div>
 
   {#if keypadOpen && heightWrong}
-    <ErrorHeightKeypad value={heightValue} registeredHeightM={obstacle.heightM}
+    <HeightKeypad value={heightValue} max={maxHeightM}
       onconfirm={(value) => closeKeypad(value)} oncancel={() => closeKeypad()} />
   {/if}
 </dialog>

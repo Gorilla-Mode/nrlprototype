@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
 
   let { value, unit = 'm', max, onconfirm, oncancel }: {
-    value: number;
+    /** Null opens an empty field. */
+    value: number | null;
     unit?: 'm' | 'ft';
     max: number;
     onconfirm: (value: number) => void;
@@ -20,7 +21,7 @@
 
   onMount(() => {
     // This component is mounted afresh for each edit; draft changes never reset it.
-    entry = String(value);
+    entry = value === null ? '' : String(value);
     dialog.showModal();
     input.focus({ preventScroll: true });
     return () => { clearTimeout(holdTimer); dialog.close(); };

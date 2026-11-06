@@ -122,11 +122,12 @@ This requested exception to the usual minimum target size also scales text and c
 down in narrow Split View and phone viewports. Type selection never changes typography.
 
 The default “One step — keypad” reporting dialog keeps the one-step fluid width and
-scrolling body. Its full-width height button starts at 30 m, shares the footer button
-height token and is disabled while busy or Not present. Both one-step variants retain
+scrolling body. Its full-width height button starts as Not set, shares the footer button
+height token and is disabled while busy. Both keypad variants require a height before
+Continue or Finish; the keypad opens empty until one is entered. Both one-step variants retain
 the metres/feet toggle, initially metres. “One step — scrolling” keeps its horizontal
 height picker and optional numeric keypad. All variants collect the
-same metadata and use the same session-only completion summary. Their layouts and picker
+same metadata and use the same completion summary, built on the shared Dialog. Their layouts and picker
 styles remain distinct for user testing. The one-step views and two-step keypad view share
 a numeric modal with a temporary entry; only confirmation updates the draft. Cancel,
 Escape and backdrop dismissal discard edits. The modal traps focus, makes the form
