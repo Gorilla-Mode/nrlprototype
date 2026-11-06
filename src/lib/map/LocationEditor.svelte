@@ -248,10 +248,10 @@
 </script>
 
 {#snippet cancelAction()}
-  <button type="button" class="button dialog-action-secondary" onclick={oncancel}>Cancel</button>
+  <button type="button" class="ds-button dialog-action-secondary" data-variant="tertiary" data-color="brand1" onclick={oncancel}>Cancel</button>
 {/snippet}
 {#snippet useAction()}
-  <button type="button" class="button dialog-action-primary" disabled={!!helper} aria-describedby={helper ? 'location-helper' : undefined} onclick={use}>Use this location</button>
+  <button type="button" class="ds-button dialog-action-primary" data-variant="primary" disabled={!!helper} aria-describedby={helper ? 'location-helper' : undefined} onclick={use}>Use this location</button>
 {/snippet}
 {#snippet footer()}
   <div class="location-footer">
@@ -270,8 +270,8 @@
       </div>
       <div class="location-tools">
         {#if type !== 'Point'}
-          <button type="button" class="button" disabled={vertices.length === 0} onclick={undoLastPoint}>Undo last point</button>
-          <button type="button" class="button" disabled={selected === null} onclick={() => { if (selected !== null) deletePoint(selected); }}>Delete point</button>
+          <button type="button" class="ds-button" data-variant="secondary" data-color="neutral" disabled={vertices.length === 0} onclick={undoLastPoint}>Undo last point</button>
+          <button type="button" class="ds-button" data-variant="secondary" data-color="neutral" disabled={selected === null} onclick={() => { if (selected !== null) deletePoint(selected); }}>Delete point</button>
         {/if}
         <button type="button" class="card-cta-link location-text-button" disabled={!changed} onclick={reset}>Reset</button>
       </div>
@@ -327,10 +327,10 @@
     <Dialog title="Change to a point?" role="alertdialog" onclose={() => { pendingType = null; }}>
       <p>Only the first point will be kept.</p>
       {#snippet primary()}
-        <button type="button" class="button dialog-action-primary" onclick={() => { if (pendingType) applyType(pendingType); }}>Change to point</button>
+        <button type="button" class="ds-button dialog-action-primary" data-variant="primary" onclick={() => { if (pendingType) applyType(pendingType); }}>Change to point</button>
       {/snippet}
       {#snippet secondary()}
-        <button type="button" class="button dialog-action-secondary" onclick={() => { pendingType = null; }}>Cancel</button>
+        <button type="button" class="ds-button dialog-action-secondary" data-variant="tertiary" data-color="brand1" onclick={() => { pendingType = null; }}>Cancel</button>
       {/snippet}
     </Dialog>
   {/if}

@@ -103,12 +103,17 @@ All views use canonical metres, the same six obstacle types, and original photo 
 Other alone includes custom type.
 
 Close and successful Save Draft return to the map with Resume details. Delete discards
-the active draft. Save Draft stores a draft and Finish stores a Ready ("Not sent") report
+the active draft. Save Draft stores a draft and Finish stores a Ready ("Ready to send") report
 in the report store; nothing is sent automatically. Finish clears the map selection and
 opens the shared result summary. Its edit actions reopen the step holding a value with
 the finished draft: Finish saves again and returns to the summary, while closing the form
-discards the edit and returns to it. Go to Reports opens the list with that report first
-and briefly highlighted; Report another obstacle returns to the map. Closing the summary
+discards the edit and returns to it. Both summary actions return to the map and confirm there
+with the shared ConfirmationToast (also used after an error report). Save and continue
+(primary) keeps the report saved and unsent: Report saved names its status with its
+StatusBadge. Send report submits it: Report sent adds a review note. View report opens that
+report's detail page by id, over its status tab. If sending fails, an alert says it stays
+Ready to send. These confirmations live only in App state and show once, right after the
+action. Closing the summary
 releases its result. Browser history cannot restore a report route without its matching
 in-memory draft or result.
 

@@ -5,14 +5,15 @@
   import GuideExample from '../guide/GuideExample.svelte';
   import GuideExampleMap from './GuideExampleMap.svelte';
   import { guideProgressStep } from './tutorial';
+  import PageHeader from '../components/PageHeader.svelte';
 
-  let { onback, onclose }: { onback: () => void; onclose: () => void } = $props();
+  /** ← steps back through the guide; from the first step it leaves the page. */
+  let { onback }: { onback: () => void } = $props();
 
   const stepCount = 5;
   const progressSteps = Array.from({ length: stepCount }, (_, index) => index);
   let page: HTMLElement;
-  let header: HTMLElement;
-  let title: HTMLHeadingElement;
+  let title = $state<HTMLHeadingElement>();
   let drawingTools: HTMLUListElement;
   let activeStep = $state(0);
   let frame = 0;
@@ -21,13 +22,23 @@
   function updateProgress() {
     frame = 0;
     const sections = page.querySelectorAll<HTMLElement>('[data-guide-step]');
-    const threshold = header.getBoundingClientRect().bottom + page.clientHeight / 3;
+    const header = page.querySelector<HTMLElement>('.page-header');
+    const threshold = (header?.getBoundingClientRect().bottom ?? 0) + page.clientHeight / 3;
     const atEnd = page.scrollTop + page.clientHeight >= page.scrollHeight - 1;
     activeStep = guideProgressStep([...sections].map((section) => section.getBoundingClientRect().top), threshold, atEnd);
   }
 
   function scheduleProgress() {
     if (!frame) frame = requestAnimationFrame(updateProgress);
+  }
+
+  // The previous step is the one before the step being read; scrolling there updates progress.
+  function back() {
+    const sections = page.querySelectorAll<HTMLElement>('[data-guide-step]');
+    const previous = sections[activeStep - 1];
+    if (!previous) { onback(); return; }
+    previous.scrollIntoView({ block: 'start' });
+    previous.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
   }
 
   function showDrawingTools() {
@@ -37,7 +48,7 @@
 
   onMount(() => {
     // Browser Forward can close the modal drawer in this same update.
-    void tick().then(() => title.focus({ preventScroll: true }));
+    void tick().then(() => title?.focus({ preventScroll: true }));
     updateProgress();
     return () => cancelAnimationFrame(frame);
   });
@@ -46,24 +57,14 @@
 <svelte:window onresize={scheduleProgress} />
 
 <main class="guide-page" aria-label="How to report an obstacle" bind:this={page} onscroll={scheduleProgress}>
-  <header class="guide-header" bind:this={header}>
-    <div class="guide-header-row">
-      <button class="faq-icon-button guide-icon-button" type="button" aria-label="Back" onclick={onback}>
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 12H5M12 5l-7 7 7 7" /></svg>
-      </button>
-      <span class="guide-header-title">How to report an obstacle</span>
-      <button class="faq-icon-button guide-icon-button guide-close" type="button" aria-label="Close guide" onclick={onclose}>
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
-      </button>
-    </div>
+  <PageHeader title="How to report an obstacle" backLabel={activeStep > 0 ? `Back to step ${activeStep}` : 'Back'} onback={back} bind:heading={title}>
     <div class="guide-progress" role="progressbar" aria-label="Reading progress" aria-valuemin={1} aria-valuemax={stepCount}
       aria-valuenow={activeStep + 1} aria-valuetext={`Step ${activeStep + 1} of ${stepCount}`}>
       {#each progressSteps as index (index)}<span class:reached={index <= activeStep}></span>{/each}
     </div>
-  </header>
+  </PageHeader>
 
   <div class="guide-content">
-    <h1 bind:this={title} tabindex="-1">How to report an obstacle</h1>
     <p class="guide-intro">Follow these steps to report an obstacle accurately.</p>
     <div class="guide-notice" role="note">
       <svg viewBox="0 0 19.2 13.2" fill="none" aria-hidden="true"><path d="M1.1 6.1L7.1 12.1L18.1 1.1" /></svg>
@@ -176,45 +177,33 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     /* Keeps in-page targets clear of the sticky app bar and its progress row. */
-    scroll-padding-top: calc(var(--safe-area-top) + var(--faq-header-height) + var(--space-8) + var(--guide-progress-height) + var(--space-4));
+    scroll-padding-top: calc(var(--safe-area-top) + var(--page-header-height) + var(--space-8) + var(--guide-progress-height) + var(--space-4));
     background: var(--color-background-raised);
     color: var(--color-text-primary);
   }
-  p, h1 { margin: 0; }
+  p { margin: 0; }
 
-  .guide-header {
-    position: sticky;
-    top: 0;
-    z-index: var(--layer-popover);
-    padding: var(--safe-area-top) max(var(--guide-header-gutter), var(--safe-area-right)) 0 max(var(--guide-header-gutter), var(--safe-area-left));
-    border-bottom: var(--border-default);
-    background: var(--color-background-raised);
+  /* Under the PageHeader row, on the same width and gutter. */
+  .guide-progress {
+    display: flex;
+    gap: var(--guide-progress-gap);
+    max-width: calc(var(--page-content-max) + 2 * var(--page-gutter));
+    margin-inline: auto;
+    padding: var(--space-1) max(var(--page-gutter), var(--safe-area-right)) var(--space-4) max(var(--page-gutter), var(--safe-area-left));
   }
-  .guide-header-row { display: flex; align-items: center; gap: var(--space-3); min-height: var(--faq-header-height); }
-  .guide-header-title {
-    flex: 1;
-    min-width: 0;
-    font-size: var(--guide-intro-size);
-    font-weight: var(--guide-font-weight-strong);
-    line-height: var(--line-height-tight);
-  }
-  .guide-icon-button svg { stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
-  .guide-close { background: var(--color-background-subtle); }
-  .guide-progress { display: flex; gap: var(--guide-progress-gap); padding-block: var(--space-3) var(--space-4); }
   .guide-progress span { flex: 1; height: var(--guide-progress-height); border-radius: var(--radius-pill); background: var(--color-border-default); }
   .guide-progress span.reached { background: var(--color-text-primary); }
 
   .guide-content {
     width: 100%;
-    max-width: calc(var(--guide-content-max) + 2 * var(--faq-gutter));
+    max-width: calc(var(--page-content-max) + 2 * var(--page-gutter));
     margin-inline: auto;
-    padding: var(--space-6) max(var(--faq-gutter), var(--safe-area-right)) max(var(--faq-content-bottom), var(--safe-area-bottom)) max(var(--faq-gutter), var(--safe-area-left));
+    padding: var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) max(var(--page-content-bottom), var(--safe-area-bottom)) max(var(--page-gutter), var(--safe-area-left));
     font-size: var(--font-size-body);
     line-height: var(--line-height-body);
     overflow-wrap: anywhere;
   }
-  h1 { font-size: var(--guide-title-size); font-weight: var(--guide-font-weight-strong); line-height: var(--line-height-tight); }
-  .guide-intro { margin-top: var(--space-3); color: var(--color-text-secondary); font-size: var(--guide-intro-size); }
+  .guide-intro { color: var(--color-text-secondary); font-size: var(--guide-intro-size); }
   .guide-content p, .guide-content li { color: var(--color-text-secondary); }
   .guide-content strong { color: var(--color-text-primary); font-weight: var(--guide-font-weight-strong); }
 

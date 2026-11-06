@@ -12,7 +12,7 @@ aliases and breakpoints; inspect it instead of copying those details here.
   stylesheet rather than hardcoding them locally or branching styles by theme.
 - Green communicates affirmative action, blue focus/selection/information, amber
   warning and red error/destruction. Always pair meaning with text, shape, icon or ARIA
-  state; colour alone is insufficient.
+  state; colour alone is insufficient. See Colour rules and statuses below.
 - Normal text targets 4.5:1 contrast and meaningful control graphics 3:1 against their
   surface. Verify overlays on real map imagery, not only a neutral test page.
 - Every supported interaction exposes visible focus and distinct hover, pressed,
@@ -26,9 +26,73 @@ aliases and breakpoints; inspect it instead of copying those details here.
   label-based widths; below 30rem they stack full width with the primary on top. The
   report summary always stacks its large-target actions.
   DialogActions keeps DOM and Tab order equal to the visual order; focus starts on the
-  primary action. The secondary action is a borderless text button of the same height.
+  primary (green) action. The secondary action is a tertiary text button of the same height.
   Report dialogs use the shared Dialog: left-aligned title on the X's line, an optional
   small status icon before it and a muted subtitle indented under the title text.
+
+## Colour rules and statuses
+
+Only the Kartverket palette in `stylesheet.css` is used; no new colours are added. If a
+needed colour is missing, ask Kartverket rather than inventing one.
+
+- Green (`--color-action-primary`) is for primary buttons only. As a status, green means
+  approved or successfully completed, never "not done yet".
+- Blue (`--color-action-secondary`) is for links, text buttons and selected or active
+  states: a chosen filter chip such as All, a selected option, a following location button.
+- Report statuses have fixed colours (`--color-status-*` with a `-surface` pair) and the
+  same name everywhere, in the Reports filter, cards, detail pages and Notifications:
+
+| Status (code)            | Name          | Colour token              | Colour         |
+|--------------------------|---------------|---------------------------|----------------|
+| `draft`                  | Draft         | `--color-status-ready`    | neutral grey   |
+| `ready`                  | Ready to send | `--color-status-ready`    | neutral grey   |
+| `pending`                | Sent          | `--color-status-sent`     | blue           |
+| `under-review` (notice)  | Under review  | `--color-status-review`   | amber          |
+| `approved`               | Approved      | `--color-status-approved` | green          |
+| `declined`               | Declined      | `--color-status-rejected` | red            |
+
+The notification status Completed keeps the information blue until its meaning is decided.
+
+## Designsystemet
+
+Shared components build on Designsystemet (`@digdir/designsystemet-css` and
+`-theme`), used as CSS classes because the app is Svelte. `src/styles/designsystemet.css`
+maps its tokens onto the NRL tokens, so the app keeps its colours, Inter, radii and dark
+theme; never set `data-color-scheme`. Colour roles are set per component with
+`data-color`: none (accent) for green primary actions, `neutral` for secondary buttons,
+cards and fields, and `brand1` for blue text actions and selected chips. Status tags take
+their colours from the `--color-status-*` tokens. Element resets sit in the `app-reset` layer
+below `ds`, so they never undo a Designsystemet component.
+
+- Buttons: `ds-button` with `data-variant` primary, secondary (`neutral`) or tertiary
+  (`brand1`). Search fields: `SearchField` (`ds-search`), raised with a shadow only on
+  the map. Filter chips: `ds-chip` radios without the radio dot. Cards: `ds-card`.
+  Status: `StatusBadge` (`ds-tag`), coloured per status as in the table above. Dialogs: `Dialog`
+  and `Lightbox` (`ds-dialog`).
+- Confirmations: `ConfirmationToast` confirms a finished action without interrupting.
+  - Content: `title`, an optional grey `description`, an `icon` (a success check in a
+    circle, `--confirmation-toast-success`, Kartverket green) and an optional `action`.
+    The action is a blue link-style button under the text (`--color-action-secondary`).
+    `description` may be a snippet when part of it is styled. For example, Report saved
+    names the status with its `StatusBadge`, so the status looks the same as in Reports.
+  - Layout: a raised, rounded card with a shadow at the bottom centre over the map,
+    with X at the top right. There is no green background and no green title.
+  - Behaviour: the live region (`role="status"`, `aria-live="polite"`) is always present.
+    Nothing moves focus into it. The card closes after 7 s, pausing only while a mouse
+    moves over it or the user has tabbed into it. It slides in and out over
+    `--confirmation-toast-motion` (instant with reduced motion).
+  - Use: Send report and Save and continue use the card. The error report still uses `appearance="strip"`,
+    the earlier green strip, until it moves to the card. A failed action uses an alert
+    `Dialog`, never this confirmation.
+- The map toolbars and the reporting forms keep their own controls: they are fixed
+  user-test layouts over the map.
+
+Full-screen pages (Reports, report and draft details, FAQ, Settings, Notifications, the
+reporting guide) share `PageHeader`: ← and the page title on the left as one back button
+(at least 48 px tall, hover and press over both, named by its back label while the title
+stays the page's h1), optional actions on the right, on one width, gutter and type scale (`--page-*` tokens). A page never has
+both ← and X; X belongs only to dialogs, drawers and popups over a page. In the guide,
+← goes to the previous step and, from the first step, back to the previous page.
 
 ## Map-specific decisions
 

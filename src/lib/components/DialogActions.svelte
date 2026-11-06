@@ -52,8 +52,8 @@
   .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }
   .dialog-actions-slot { display: contents; }
   /* Widths follow the labels; the primary action gets extra room so it reads as the main one. */
-  .dialog-actions-slot > :global(.button) { flex: none; width: auto; min-width: 0; }
-  .dialog-actions-slot[data-dialog-action='primary'] > :global(.button) { padding-inline: var(--dialog-action-primary-padding); }
+  .dialog-actions-slot > :global(.ds-button) { flex: none; width: auto; min-width: 0; }
+  .dialog-actions-slot[data-dialog-action='primary'] > :global(.ds-button) { padding-inline: var(--dialog-action-primary-padding); }
   .dialog-actions.stacked { flex-direction: column; align-items: stretch; }
-  .dialog-actions.stacked .dialog-actions-slot > :global(.button) { width: 100%; }
+  .dialog-actions.stacked .dialog-actions-slot > :global(.ds-button) { width: 100%; }
 </style>

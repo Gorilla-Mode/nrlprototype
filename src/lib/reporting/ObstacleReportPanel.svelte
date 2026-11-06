@@ -455,7 +455,8 @@
   .optional-button:not(:disabled):hover { background: var(--color-map-control-hover); }
   .optional-button[data-state='illuminated'] { border-color: var(--color-status-warning); color: var(--color-status-warning); }
   .optional-button[data-state='not-illuminated'] { border-color: var(--color-status-error); color: var(--color-status-error); }
-  .optional-button.active { border-color: var(--color-status-success); color: var(--color-status-success); }
+  /* Selected, not a status: the selected blue. */
+  .optional-button.active { border-color: var(--color-action-secondary); color: var(--color-action-secondary); }
 
   .description-field { min-height: 4rem; padding-block: var(--space-3); resize: none; overflow: hidden; }
 

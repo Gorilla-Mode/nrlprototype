@@ -24,23 +24,25 @@ const mapStub = `data:text/javascript;base64,${Buffer.from(
 ).toString('base64')}`;
 const guideUrl = await compileSvelteComponent('src/lib/map/ReportObstacleGuide.svelte', {
   '../guide/StepSection.svelte': await compileSvelteComponent('src/lib/guide/StepSection.svelte'),
+  '../components/PageHeader.svelte': await compileSvelteComponent('src/lib/components/PageHeader.svelte'),
   '../guide/ToolOptionCard.svelte': await compileSvelteComponent('src/lib/guide/ToolOptionCard.svelte'),
   '../guide/GuideExample.svelte': await compileSvelteComponent('src/lib/guide/GuideExample.svelte'),
   './GuideExampleMap.svelte': mapStub,
   './tutorial': new URL('../src/lib/map/tutorial.js', import.meta.url).href,
 });
 const { default: ReportObstacleGuide } = await import(guideUrl) as {
-  default: Component<{ onback: () => void; onclose: () => void }>;
+  default: Component<{ onback: () => void }>;
 };
-const html = render(ReportObstacleGuide, { props: { onback() {}, onclose() {} } }).body;
+const html = render(ReportObstacleGuide, { props: { onback() {} } }).body;
 const text = html.replace(/<!--[^]*?-->/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
-test('the guide has one focusable page title, labelled back and close controls and step progress', () => {
+test('the guide has one focusable page title, a labelled back control, no close X and step progress', () => {
   assert.match(html, /<main[^>]*aria-label="How to report an obstacle"/);
   assert.equal((html.match(/<h1/g) ?? []).length, 1);
   assert.match(html, /<h1[^>]*tabindex="-1"[^>]*>How to report an obstacle<\/h1>/);
+  // On the first step, ← leaves the guide; later steps go back one step.
   assert.match(html, /<button[^>]*aria-label="Back"/);
-  assert.match(html, /<button[^>]*aria-label="Close guide"/);
+  assert.doesNotMatch(html, /aria-label="Close guide"/);
   assert.match(html, /role="progressbar"[^>]*aria-valuemin="1"[^>]*aria-valuemax="5"[^>]*aria-valuenow="1"[^>]*aria-valuetext="Step 1 of 5"/);
   assert.doesNotMatch(html, /<dialog/);
 });
@@ -91,6 +93,6 @@ test('step 01 shows the example map; form examples are pictures without controls
     assert.doesNotMatch(inner, /<(?:button|input|select|textarea|a)\b|tabindex/);
   }
   assert.doesNotMatch(html, /<(?:input|select|textarea|form)\b/);
-  // Only the app bar and the related Drawing guide link are actions.
-  assert.equal((html.match(/<button/g) ?? []).length, 3);
+  // Only ← in the page header and the related Drawing guide link are actions.
+  assert.equal((html.match(/<button/g) ?? []).length, 2);
 });

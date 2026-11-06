@@ -5,7 +5,7 @@
   import { obstacleGeometryChoices, obstacleTypeChoices, ObstacleType, type ObstacleGeometry } from './obstacle';
   import { illuminationLabels, type CompleteReport } from './createDetailsController';
 
-  let { report, totalSteps, onedit, ongeometry, onreports, onreportanother, onclose }: {
+  let { report, totalSteps, onedit, ongeometry, onsend, oncontinue, onclose }: {
     report: CompleteReport;
     /** Steps in the flow that produced the report; optional details are on the last one. */
     totalSteps: number;
@@ -13,8 +13,10 @@
     onedit: (step: number) => void;
     /** A new location from the location editor; the summary stays open. */
     ongeometry: (geometry: ObstacleGeometry) => void;
-    onreports: () => void;
-    onreportanother: () => void;
+    /** Sends the saved report for review. */
+    onsend: () => void;
+    /** Back to the map; the report stays saved, not sent. */
+    oncontinue: () => void;
     /** X and Escape: back to the map; the report stays saved. */
     onclose: () => void;
   } = $props();
@@ -49,18 +51,18 @@
 {/snippet}
 
 {#snippet subtitle()}
-  <p>Your report is saved as a draft. To send it, review the draft and tap Send report.</p>
+  <p>Your report is saved and ready to send. You can send it now, or continue and finish it later.</p>
 {/snippet}
 
-{#snippet goToReports()}
-  <button type="button" class="button button--primary summary-action" onclick={onreports}>Review and send</button>
+{#snippet saveAndContinue()}
+  <button type="button" class="ds-button summary-action" data-variant="primary" onclick={oncontinue}>Save and continue</button>
 {/snippet}
 
-{#snippet reportAnother()}
-  <button type="button" class="button dialog-action-secondary summary-action" onclick={onreportanother}>Report another obstacle</button>
+{#snippet sendReport()}
+  <button type="button" class="ds-button dialog-action-secondary summary-action" data-variant="tertiary" data-color="brand1" onclick={onsend}>Send report</button>
 {/snippet}
 
-<Dialog title="Report saved – not sent yet" {subtitle} primary={goToReports} secondary={reportAnother} stackedActions {onclose}>
+<Dialog title="Report saved – not sent yet" {subtitle} primary={saveAndContinue} secondary={sendReport} stackedActions {onclose}>
   <table class="summary-table">
     <tbody>
       {#each rows as row (row.label)}

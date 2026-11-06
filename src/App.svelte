@@ -19,6 +19,10 @@
   import { reportingVariants } from './lib/reporting/reportingVariants';
   import ReportingDebug from './lib/reporting/ReportingDebug.svelte';
   import ObstacleReportSummary from './lib/reporting/ObstacleReportSummary.svelte';
+  import StatusBadge from './lib/reports/StatusBadge.svelte';
+  import Dialog from './lib/components/Dialog.svelte';
+  import ConfirmationToast, { type ConfirmationNotice } from './lib/components/ConfirmationToast.svelte';
+  import type { StatusTabKey } from './lib/reports/reportsData';
   import type { Obstacle } from './lib/reporting/obstacle';
   import type { CompleteReport, DetailsPayload } from './lib/reporting/createDetailsController';
   import { reportStore } from './lib/reports/reportStore';
@@ -94,10 +98,20 @@
   // inert, hidden map is never moved.
   let pendingCamera: CameraTarget | null = null;
   // Page requested from the summary; opened once its report history entries are gone.
-  let pendingPage: { hash: string; highlightReportId: string | null; openReportId?: string | null } | null = null;
+  let pendingPage: { hash: string; highlightReportId: string | null; openReportId?: string | null; filter?: StatusTabKey } | null = null;
   let highlightReportId = $state<string | null>(null);
   // The report Reports opens straight into, by ID; the list stays behind its back button.
   let openReportId = $state<string | null>(null);
+  // The tab Reports opens on.
+  let reportsFilter = $state<StatusTabKey>('all');
+  // Feedback after a summary action, shown once right after it; never stored with the report.
+  let summaryOutcome = $state.raw<{ kind: 'failed' } | null>(null);
+  // Report sent or saved: confirmed at the bottom of the map, with a link to that report.
+  let mapNotice = $state.raw<ConfirmationNotice | null>(null);
+  // The saved report's status, named and styled by its tag in the saved confirmation.
+  let savedStatus = $state<'ready' | 'draft'>('ready');
+  // A map confirmation never floats over a page or report form opened after it.
+  $effect(() => { if (pageOpen || reportOpen) mapNotice = null; });
 
   function restoreMapFocus() {
     void tick().then(() => {
@@ -132,12 +146,13 @@
       menuOpen = false;
     } else if (wasPageOpen) menuOpen = menuWasOpen;
     if ((wasReportOpen && !reportOpen) || (wasPageOpen && !pageOpen)) restoreMapFocus();
-    if (!reportsOpen) { highlightReportId = null; openReportId = null; }
+    if (!reportsOpen) { highlightReportId = null; openReportId = null; reportsFilter = 'all'; }
     if (pendingPage && !pageOpen && !reportOpen) {
       const page = pendingPage;
       pendingPage = null;
       highlightReportId = page.highlightReportId;
       openReportId = page.openReportId ?? null;
+      reportsFilter = page.filter ?? 'all';
       openPage(page.hash);
     }
     if (pendingCamera && !pageOpen) {
@@ -238,16 +253,52 @@
     if (details.result?.report.id === result.report.id) detailsController.setResultGeometry(geometry);
   }
 
-  function summaryToReports() {
-    const id = details.result?.report.id ?? null;
-    pendingPage = { hash: reportsRoute, highlightReportId: id, openReportId: id };
-    closeSummary();
-  }
-
-  // The map is where a report starts: hold it, or use Report obstacle in crosshair mode.
-  function reportAnother() {
+  // The report is already saved as Ready; sending submits it. A failed send leaves it Ready.
+  function sendSummaryReport() {
+    const id = details.result?.report.id;
     returnFocus = null;
     closeSummary();
+    const sent = id ? reportStore.submitReport(id) : undefined;
+    if (!sent) { summaryOutcome = { kind: 'failed' }; return; }
+    mapNotice = {
+      title: 'Report sent',
+      description: "Kartverket will review it. You'll be notified when it's registered.",
+      action: { label: 'View report', onclick: () => viewReport(sent.id, 'sent') },
+    };
+  }
+
+  // Opens a report's or draft's detail page by its id, over its status tab.
+  function viewReport(id: string, filter: StatusTabKey) {
+    pendingPage = { hash: reportsRoute, highlightReportId: id, openReportId: id, filter };
+    if (!history.state?.nrlDetailsDepth) syncRoute();
+  }
+
+  // Save and continue: the report stays saved, not sent; back on the map, a confirmation says where.
+  function continueFromSummary() {
+    const id = details.result?.report.id;
+    returnFocus = null;
+    closeSummary();
+    const { reports, drafts } = reportStore.getState();
+    const status = reports.some((report) => report.id === id) ? 'ready' : drafts.some((draft) => draft.id === id) ? 'draft' : null;
+    if (!id || !status) return;
+    savedStatus = status;
+    mapNotice = {
+      title: 'Report saved',
+      description: savedDescription,
+      action: { label: 'View report', onclick: () => viewReport(id, status) },
+    };
+  }
+
+  function outcomeToMap() {
+    summaryOutcome = null;
+    restoreMapFocus();
+  }
+
+  // Opens Reports on a tab once the summary's history is gone.
+  function outcomeToReports(filter: StatusTabKey) {
+    summaryOutcome = null;
+    pendingPage = { hash: reportsRoute, highlightReportId: null, filter };
+    if (!history.state?.nrlDetailsDepth) syncRoute();
   }
 
   function openPage(nextHash: string) {
@@ -319,13 +370,22 @@
 {/if}
 {#if details.summaryOpen && details.result}
   <ObstacleReportSummary report={details.result.report} totalSteps={details.result.variant.stepRoutes.length}
-    onedit={editSummary} ongeometry={editSummaryGeometry} onreports={summaryToReports} onreportanother={reportAnother} onclose={closeSummary} />
+    onedit={editSummary} ongeometry={editSummaryGeometry} onsend={sendSummaryReport} oncontinue={continueFromSummary} onclose={closeSummary} />
 {:else if !details.open && details.error}
   <p class="details-error" role="alert">{details.error}</p>
 {/if}
-{#if guideOpen}<ReportObstacleGuide onback={backToMap} onclose={backToMap} />{/if}
+{#snippet savedDescription()}Saved as <StatusBadge status={savedStatus} />. You can find it in Reports.{/snippet}
+{#if summaryOutcome?.kind === 'failed'}
+  <!-- Instead of a confirmation: the message is the alert's description, so the body stays empty. -->
+  {#snippet failedSubtitle()}<p>The report could not be sent. It is saved under Reports → Ready to send – try again from there.</p>{/snippet}
+  {#snippet failedPrimary()}<button type="button" class="ds-button dialog-action-primary" data-variant="primary" onclick={() => outcomeToReports('ready')}>Go to Reports</button>{/snippet}
+  {#snippet failedSecondary()}<button type="button" class="ds-button dialog-action-secondary" data-variant="tertiary" data-color="brand1" onclick={outcomeToMap}>Back to map</button>{/snippet}
+  <Dialog title="Report not sent" icon="warning" role="alertdialog" subtitle={failedSubtitle} primary={failedPrimary} secondary={failedSecondary} onclose={outcomeToMap}>{''}</Dialog>
+{/if}
+<ConfirmationToast notice={mapNotice} onclose={() => { mapNotice = null; }} />
+{#if guideOpen}<ReportObstacleGuide onback={backToMap} />{/if}
 {#if faqOpen}<FaqPage onback={backToMap} onguide={() => openPage(reportingGuideRoute)} />{/if}
-{#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} highlightId={highlightReportId} openId={openReportId} />{/if}
+{#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} highlightId={highlightReportId} openId={openReportId} filter={reportsFilter} />{/if}
 {#if notificationsOpen}
   <NotificationsPage {notifications} onback={backToMap} onmarkallread={() => { notifications = markAllRead(notifications); }} />
 {/if}

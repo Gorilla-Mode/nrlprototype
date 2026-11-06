@@ -29,7 +29,7 @@
 
 <button
   type="button"
-  class="reports-card"
+  class="ds-card reports-card"
   class:reports-card-selected={selectMode && selectable && selected}
   class:reports-card-dimmed={selectMode && !selectable}
   class:reports-card-just-sent={justSent}

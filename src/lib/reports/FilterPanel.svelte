@@ -66,7 +66,7 @@
     {/each}
   </div>
 
-  <button type="button" class="button button--primary reports-filter-apply" onclick={onapply}>
+  <button type="button" class="ds-button reports-filter-apply" data-variant="primary" onclick={onapply}>
     Show {resultCount} {resultCount === 1 ? 'result' : 'results'}
   </button>
 </div>

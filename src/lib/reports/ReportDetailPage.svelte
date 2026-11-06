@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
   import StatusBadge from './StatusBadge.svelte';
+  import PageHeader from '../components/PageHeader.svelte';
   import ReportSentDialog from './ReportSentDialog.svelte';
   import { formatLongDate, formatShortDate, reportHeading, type Report } from './reportsData';
   import { reportStore, reportToDraft } from './reportStore';
@@ -111,15 +112,8 @@
 </script>
 
 <section class="page">
-  <header class="top-bar reports-topbar">
-    <div class="reports-header-row reports-topbar-content">
-      <button class="reports-back" type="button" aria-label="Back to Reports" on:click={onback}>
-        <svg viewBox="0 0 8 14" fill="none" aria-hidden="true"><path d="M7 1 1 7l6 6" /></svg>
-        <span>Reports</span>
-      </button>
-      <StatusBadge status={report.status} />
-    </div>
-  </header>
+  {#snippet statusTag()}<StatusBadge status={report.status} />{/snippet}
+  <PageHeader {title} backLabel="Back to Reports" {onback} actions={statusTag} />
 
   <div class="scroll-area" bind:this={scrollArea}>
     <div class="safe-area">
@@ -130,7 +124,6 @@
         </div>
       {/if}
       <div class="title-block">
-        <h1>{title}</h1>
         <div class="subtitle">{#if geometryType}{geometryType} ·{' '}{/if}<strong class="type-highlight">{typeLabel}</strong> · {heightDisplay}</div>
       </div>
       <div class="fields-row">
@@ -189,11 +182,10 @@
         </div>
       </div>
 
+      <!-- A Ready report's fields are shown above; the card only explains sent and reviewed states. -->
+      {#if !isReady}
       <div class="ready-card" class:declined={isDeclined}>
-        {#if isReady}
-          <div class="ready-title">Ready to send for review</div>
-          <div class="ready-desc muted">Everything the reviewer needs is filled in.</div>
-        {:else if isPending}
+        {#if isPending}
           <div class="ready-title">Sent for review</div>
           <div class="ready-desc muted">Sent to the NRL reviewer. You'll be notified about the outcome.</div>
         {:else if isApproved}
@@ -223,6 +215,7 @@
           </div>
         </div>
       </div>
+      {/if}
 
       <div class="info-card">
         <div class="section-label">DESCRIPTION AND REPORTER</div>
@@ -291,8 +284,8 @@
     <footer class="bottom-bar">
       <div class="actions">
         {#if isReady}
-          <button class="button" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
-          <button class="button button--primary" on:click={sendForReview}>
+          <button class="ds-button" data-variant="secondary" data-color="neutral" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
+          <button class="ds-button" data-variant="primary" on:click={sendForReview}>
             <span class="paper-plane">➤</span> Send for Review
           </button>
           <div class="primary-note">
@@ -310,7 +303,7 @@
   {/if}
 
   {#if sentAt}
-    <ReportSentDialog {report} {sentAt} onbacktoreports={onback} onclose={closeSentDialog} />
+    <ReportSentDialog {report} {sentAt} onprimary={onback} onclose={closeSentDialog} />
   {/if}
   {#if editingLocation && report.geometry}
     <LocationEditor geometry={report.geometry} onuse={useLocation} oncancel={closeLocationEditor} />
@@ -324,27 +317,25 @@
     background: var(--color-background-page);
   }
 
-  .top-bar { flex-shrink: 0; background: var(--color-background-raised); padding-top: var(--safe-area-top); }
 
   .sent-banner { display:flex; align-items:flex-start; gap:var(--space-3); margin-bottom:var(--space-5); padding:var(--space-3) var(--space-4); border:var(--border-default); border-left:var(--border-width-emphasis) solid var(--color-status-info); border-radius:var(--radius-control); background:var(--color-status-info-surface); color:var(--color-text-primary) }
   .sent-banner svg { flex:none; width:var(--icon-size-default); height:var(--icon-size-default); margin-top:var(--space-1); color:var(--color-status-info); stroke:currentColor; stroke-width:var(--icon-stroke-width); stroke-linecap:round; stroke-linejoin:round }
   .sent-banner p { margin:0; font-size:var(--font-size-body); line-height:var(--line-height-body) }
   .sent-banner strong { font-weight:var(--font-weight-semibold) }
   .title-block { margin-bottom: var(--space-6) }
-  h1 { margin:0 0 var(--space-1); font-size:var(--reports-title-size); font-weight:var(--font-weight-semibold); letter-spacing:var(--faq-title-tracking); line-height:var(--line-height-tight); color:var(--color-text-primary) }
   .subtitle { color:var(--color-text-secondary); font-size:var(--font-size-body-small) }
   .type-highlight { font-weight:700; color:var(--color-text-primary) }
   .muted { color:var(--color-text-secondary) }
 
   .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; }
-  .safe-area { width:100%; max-width:var(--layout-content-max); margin:0 auto; padding:var(--space-6) var(--map-control-inset-right) var(--space-8) var(--map-control-inset-left); box-sizing:border-box; }
+  .safe-area { width:100%; max-width:calc(var(--page-content-max) + 2 * var(--page-gutter)); margin:0 auto; padding:var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) var(--space-8) max(var(--page-gutter), var(--safe-area-left)); box-sizing:border-box; }
 
   /* Four cards in a row on large screens, 2 × 2 on iPad and phones. */
   .fields-row { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:14px; margin-bottom:16px }
   @media (min-width:68.75rem) { .fields-row { grid-template-columns: repeat(4, minmax(0,1fr)) } }
   /* Phone-width cards are too narrow for three answers side by side. */
   @media (max-width:37.499rem) { .lighting-toggle { flex-direction:column } }
-  .field-box { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
+  .field-box { border:var(--border-default); border-radius:var(--radius-card); padding:14px; background:var(--color-background-raised) }
   .field-label { font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-bottom:6px }
   .field-value { font-size:17px; font-weight:700; color:var(--color-text-primary) }
   .field-caption { font-size:12px; margin-top:4px }
@@ -371,7 +362,7 @@
     background:var(--color-action-selected); border-color:var(--color-action-secondary); color:var(--color-action-secondary);
   }
 
-  .ready-card { border:var(--border-default); border-radius:12px; padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
+  .ready-card { border:var(--border-default); border-radius:var(--radius-card); padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
   .ready-card.declined { border-color: var(--color-status-error) }
   .ready-title { font-weight:700; font-size:17px; color:var(--color-text-primary) }
   .ready-desc { font-size:14px; margin-top:2px }
@@ -380,7 +371,7 @@
   .summary-label { font-weight:700; font-size:14px; color:var(--color-text-primary) }
   .summary-value { font-size:13px; margin-top:2px }
 
-  .info-card { border:var(--border-default); border-radius:12px; padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
+  .info-card { border:var(--border-default); border-radius:var(--radius-card); padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
 
   .section-label { font-size:12px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-top:8px }
   .divider { border:0; height:1px; background:var(--color-border-default); margin:8px 0 16px }
@@ -393,7 +384,7 @@
   .reporter-name { font-weight:700; color:var(--color-text-primary) }
 
   .two-col { display:grid; grid-template-columns: 1fr 1fr; gap:16px }
-  .panel { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
+  .panel { border:var(--border-default); border-radius:var(--radius-card); padding:14px; background:var(--color-background-raised) }
 
   .map-caption { font-size:12px; margin-top:8px }
   .location-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2) }
@@ -407,7 +398,7 @@
   .activity-date { font-size:12px; margin-top:2px }
 
   .bottom-bar { flex-shrink:0; background:var(--color-background-raised); border-top:var(--border-default); }
-  .actions { width:100%; max-width:var(--layout-content-max); margin:0 auto; padding:var(--space-4) var(--map-control-inset-right) max(var(--space-4), var(--safe-area-bottom)) var(--map-control-inset-left); box-sizing:border-box; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-3) var(--space-4) }
+  .actions { width:100%; max-width:calc(var(--page-content-max) + 2 * var(--page-gutter)); margin:0 auto; padding:var(--space-4) max(var(--page-gutter), var(--safe-area-right)) max(var(--space-4), var(--safe-area-bottom)) max(var(--page-gutter), var(--safe-area-left)); box-sizing:border-box; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-3) var(--space-4) }
   .paper-plane { transform:rotate(45deg); display:inline-block }
   /* Full-width row under both buttons, so the note never shifts them. */
   .primary-note { flex-basis:100%; text-align:center; font-size:12px }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import StatusBadge from '../reports/StatusBadge.svelte';
   import type { Draft } from './types';
   import { heightInMeters } from './types';
   import { formatShortDate, obstacleHeading, relativeDate } from '../reports/reportsData';
@@ -13,12 +14,12 @@
   const open = () => { if (!selectMode) onEdit(draft); };
 </script>
 
-<button type="button" class="reports-card" class:reports-card-dimmed={selectMode} on:click={open}
+<button type="button" class="ds-card reports-card" class:reports-card-dimmed={selectMode} on:click={open}
   aria-disabled={selectMode ? true : undefined} aria-describedby={selectMode ? unavailableHint : undefined}>
   <div class="reports-card-main">
     <div class="reports-card-top">
       <span class="reports-card-name">{obstacleHeading(draft.category, heightInMeters(draft.heightAboveGround))}</span>
-      <span class="reports-status-badge" data-status="draft">Draft</span>
+      <StatusBadge status="draft" />
     </div>
 
     <!-- The optional name; empty when the pilot gave none. -->

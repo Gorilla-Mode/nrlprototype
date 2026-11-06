@@ -21,6 +21,8 @@
     "vite": "^8.2.2"
   },
   "dependencies": {
+    "@digdir/designsystemet-css": "^1.23.0",
+    "@digdir/designsystemet-theme": "^1.11.0",
     "@turf/area": "^7.4.0",
     "@turf/kinks": "^7.4.0",
     "@turf/length": "^7.4.0",

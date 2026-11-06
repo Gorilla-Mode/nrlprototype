@@ -12,6 +12,7 @@ import { settingsSectionFromHash, type SettingsSection } from '../src/lib/settin
 
 const pageUrl = await compileSvelteComponent('src/lib/notifications/NotificationsPage.svelte', {
   './notifications': new URL('../src/lib/notifications/notifications.js', import.meta.url).href,
+  '../components/PageHeader.svelte': await compileSvelteComponent('src/lib/components/PageHeader.svelte'),
 });
 const { default: NotificationsPage } = await import(pageUrl) as {
   default: Component<{ notifications: readonly ReportStatusNotification[]; onback: () => void; onmarkallread: () => void }>;

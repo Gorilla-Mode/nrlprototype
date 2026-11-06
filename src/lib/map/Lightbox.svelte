@@ -39,14 +39,14 @@
   }
 </script>
 
-<dialog class="dialog-shell lightbox" bind:this={dialog} aria-labelledby={titleId}
+<dialog class="ds-dialog dialog-shell lightbox" bind:this={dialog} aria-labelledby={titleId}
   oncancel={(event) => { event.preventDefault(); onclose(); }}
   onkeydown={keydown}
   onpointerdown={(event) => { backdropPress = isBackdrop(event); }}
   onclick={(event) => { if (backdropPress && isBackdrop(event)) onclose(); backdropPress = false; }}>
   <header class="lightbox-header">
     <h2 id={titleId}>{title}</h2>
-    <button class="menu-close" type="button" bind:this={closeButton} aria-label={closeLabel} onclick={onclose}>
+    <button class="ds-button menu-close" data-variant="tertiary" data-color="neutral" data-icon="true" type="button" bind:this={closeButton} aria-label={closeLabel} onclick={onclose}>
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
     </button>
   </header>

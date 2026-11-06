@@ -18,18 +18,21 @@
   import { obstacleTypeLabel } from '../reporting/obstacle';
   import { matchesGeometryFilter, matchesHeightFilter, type GeometryKey, type HeightFilterKey } from './filtering';
 
-  let { onback, onshowonmap, sendreport = sendToKartverket, highlightId = null, openId = null }: {
+  let { onback, onshowonmap, sendreport = sendToKartverket, highlightId = null, openId = null, filter = 'all' }: {
     onback: () => void;
     onshowonmap?: (target: GeometryCameraTarget) => void;
     /** A report just saved elsewhere: listed first and briefly tinted when the page opens. */
     highlightId?: string | null;
     /** A report or draft to open in its detail view when the page opens. */
     openId?: string | null;
+    /** Status tab chosen when the page opens. */
+    filter?: StatusTabKey;
     /** Delivers one selected report; the prototype default always succeeds. */
     sendreport?: ReportSender;
   } = $props();
 
-  let statusFilter = $state<StatusTabKey>('all');
+  // Read once: the opening tab is part of arriving, not of later visits.
+  let statusFilter = $state<StatusTabKey>(untrack(() => filter));
   let query = $state('');
 
   let selectMode = $state(false);
@@ -262,7 +265,7 @@
       {#if reports.length + drafts.length === 0}
         <div class="reports-empty">
           <p>No reports yet</p>
-          <button type="button" class="button" onclick={onback}>Back to map</button>
+          <button type="button" class="ds-button" data-variant="secondary" data-color="neutral" onclick={onback}>Back to map</button>
         </div>
       {:else if items.length === 0}
         <p class="reports-empty">No {noun} match your search.</p>
@@ -285,7 +288,7 @@
       <div class="reports-select-bar" role="region" aria-label="Selection">
         <div class="reports-select-bar-content">
           <span class="reports-select-count" aria-live="polite">{readySelectedCount} selected</span>
-          <button type="button" class="button button--primary reports-select-send" disabled={readySelectedCount === 0} onclick={sendSelected}>
+          <button type="button" class="ds-button reports-select-send" data-variant="primary" disabled={readySelectedCount === 0} onclick={sendSelected}>
             Send ({readySelectedCount})
           </button>
         </div>
@@ -297,7 +300,7 @@
   {/if}
   {#if sentConfirmation}
     <ReportSentDialog report={sentConfirmation.report} sentAt={sentConfirmation.at}
-      onbacktoreports={() => (sentConfirmation = null)} onclose={() => (sentConfirmation = null)} />
+      onprimary={() => (sentConfirmation = null)} onclose={() => (sentConfirmation = null)} />
   {/if}
 {/if}
 

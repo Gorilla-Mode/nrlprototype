@@ -16,26 +16,26 @@ const summaryUrl = await compileSvelteComponent('src/lib/reporting/ObstacleRepor
   './obstacle': new URL('../src/lib/reporting/obstacle.js', import.meta.url).href,
   './createDetailsController': new URL('../src/lib/reporting/createDetailsController.js', import.meta.url).href,
 });
-type SummaryProps = { report: CompleteReport; totalSteps: number; onedit: (step: number) => void; ongeometry: () => void; onreports: () => void; onreportanother: () => void; onclose: () => void };
+type SummaryProps = { report: CompleteReport; totalSteps: number; onedit: (step: number) => void; ongeometry: () => void; onsend: () => void; oncontinue: () => void; onclose: () => void };
 const { default: Summary } = await import(summaryUrl) as { default: Component<SummaryProps> };
 const noop = () => {};
 function body(values: Partial<DetailsDraft> = {}, totalSteps = 1) {
   const report = completePayload(draft({ type: ObstacleType.Bridge, ...values }));
   assert.ok(report);
-  return render(Summary, { props: { report, totalSteps, onedit: noop, ongeometry: noop, onreports: noop, onreportanother: noop, onclose: noop } }).body;
+  return render(Summary, { props: { report, totalSteps, onedit: noop, ongeometry: noop, onsend: noop, oncontinue: noop, onclose: noop } }).body;
 }
 
-test('summary says the report is a draft to review and send', () => {
+test('summary says the report is saved and can be sent now or later', () => {
   const html = body();
   assert.match(html, />Report saved – not sent yet</);
-  assert.match(html, /Your report is saved as a draft\. To send it, review the draft and tap Send report\./);
+  assert.match(html, /Your report is saved and ready to send\. You can send it now, or continue and finish it later\./);
   assert.doesNotMatch(html, /Session-only|Not present|>Close<|Go to Reports/);
 });
 
-test('actions are stacked in full width, Review and send above Report another obstacle', () => {
+test('actions are stacked in full width, Save and continue (primary) above Send report', () => {
   const html = body();
   assert.match(html, /class="dialog-actions[^"]*stacked/);
-  assert.match(html, /<button[^>]*class="button button--primary summary-action[^"]*"[^>]*>Review and send<\/button>[\s\S]*<button[^>]*class="button dialog-action-secondary summary-action[^"]*"[^>]*>Report another obstacle<\/button>/);
+  assert.match(html, /<button[^>]*class="ds-button summary-action[^"]*" data-variant="primary"[^>]*>Save and continue<\/button>[\s\S]*<button[^>]*class="ds-button dialog-action-secondary summary-action[^"]*" data-variant="tertiary"[^>]*>Send report<\/button>/);
 });
 
 test('every row, including the drawn geometry, has an edit action', () => {

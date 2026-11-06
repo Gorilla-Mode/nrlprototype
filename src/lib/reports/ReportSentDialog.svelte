@@ -1,5 +1,6 @@
 <script lang="ts">
   import Dialog from '../components/Dialog.svelte';
+  import StatusBadge from './StatusBadge.svelte';
   import { obstacleTypeLabel } from '../reporting/obstacle';
   import { formatHeightFromMeters, lightingValueLabel } from '../drafts/types';
   import { coordinateLabel } from './reportGeometry';
@@ -9,12 +10,13 @@
     report: Report;
     /** When sending succeeded, read in the UI only; reports store no time of day. */
     sentAt: Date;
-    onbacktoreports: () => void;
+    /** Back to reports. */
+    onprimary: () => void;
     /** X and Escape: dismiss and stay where the report was sent from. */
     onclose: () => void;
   }
 
-  let { report, sentAt, onbacktoreports, onclose }: Props = $props();
+  let { report, sentAt, onprimary, onclose }: Props = $props();
 
   // A null value is shown as a muted "Not set".
   let rows = $derived([
@@ -27,14 +29,15 @@
 
 {#snippet subtitle()}
   <p class="report-sent-name">{report.name || reportHeading(report)}</p>
-  <p>{formatSentAt(sentAt)}</p>
+  <!-- The same status name as the report's tag everywhere else. -->
+  <p class="report-sent-status"><StatusBadge status={report.status} /><span>{formatSentAt(sentAt)}</span></p>
 {/snippet}
 
-{#snippet backToReports()}
-  <button type="button" class="button dialog-action-primary" onclick={onbacktoreports}>Back to reports</button>
+{#snippet primary()}
+  <button type="button" class="ds-button dialog-action-primary" data-variant="primary" onclick={onprimary}>Back to reports</button>
 {/snippet}
 
-<Dialog title="Sent for review" {subtitle} primary={backToReports} {onclose}>
+<Dialog title="Report sent" {subtitle} {primary} {onclose}>
   <table class="report-sent-table">
     <tbody>
       {#each rows as row (row.label)}

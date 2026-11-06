@@ -50,7 +50,7 @@
   }
 </script>
 
-<dialog class="app-dialog" bind:this={dialog} {role} aria-labelledby={`${id}-title`} aria-describedby={subtitle ? `${id}-subtitle` : undefined}
+<dialog class="ds-dialog app-dialog" bind:this={dialog} {role} aria-labelledby={`${id}-title`} aria-describedby={subtitle ? `${id}-subtitle` : undefined}
   aria-busy={busy} oncancel={(event) => { event.preventDefault(); requestClose(); }} onkeydown={keydown}>
   <header class="app-dialog-header" class:with-icon={icon}>
     {#if icon}
@@ -59,7 +59,7 @@
       </span>
     {/if}
     <h2 id={`${id}-title`}>{title}</h2>
-    <button class="app-dialog-close" type="button" aria-label="Close" disabled={busy} onclick={requestClose}>
+    <button class="ds-button app-dialog-close" data-variant="tertiary" data-color="neutral" data-icon="true" type="button" aria-label="Close" disabled={busy} onclick={requestClose}>
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
     </button>
     {#if subtitle}<div id={`${id}-subtitle`} class="app-dialog-subtitle">{@render subtitle()}</div>{/if}

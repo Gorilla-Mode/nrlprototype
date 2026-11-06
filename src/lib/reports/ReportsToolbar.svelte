@@ -30,7 +30,7 @@
   </div>
 
   <div class="reports-filter-wrap">
-    <button type="button" class="button reports-tool-button" class:reports-filter-active={filterActive} onclick={onopenfilter}>
+    <button type="button" class="ds-button reports-tool-button" data-variant="secondary" data-color="neutral" class:reports-filter-active={filterActive} onclick={onopenfilter}>
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
       Filter
       {#if filterActive}<span class="reports-filter-dot" aria-hidden="true"></span>{/if}
@@ -50,11 +50,11 @@
 
   {#if selectMode}
     <!-- Sending lives in the page's fixed select bar. -->
-    <button type="button" class="button reports-tool-button" onclick={ontoggleselect}>
+    <button type="button" class="ds-button reports-tool-button" data-variant="secondary" data-color="neutral" onclick={ontoggleselect}>
       Cancel
     </button>
   {:else}
-    <button type="button" class="button reports-tool-button" onclick={ontoggleselect}>
+    <button type="button" class="ds-button reports-tool-button" data-variant="secondary" data-color="neutral" onclick={ontoggleselect}>
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5" /></svg>
       Select
     </button>

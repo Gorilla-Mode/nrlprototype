@@ -98,8 +98,8 @@ test('the confirmation asks before sending and lists name, type and height of ea
     assert.ok(html.includes(`>${report.name}<`));
     assert.ok(html.includes(`${obstacleTypeLabel(report.obstacleType)} · ${formatHeightFromMeters(report.heightMeters)}`));
   }
-  assert.match(html, /class="button dialog-action-primary"[^>]*>\s*Send 2 reports\s*<\/button>/);
-  assert.match(html, /class="button dialog-action-secondary"[^>]*>Cancel<\/button>/);
+  assert.match(html, /class="ds-button dialog-action-primary" data-variant="primary"[^>]*>\s*Send 2 reports\s*<\/button>/);
+  assert.match(html, /class="ds-button dialog-action-secondary" data-variant="tertiary" data-color="brand1"[^>]*>Cancel<\/button>/);
   // Side by side, the DOM (and so Tab) order is the visual order: Cancel left, Send right.
   const actions = html.slice(html.indexOf('class="dialog-actions'));
   assert.ok(actions.indexOf('>Cancel</button>') > -1);

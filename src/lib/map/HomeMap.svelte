@@ -23,6 +23,7 @@
   import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
   import { reportStore } from '../reports/reportStore';
   import type { ReportGeometry } from '../reports/reportGeometry';
+  import ConfirmationToast, { type ConfirmationNotice } from '../components/ConfirmationToast.svelte';
 
   import type { PlacementEditingVariantId } from './placementEditing';
   import type { EditableVertexHandle } from './createVertexEditingInteraction';
@@ -80,12 +81,11 @@
   let pickedPosition = $derived<GeoPosition | null>(
     positionPick && errorCirclePosition ? { lng: errorCirclePosition[0], lat: errorCirclePosition[1] } : null);
   let pickedDistanceM = $derived(selectedObstacle && pickedPosition ? distanceM(selectedObstacle, pickedPosition) : 0);
-  let reportSent = $state(false);
-  let reportSentTimer: ReturnType<typeof setTimeout> | undefined;
+  let reportSent = $state<ConfirmationNotice | null>(null);
   onMount(() => {
     let cancelled = false;
     void loadRegisteredObstacles().then((obstacles) => { if (!cancelled) registeredObstacles = obstacles; });
-    return () => { cancelled = true; clearTimeout(reportSentTimer); };
+    return () => { cancelled = true; };
   });
 
   function endErrorReport() {
@@ -151,9 +151,7 @@
     console.log('Error report:', report);
     selectedObstacle = null;
     endErrorReport();
-    reportSent = true;
-    clearTimeout(reportSentTimer);
-    reportSentTimer = setTimeout(() => { reportSent = false; }, 4000);
+    reportSent = { title: 'Report sent' };
   }
   let mapCanvas: MapCanvas;
   let vertexHandles = $state.raw<readonly EditableVertexHandle[]>([]);
@@ -387,9 +385,8 @@
     </div>
   {/if}
 
-  <div class="report-sent" role="status">
-    {#if reportSent}<p>Report sent</p>{/if}
-  </div>
+  <!-- The error report keeps its strip until it moves to the card design. -->
+  <ConfirmationToast notice={reportSent} appearance="strip" duration={10000} onclose={() => { reportSent = null; }} />
 
   <div class="location-status" role="status">
     {#if locationMessage}
@@ -458,23 +455,6 @@
     color: var(--color-text-secondary);
     font-size: var(--font-size-body-small);
     line-height: var(--line-height-body);
-  }
-  /* Placed like App's .details-error, with success colours. */
-  .report-sent {
-    position: absolute;
-    z-index: var(--layer-toast);
-    top: calc(var(--map-control-inset-top) + var(--control-height-large));
-    left: var(--map-control-inset-left);
-    right: var(--map-control-inset-right);
-    pointer-events: none;
-  }
-  .report-sent p {
-    margin: 0;
-    padding: var(--space-3);
-    border-radius: var(--radius-card);
-    background: var(--color-status-success-surface);
-    color: var(--color-status-success);
-    font-weight: var(--font-weight-semibold);
   }
   .hold-menu {
     position: absolute;
