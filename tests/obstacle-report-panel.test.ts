@@ -141,6 +141,17 @@ test('the numeric height keypad is not rendered until requested', () => {
   assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /height-keypad/);
 });
 
+test('height keypad ends with clear, zero and backspace, and blocks an empty height', async () => {
+  const { default: HeightKeypad } = await import(keypad) as {
+    default: Component<{ value: number; max: number; onconfirm: (value: number) => void; oncancel: () => void }>;
+  };
+  // Server rendering skips onMount, so the entry starts empty.
+  const html = render(HeightKeypad, { props: { value: 12, max: 999, onconfirm: () => {}, oncancel: () => {} } }).body;
+  assert.match(html, />9<\/button>(?:<!--\]-->)?\s*<button[^>]*aria-label="Clear"[^>]*>C<\/button>\s*<button[^>]*>0<\/button>\s*<button[^>]*aria-label="Backspace, hold to clear"/);
+  assert.doesNotMatch(html, /Confirm height|aria-label="Clear height"/);
+  assert.match(html, /<button[^>]*disabled[^>]*>Set height<\/button>/);
+});
+
 test('description textarea only renders once its toggle is enabled, carrying the current text', () => {
   assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /<textarea/);
   const draft = { ...emptyDetailsDraft, description: 'Crane boom over the taxiway' };

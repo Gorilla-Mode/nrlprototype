@@ -13,14 +13,41 @@
   let entry = $state('');
   let pointerOnBackdrop = false;
   let maxDigits = $derived(String(max).length);
+  // Holding backspace clears the whole entry; the click that ends the hold is then ignored.
+  const holdToClearMs = 600;
+  let holdTimer: ReturnType<typeof setTimeout> | undefined;
+  let holdCleared = false;
 
   onMount(() => {
     // This component is mounted afresh for each edit; draft changes never reset it.
     entry = String(value);
     dialog.showModal();
     input.focus({ preventScroll: true });
-    return () => dialog.close();
+    return () => { clearTimeout(holdTimer); dialog.close(); };
   });
+
+  function clear() { entry = ''; }
+
+  function clearFromField() {
+    clear();
+    input.focus({ preventScroll: true });
+  }
+
+  function startHold() {
+    clearTimeout(holdTimer);
+    holdCleared = false;
+    holdTimer = setTimeout(() => { holdCleared = true; clear(); }, holdToClearMs);
+  }
+
+  function endHold() {
+    clearTimeout(holdTimer);
+    holdTimer = undefined;
+  }
+
+  function erase() {
+    if (holdCleared) { holdCleared = false; return; }
+    entry = entry.slice(0, -1);
+  }
 
   function confirm() {
     if (entry === '') return;
@@ -60,18 +87,25 @@
         event.currentTarget.value = entry;
       }}
       onkeydown={(event) => { if (event.key === 'Enter') { event.preventDefault(); confirm(); } }} />
+    {#if entry !== ''}
+      <button type="button" class="height-keypad-clear" aria-label="Clear height" onclick={clearFromField}>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+    {:else}
+      <span class="height-keypad-clear" aria-hidden="true"></span>
+    {/if}
     <span class="height-keypad-unit">{unit}</span>
   </div>
   <div class="height-keypad-grid">
     {#each ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as digit}
       <button type="button" class="keypad-key" onclick={() => { entry = (entry + digit).slice(0, maxDigits); }}>{digit}</button>
     {/each}
-    <button type="button" class="keypad-key" aria-label="Backspace" onclick={() => { entry = entry.slice(0, -1); }}>
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 6h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8l-5-6 5-6ZM12 10l4 4M16 10l-4 4" /></svg>
-    </button>
+    <button type="button" class="keypad-key" aria-label="Clear" onclick={clear}>C</button>
     <button type="button" class="keypad-key" onclick={() => { entry = (entry + '0').slice(0, maxDigits); }}>0</button>
-    <button type="button" class="keypad-key keypad-key--confirm" aria-label="Confirm height" disabled={entry === ''} onclick={confirm}>
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+    <button type="button" class="keypad-key" aria-label="Backspace, hold to clear" onclick={erase}
+      onpointerdown={startHold} onpointerup={endHold} onpointerleave={endHold} onpointercancel={endHold}
+      oncontextmenu={(event) => event.preventDefault()}>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 6h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8l-5-6 5-6ZM12 10l4 4M16 10l-4 4" /></svg>
     </button>
   </div>
   <div class="height-keypad-actions">
@@ -109,9 +143,17 @@
     background: var(--color-background-subtle); color: var(--color-text-primary); cursor: pointer;
     font-size: var(--font-size-heading-small); font-weight: var(--font-weight-medium);
     display: grid; place-items: center;
+    -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation;
   }
   .keypad-key:hover { background: var(--color-map-control-hover); }
-  .keypad-key--confirm { border-color: var(--color-action-primary); color: var(--color-action-primary); }
+  .height-keypad-clear {
+    align-self: center; flex: none; display: grid; place-items: center;
+    width: var(--control-height-compact); height: var(--control-height-compact); padding: 0;
+    border: 0; border-radius: var(--radius-control); background: transparent;
+    color: var(--color-text-secondary); cursor: pointer;
+  }
+  button.height-keypad-clear:hover { background: var(--color-map-control-hover); color: var(--color-text-primary); }
+  .height-keypad-clear svg { width: var(--icon-size-small); height: var(--icon-size-small); }
   .height-keypad-actions { display: flex; gap: var(--space-3); }
   .height-keypad-actions .button { flex: 1; }
 
