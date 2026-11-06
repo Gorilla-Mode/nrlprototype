@@ -94,8 +94,10 @@
   // inert, hidden map is never moved.
   let pendingCamera: CameraTarget | null = null;
   // Page requested from the summary; opened once its report history entries are gone.
-  let pendingPage: { hash: string; highlightReportId: string | null } | null = null;
+  let pendingPage: { hash: string; highlightReportId: string | null; openReportId?: string | null } | null = null;
   let highlightReportId = $state<string | null>(null);
+  // The report Reports opens straight into, by ID; the list stays behind its back button.
+  let openReportId = $state<string | null>(null);
 
   function restoreMapFocus() {
     void tick().then(() => {
@@ -130,11 +132,12 @@
       menuOpen = false;
     } else if (wasPageOpen) menuOpen = menuWasOpen;
     if ((wasReportOpen && !reportOpen) || (wasPageOpen && !pageOpen)) restoreMapFocus();
-    if (!reportsOpen) highlightReportId = null;
+    if (!reportsOpen) { highlightReportId = null; openReportId = null; }
     if (pendingPage && !pageOpen && !reportOpen) {
       const page = pendingPage;
       pendingPage = null;
       highlightReportId = page.highlightReportId;
+      openReportId = page.openReportId ?? null;
       openPage(page.hash);
     }
     if (pendingCamera && !pageOpen) {
@@ -236,7 +239,8 @@
   }
 
   function summaryToReports() {
-    pendingPage = { hash: reportsRoute, highlightReportId: details.result?.report.id ?? null };
+    const id = details.result?.report.id ?? null;
+    pendingPage = { hash: reportsRoute, highlightReportId: id, openReportId: id };
     closeSummary();
   }
 
@@ -321,7 +325,7 @@
 {/if}
 {#if guideOpen}<ReportObstacleGuide onback={backToMap} onclose={backToMap} />{/if}
 {#if faqOpen}<FaqPage onback={backToMap} onguide={() => openPage(reportingGuideRoute)} />{/if}
-{#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} highlightId={highlightReportId} />{/if}
+{#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} highlightId={highlightReportId} openId={openReportId} />{/if}
 {#if notificationsOpen}
   <NotificationsPage {notifications} onback={backToMap} onmarkallread={() => { notifications = markAllRead(notifications); }} />
 {/if}

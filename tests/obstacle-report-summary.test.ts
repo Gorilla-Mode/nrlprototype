@@ -25,10 +25,10 @@ function body(values: Partial<DetailsDraft> = {}, totalSteps = 1) {
   return render(Summary, { props: { report, totalSteps, onedit: noop, ongeometry: noop, onreports: noop, onreportanother: noop, onclose: noop } }).body;
 }
 
-test('summary says the report is a draft that needs security approval in Reports', () => {
+test('summary says the report is a draft to review and send', () => {
   const html = body();
   assert.match(html, />Report saved – not sent yet</);
-  assert.match(html, /Your report is saved as a draft\. To send it, open it in Reports and complete the security approval\./);
+  assert.match(html, /Your report is saved as a draft\. To send it, review the draft and tap Send report\./);
   assert.doesNotMatch(html, /Session-only|Not present|>Close<|Go to Reports/);
 });
 

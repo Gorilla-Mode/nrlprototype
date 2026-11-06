@@ -49,7 +49,7 @@
 {/snippet}
 
 {#snippet subtitle()}
-  <p>Your report is saved as a draft. To send it, open it in Reports and complete the security approval.</p>
+  <p>Your report is saved as a draft. To send it, review the draft and tap Send report.</p>
 {/snippet}
 
 {#snippet goToReports()}

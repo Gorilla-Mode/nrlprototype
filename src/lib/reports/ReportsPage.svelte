@@ -18,11 +18,13 @@
   import { obstacleTypeLabel } from '../reporting/obstacle';
   import { matchesGeometryFilter, matchesHeightFilter, type GeometryKey, type HeightFilterKey } from './filtering';
 
-  let { onback, onshowonmap, sendreport = sendToKartverket, highlightId = null }: {
+  let { onback, onshowonmap, sendreport = sendToKartverket, highlightId = null, openId = null }: {
     onback: () => void;
     onshowonmap?: (target: GeometryCameraTarget) => void;
     /** A report just saved elsewhere: listed first and briefly tinted when the page opens. */
     highlightId?: string | null;
+    /** A report or draft to open in its detail view when the page opens. */
+    openId?: string | null;
     /** Delivers one selected report; the prototype default always succeeds. */
     sendreport?: ReportSender;
   } = $props();
@@ -62,6 +64,15 @@
     view = 'list';
     selectedReport = null;
     selectedDraft = null;
+  }
+
+  // Read once: opening straight into a report is part of arriving, not of later visits.
+  const initialOpenId = untrack(() => openId);
+  if (initialOpenId) {
+    const report = untrack(() => reports).find((entry) => entry.id === initialOpenId);
+    const draft = report ? undefined : untrack(() => drafts).find((entry) => entry.id === initialOpenId);
+    if (report) openReport(report);
+    else if (draft) openDraft(draft);
   }
 
   // Confirmation after a draft is sent: the new report and when sending succeeded.
