@@ -100,7 +100,7 @@ App supplies session-only Save Draft and Finish handlers, awaiting optional exte
 `onSaveDraft(payload, reason)` and `onFinish(report, { variantId })` hooks. Existing
 one-argument Finish callbacks remain compatible. `onContinue` is an intermediate hook.
 All views use canonical metres, the same six obstacle types, and original photo files.
-Absent-obstacle results omit height and illumination; Other alone includes custom type.
+Other alone includes custom type.
 
 Close and successful Save Draft return to the map with Resume details. Delete discards
 the active draft. Save Draft stores a draft and Finish stores a Ready ("Not sent") report

@@ -88,15 +88,15 @@
       {#if heightControl === 'keypad'}
         <button bind:this={heightTrigger} type="button" class="button height-button"
           aria-label={`Obstacle height: ${draft.height === null ? 'not set' : `${draft.height} metres`}. Edit height`} aria-haspopup="dialog"
-          disabled={draft.notPresent || busy} onclick={() => { heightInputOpen = true; }}>{heightLabel}</button>
+          disabled={busy} onclick={() => { heightInputOpen = true; }}>{heightLabel}</button>
       {:else}
-        <HeightWheel value={draft.height ?? defaultObstacleHeightMeters} disabled={draft.notPresent || busy} onchange={onheight} />
+        <HeightWheel value={draft.height ?? defaultObstacleHeightMeters} disabled={busy} onchange={onheight} />
       {/if}
     </section>
     <section aria-labelledby="options-title">
       <h2 id="options-title">Options - Optional</h2>
       <div class="options-row">
-        <button type="button" class="button illumination" disabled={draft.notPresent || busy} onclick={onillumination} aria-label={`Illumination: ${illuminationLabels[draft.illumination]}. Change illumination`}>
+        <button type="button" class="button illumination" disabled={busy} onclick={onillumination} aria-label={`Illumination: ${illuminationLabels[draft.illumination]}. Change illumination`}>
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             {#if draft.illumination === 'unknown'}<circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4m0 3v1" />
             {:else}<path d="M9 18h6m-6 3h6M8 14a6 6 0 1 1 8 0l-1 2H9l-1-2Z" />{#if draft.illumination === 'not-illuminated'}<path d="m3 3 18 18" />{/if}{/if}
@@ -147,7 +147,7 @@
     {#if error}<p role="alert" class="error">{error}</p>{/if}
     <p id="details-availability" class="sr-only">
       {#if !draft.type}Choose an obstacle type to continue. {/if}
-      {#if draft.height === null && !draft.notPresent}Enter a height to continue. {/if}
+      {#if draft.height === null}Enter a height to continue. {/if}
       Details and photos stay in memory for this session.
     </p>
     <div class="footer-actions" aria-busy={busy}>
@@ -160,7 +160,7 @@
     </div>
   </footer>
   </div>
-  {#if heightInputOpen && open && step === 1 && !busy && !draft.notPresent}
+  {#if heightInputOpen && open && step === 1 && !busy}
     <HeightKeypad value={draft.height} max={maxObstacleHeightMeters}
       onconfirm={(value) => { onheight(value); closeHeightInput(); }} oncancel={closeHeightInput} />
   {/if}

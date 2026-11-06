@@ -18,32 +18,28 @@ export interface DetailsRecordContext {
   existing?: { name: string; createdAt: string };
 }
 
-function heightMeters(payload: DetailsPayload): number | null {
-  return payload.notPresent ? null : payload.height;
-}
-
 export function detailsToDraft(payload: DetailsPayload, context: DetailsRecordContext): Draft {
-  const value = formatHeightFromMeters(heightMeters(payload));
+  const value = formatHeightFromMeters(payload.height);
   const createdAt = context.existing?.createdAt ?? payload.timestamp.toISOString();
   return {
     id: payload.id, title: context.existing?.name ?? '',
     category: payload.type ?? ObstacleType.Other, value,
     currentStep: context.step, totalSteps: context.totalSteps, stepLabel: stepLabels[Math.min(context.step, stepLabels.length) - 1],
     createdAt, updatedAt: createdAt,
-    heightAboveGround: value, lighting: payload.notPresent ? null : lightingByIllumination[payload.illumination],
+    heightAboveGround: value, lighting: lightingByIllumination[payload.illumination],
     pilotReportText: payload.description, ...reporter,
     geometry: payload.obstacle_position, photos: context.photos,
   };
 }
 
 export function detailsToReport(payload: CompleteReport, context: Omit<DetailsRecordContext, 'step' | 'totalSteps'>): Report {
-  const meters = heightMeters(payload) ?? 0;
+  const meters = payload.height;
   const createdAt = context.existing?.createdAt ?? payload.timestamp.toISOString();
   return {
     id: payload.id, name: context.existing?.name ?? '', obstacleType: payload.type,
     heightFeet: Math.round(meters * 3.28084), heightMeters: meters,
     status: 'ready', createdAt, updatedAt: createdAt,
-    lighting: payload.notPresent ? null : lightingByIllumination[payload.illumination],
+    lighting: lightingByIllumination[payload.illumination],
     pilotReportText: payload.description, ...reporter,
     geometry: payload.obstacle_position, photos: context.photos,
   };

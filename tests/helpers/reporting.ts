@@ -15,7 +15,7 @@ export const report: Obstacle = {
 
 export function draft(overrides: Partial<DetailsDraft> = {}): DetailsDraft {
   return {
-    report, type: null, height: 30, illumination: 'unknown', notPresent: false,
+    report, type: null, height: 30, illumination: 'unknown',
     dirty: false, customType: '', description: '', photos: [], ...overrides,
   };
 }
@@ -24,7 +24,7 @@ const noop = () => {};
 export function viewProps(value: DetailsDraft, overrides: Partial<ReportingVariantProps> = {}): ReportingVariantProps {
   return {
     draft: value, open: true, step: 1, totalSteps: 1, busy: false, error: '',
-    ontype: noop, onheight: noop, onillumination: noop, onabsence: noop, oncustomtype: noop,
+    ontype: noop, onheight: noop, onillumination: noop, oncustomtype: noop,
     ondescription: noop, onphotos: noop, onremovephoto: noop, onsave: noop, oncontinue: noop,
     onfinish: noop, onback: noop, ondismiss: noop, ...overrides,
   };

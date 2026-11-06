@@ -47,11 +47,9 @@ test('one-step keypad shows canonical height and units without a scrolling selec
   }
 });
 
-test('one-step keypad disables height while busy or Not present', () => {
-  for (const props of [viewProps(makeDraft(), { busy: true }), viewProps(makeDraft({ notPresent: true }))]) {
-    const html = render(KeypadPanel, { props }).body;
-    assert.match(html, /class="button height-button[^>]*disabled/);
-  }
+test('one-step keypad disables height while busy', () => {
+  const html = render(KeypadPanel, { props: viewProps(makeDraft(), { busy: true }) }).body;
+  assert.match(html, /class="button height-button[^>]*disabled/);
 });
 
 test('original one-step presentation still defaults to the scrolling selector', () => {
@@ -173,10 +171,9 @@ test('photo attachment and camera controls are connected, files can be removed, 
   assert.match(html, /role="alert"[^>]*>Choose up to 2 more photos/);
 });
 
-test('busy state blocks Finish and Save; not-present blocks height and illumination', () => {
+test('busy state blocks Finish, Save and illumination', () => {
   const html = render(ObstacleReportPanel, { props: viewProps(makeDraft({ type: ObstacleType.Pole }), { busy: true }) }).body;
   assert.equal(finishReportDisabled(html), true);
   assert.match(html, /disabled[^>]*>Save draft/);
-  const absent = body(pointObstacle, makeDraft({ notPresent: true }));
-  assert.match(absent, /data-state="unknown" disabled/);
+  assert.match(html, /data-state="unknown" disabled/);
 });

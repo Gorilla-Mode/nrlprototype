@@ -20,8 +20,8 @@
   let rows = $derived<{ label: string; value: string; step?: number }[]>([
     { label: 'Geometry', value: geometryChoice?.label ?? '—' },
     { label: 'Obstacle type', value: report.type === ObstacleType.Other ? (report.customType || 'Other') : (typeChoice?.label ?? '—'), step: 1 },
-    { label: 'Height', value: report.notPresent ? '—' : report.height + ' m', step: 1 },
-    { label: 'Lighting', value: report.notPresent ? '—' : illuminationLabels[report.illumination], step: 1 },
+    { label: 'Height', value: report.height + ' m', step: 1 },
+    { label: 'Lighting', value: illuminationLabels[report.illumination], step: 1 },
     { label: 'Description', value: report.description || 'Not added', step: totalSteps },
     { label: 'Photos', value: report.photos.length ? report.photos.map((photo) => photo.name).join(', ') : 'Not added', step: totalSteps },
   ]);

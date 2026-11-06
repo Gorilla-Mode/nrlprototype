@@ -27,9 +27,7 @@ test('defaults are unselected and clean; unchanged values and an untouched dismi
   assert.equal(draft().type, null);
   assert.equal(draft().height, 30);
   assert.equal(draft().illumination, 'unknown');
-  assert.equal(draft().notPresent, false);
   controller.setHeight(30);
-  controller.setNotPresent(false);
   assert.equal(draft().dirty, false);
   await controller.dismiss();
   assert.equal(calls, 0);
@@ -50,33 +48,20 @@ test('all types are selectable; required whole-metre height is bounded and rejec
   assert.equal(draft().height, 500);
   assert.equal(detailsPayload(draft()).height, 500);
   controller.setHeight(0);
-  const payload = detailsPayload(draft());
-  assert.equal(payload.notPresent, false);
-  if (!payload.notPresent) {
-    const requiredHeight: number | null = payload.height;
-    assert.equal(requiredHeight, 0);
-  }
+  assert.equal(detailsPayload(draft()).height, 0);
   assert.equal(draft().dirty, true);
 });
 
-test('illumination cycles in order; absence blocks edits, omits inactive payload fields, and restores values', () => {
+test('illumination cycles in order and the payload carries height and illumination', () => {
   const { controller, draft } = setup();
   for (const expected of ['illuminated', 'not-illuminated', 'unknown', 'illuminated']) {
     controller.cycleIllumination();
     assert.equal(draft().illumination, expected);
   }
   controller.setHeight(123);
-  controller.setNotPresent(true);
-  controller.setHeight(400);
-  controller.cycleIllumination();
-  const absent = detailsPayload(draft());
-  assert.equal(absent.notPresent, true);
-  assert.equal('height' in absent, false);
-  assert.equal('illumination' in absent, false);
-  controller.setNotPresent(false);
-  assert.equal(draft().height, 123);
-  assert.equal(draft().illumination, 'illuminated');
-  assert.equal(detailsPayload(draft()).height, 123);
+  const payload = detailsPayload(draft());
+  assert.equal(payload.height, 123);
+  assert.equal(payload.illumination, 'illuminated');
 });
 
 test('payload preserves report identity, timestamp, actual geometry and reporter GPS without mutating geometry-stage data', () => {
@@ -135,12 +120,11 @@ test('continue requires a type and uses the active payload without implying a sa
   await controller.continue();
   assert.equal(calls.length, 0);
   controller.setType(ObstacleType.Airspan);
-  controller.setNotPresent(true);
   await controller.continue();
   assert.equal(calls.length, 1);
   assert.equal(calls[0].type, ObstacleType.Airspan);
-  assert.equal('height' in calls[0], false);
-  assert.equal('illumination' in calls[0], false);
+  assert.equal(calls[0].height, 30);
+  assert.equal(calls[0].illumination, 'unknown');
   assert.equal(draft().dirty, true);
 });
 
@@ -276,7 +260,7 @@ test('photos keep original files, reject an entire excess selection, support rem
   assert.equal(draft().photos[2], files[0]);
 });
 
-test('explicit and dismissal saves include additional information and preserve metadata and absence', async () => {
+test('explicit and dismissal saves include additional information and preserve metadata', async () => {
   const calls: { payload: DetailsPayload; reason: DraftSaveReason }[] = [];
   const { controller } = setup({ onSaveDraft: (payload, reason) => { calls.push({ payload, reason }); } });
   controller.setType(ObstacleType.Other);
@@ -285,7 +269,6 @@ test('explicit and dismissal saves include additional information and preserve m
   controller.setDescription('Original description');
   const photo = new File(['original'], 'crane.jpg');
   controller.addPhotos([photo]);
-  controller.setNotPresent(true);
   await controller.save();
   controller.setDescription('Updated description');
   await controller.dismiss();
@@ -299,8 +282,7 @@ test('explicit and dismissal saves include additional information and preserve m
     assert.equal(payload.timestamp, report.timestamp);
     assert.equal(payload.obstacle_position, report.obstacle_position);
     assert.equal(payload.gps_position, report.gps_position);
-    assert.equal('height' in payload, false);
-    assert.equal('illumination' in payload, false);
+    assert.equal(payload.height, 30);
   }
 });
 

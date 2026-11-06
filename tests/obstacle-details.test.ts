@@ -75,9 +75,7 @@ test('keypad flow shows an unset height as Not set, blocks Continue and has no N
   assert.doesNotMatch(set, /disabled[^>]*>Continue/);
 });
 
-test('keypad height trigger is disabled while busy or Not present', () => {
-  for (const [busy, notPresent] of [[true, false], [false, true]]) {
-    const html = render(KeypadDetails, { props: viewProps(draft({ notPresent }), { totalSteps: 2, busy }) }).body;
-    assert.match(html, /aria-haspopup="dialog" disabled[^>]*>30 m/);
-  }
+test('keypad height trigger is disabled while busy', () => {
+  const html = render(KeypadDetails, { props: viewProps(draft(), { totalSteps: 2, busy: true }) }).body;
+  assert.match(html, /aria-haspopup="dialog" disabled[^>]*>30 m/);
 });

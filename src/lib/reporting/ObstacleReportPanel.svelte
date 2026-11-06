@@ -108,7 +108,7 @@
   $effect(() => {
     const picker = heightPicker;
     const value = wheelHeight;
-    if (!open || busy || draft.notPresent || heightInputOpen) {
+    if (!open || busy || heightInputOpen) {
       untrack(() => picker?.stop());
       return;
     }
@@ -139,14 +139,14 @@
   }
 
   function handleHeightWheel(event: WheelEvent) {
-    if (draft.notPresent || busy) return;
+    if (busy) return;
     event.preventDefault();
     const delta = event.deltaY || event.deltaX;
     if (delta) heightPicker?.select(wheelHeight + Math.sign(delta));
   }
 
   function handleHeightKeydown(event: KeyboardEvent) {
-    if (draft.notPresent || busy) return;
+    if (busy) return;
     const values: Record<string, number> = {
       ArrowLeft: wheelHeight - 1, ArrowRight: wheelHeight + 1,
       Home: minObstacleHeightMeters, End: maxObstacleHeightMeters,
@@ -161,7 +161,7 @@
   function setupHeightPicker(track: HTMLDivElement) {
     const picker = createHeightPickerController({
       track, items: heightItems, getValue: () => wheelHeight,
-      enabled: () => open && !busy && !draft.notPresent,
+      enabled: () => open && !busy,
       onchange: (value) => onheight(value),
       reducedMotion: () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       requestFrame: (callback) => requestAnimationFrame(callback),
@@ -246,7 +246,7 @@
 
     <section>
       <div class="section-label-row">
-        <h3 class="section-label">Obstacle Height - {draft.notPresent ? 'Disabled' : 'Required'}</h3>
+        <h3 class="section-label">Obstacle Height - Required</h3>
         <button type="button" class="unit-toggle" aria-label="Toggle height unit" disabled={busy} onclick={() => { heightUnit = heightUnit === 'm' ? 'ft' : 'm'; }}>
           {heightUnit}
         </button>
@@ -254,9 +254,9 @@
       {#if heightControl === 'keypad'}
         <button type="button" class="button height-button"
           aria-label={`Obstacle height: ${heightText}. Edit height`} aria-haspopup="dialog"
-          disabled={draft.notPresent || busy} onclick={(event) => openHeightInput(event.currentTarget)}>{heightText}</button>
+          disabled={busy} onclick={(event) => openHeightInput(event.currentTarget)}>{heightText}</button>
       {:else}
-      <div class="height-picker" aria-disabled={draft.notPresent || busy}>
+      <div class="height-picker" aria-disabled={busy}>
         <span bind:this={heightSizer} class="height-item selected height-sizer" aria-hidden="true">{formatHeightLabel(maxObstacleHeightMeters, heightUnit)}</span>
         <div class="height-selection" aria-hidden="true"></div>
         <div
@@ -264,7 +264,7 @@
           role="listbox"
           tabindex="-1"
           aria-label="Obstacle height"
-          aria-disabled={draft.notPresent || busy}
+          aria-disabled={busy}
           use:setupHeightPicker
           onwheel={handleHeightWheel}
           onscroll={() => heightPicker?.scroll()}
@@ -278,7 +278,7 @@
               aria-selected={draft.height === meters}
               class="height-item"
               class:selected={draft.height === meters}
-              disabled={draft.notPresent || busy}
+              disabled={busy}
               tabindex={draft.height === meters ? 0 : -1}
               onclick={(event) => { if (draft.height === meters) openHeightInput(event.currentTarget); else heightPicker?.select(meters); }}
               use:registerHeightItem={meters}
@@ -292,7 +292,7 @@
     </section>
 
     <div class="optional-row" role="group" aria-label="Additional details">
-      <button type="button" class="optional-button" data-state={draft.illumination} disabled={draft.notPresent || busy} onclick={onillumination}>
+      <button type="button" class="optional-button" data-state={draft.illumination} disabled={busy} onclick={onillumination}>
         <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d={draft.illumination === 'illuminated' ? actionIcons.lightingLit : actionIcons.lightingCrossed} />
         </svg>
@@ -356,7 +356,7 @@
   </footer>
   </div>
 
-  {#if heightInputOpen && open && !busy && !draft.notPresent}
+  {#if heightInputOpen && open && !busy}
     <HeightKeypad value={draft.height === null ? null : metersToDisplayUnit(draft.height, heightUnit)} unit={heightUnit}
       max={metersToDisplayUnit(maxObstacleHeightMeters, heightUnit)}
       onconfirm={confirmHeightInput} oncancel={closeHeightInput} />

@@ -47,13 +47,6 @@ test('summary shows canonical values and optional metadata for either reporting 
   assert.ok(other.includes('crane.jpg'));
 });
 
-test('absent obstacles omit height and illumination even when the draft retained values', () => {
-  const html = body({ notPresent: true, height: 123, illumination: 'illuminated' });
-  assert.doesNotMatch(html, /123 m|Illuminated/);
-  assert.match(html, new RegExp('Height</th><td[^>]*>—'));
-  assert.match(html, new RegExp('Lighting</th><td[^>]*>—'));
-});
-
 test('description and filenames render as text', () => {
   const html = body({ description: '<script>alert(1)</script>', photos: [new File([], '<img>.jpg')] });
   assert.ok(html.includes('&lt;script>'));

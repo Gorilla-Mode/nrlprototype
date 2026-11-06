@@ -294,7 +294,7 @@
   <ActiveReportingView draft={details.draft} open={details.open} step={details.step} totalSteps={details.variant.stepRoutes.length}
     busy={details.busy} error={details.error}
     ontype={detailsController.setType} onheight={detailsController.setHeight}
-    onillumination={detailsController.cycleIllumination} onabsence={detailsController.setNotPresent}
+    onillumination={detailsController.cycleIllumination}
     oncustomtype={detailsController.setCustomType} ondescription={detailsController.setDescription}
     onphotos={detailsController.addPhotos} onremovephoto={detailsController.removePhoto}
     onsave={saveDetails} oncontinue={continueDetails} onfinish={finishDetails}

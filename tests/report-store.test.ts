@@ -169,8 +169,8 @@ function payload(overrides: Partial<DetailsPayload> = {}): DetailsPayload {
   return {
     id: 'map-1', description: 'Seen from the air', gps_position: null, timestamp: created,
     obstacle_position: { type: 'Polygon', coordinates: [[[5, 60], [5.1, 60], [5.1, 60.1], [5, 60]]] },
-    type: null, photos: [], notPresent: false, height: 30, illumination: 'illuminated', ...overrides,
-  } as DetailsPayload;
+    type: null, photos: [], height: 30, illumination: 'illuminated', ...overrides,
+  };
 }
 
 test('a map form draft records its step, height and geometry, and has no name until one is given', () => {
@@ -183,7 +183,7 @@ test('a map form draft records its step, height and geometry, and has no name un
   assert.equal(draft.createdAt, created.toISOString());
   assert.deepEqual(draft.geometry, { type: 'Polygon', coordinates: [[[5, 60], [5.1, 60], [5.1, 60.1], [5, 60]]] });
 
-  const untyped = detailsToDraft(payload({ notPresent: true, height: undefined, illumination: undefined } as Partial<DetailsPayload>), { step: 1, totalSteps: 1, photos: [], existing: { name: 'Kept', createdAt: '2026-10-01T12:00:00' } });
+  const untyped = detailsToDraft(payload({ height: null }), { step: 1, totalSteps: 1, photos: [], existing: { name: 'Kept', createdAt: '2026-10-01T12:00:00' } });
   assert.equal(untyped.category, ObstacleType.Other);
   assert.equal(untyped.heightAboveGround, 'Not set');
   assert.equal(untyped.title, 'Kept');

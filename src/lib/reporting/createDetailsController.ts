@@ -12,19 +12,15 @@ export interface DetailsDraft {
   /** Null until a height is entered, for flows that start without one. */
   readonly height: number | null;
   readonly illumination: Illumination;
-  readonly notPresent: boolean;
   readonly dirty: boolean;
   readonly customType: string;
   readonly description: string;
   readonly photos: readonly File[];
 }
-type ActiveDetails<Height> =
-  | { notPresent: true; height?: never; illumination?: never }
-  | { notPresent: false; height: Height; illumination: Illumination };
-type PayloadBase = Omit<Obstacle, 'type' | 'height'> & { customType?: string; photos: readonly File[] };
-export type DetailsPayload = PayloadBase & { type: ObstacleType | null } & ActiveDetails<number | null>;
-/** Every required field is set: a type, and a height unless the obstacle is absent. */
-export type ContinueDetailsPayload = PayloadBase & { type: ObstacleType } & ActiveDetails<number>;
+type PayloadBase = Omit<Obstacle, 'type' | 'height'> & { illumination: Illumination; customType?: string; photos: readonly File[] };
+export type DetailsPayload = PayloadBase & { type: ObstacleType | null; height: number | null };
+/** Every required field is set: a type and a height. */
+export type ContinueDetailsPayload = PayloadBase & { type: ObstacleType; height: number };
 export type CompleteReport = ContinueDetailsPayload;
 export type DraftSaveReason = 'explicit' | 'dismissal';
 export interface ReportingContext { readonly variantId: string }
@@ -58,22 +54,17 @@ export const initialDetailsState: DetailsState = {
 export function detailsPayload(draft: DetailsDraft): DetailsPayload {
   const { type: _type, height: _height, ...report } = draft.report;
   return {
-    ...report, type: draft.type,
+    ...report, type: draft.type, height: draft.height, illumination: draft.illumination,
     description: draft.description, photos: [...draft.photos],
     ...(draft.type === ObstacleType.Other ? { customType: draft.customType } : {}),
-    ...(draft.notPresent
-      ? { notPresent: true }
-      : { notPresent: false, height: draft.height, illumination: draft.illumination }),
   };
 }
 
 /** The payload when every required field is set; otherwise null. */
 export function completePayload(draft: DetailsDraft): ContinueDetailsPayload | null {
   const payload = detailsPayload(draft);
-  const { type } = payload;
-  if (!type) return null;
-  if (payload.notPresent) return { ...payload, type };
-  return payload.height === null ? null : { ...payload, type, height: payload.height };
+  const { type, height } = payload;
+  return type && height !== null ? { ...payload, type, height } : null;
 }
 
 export function detailsComplete(draft: DetailsDraft): boolean {
@@ -93,7 +84,7 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
     state = { ...state, ...next };
     onChange(state);
   }
-  function edit(values: Partial<Pick<DetailsDraft, 'type' | 'height' | 'illumination' | 'notPresent' | 'customType' | 'description' | 'photos'>>) {
+  function edit(values: Partial<Pick<DetailsDraft, 'type' | 'height' | 'illumination' | 'customType' | 'description' | 'photos'>>) {
     if (!state.draft || state.busy) return;
     if (Object.entries(values).every(([key, value]) => state.draft?.[key as keyof DetailsDraft] === value)) return;
     publish({ draft: { ...state.draft, ...values, dirty: true }, error: '' });
@@ -137,7 +128,7 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
       };
       pendingPosition = positionReady?.then(applyPosition, () => applyPosition(null));
       const height = variant.initialHeightMeters === undefined ? defaultObstacleHeightMeters : variant.initialHeightMeters;
-      publish({ ...initialDetailsState, variant, draft: { report, type: null, height, illumination: 'unknown', notPresent: false, dirty: false, customType: '', description: report.description, photos: [] }, open: true });
+      publish({ ...initialDetailsState, variant, draft: { report, type: null, height, illumination: 'unknown', dirty: false, customType: '', description: report.description, photos: [] }, open: true });
     },
     resume(step: number = state.step) {
       if (!state.draft || !state.variant) return;
@@ -184,15 +175,14 @@ export function createDetailsController({ onChange, getHooks = () => ({}) }: {
     },
     setType(type: ObstacleType) { if (obstacleTypeChoices.some((choice) => choice.type === type)) edit({ type }); },
     setHeight(height: number) {
-      if (state.draft?.notPresent || !Number.isFinite(height)) return;
+      if (!Number.isFinite(height)) return;
       edit({ height: Math.max(minObstacleHeightMeters, Math.min(maxObstacleHeightMeters, Math.round(height))) });
     },
     cycleIllumination() {
-      if (!state.draft || state.draft.notPresent) return;
+      if (!state.draft) return;
       const next: Record<Illumination, Illumination> = { unknown: 'illuminated', illuminated: 'not-illuminated', 'not-illuminated': 'unknown' };
       edit({ illumination: next[state.draft.illumination] });
     },
-    setNotPresent(notPresent: boolean) { edit({ notPresent }); },
     setCustomType(customType: string) { edit({ customType }); },
     setDescription(description: string) { edit({ description }); },
     addPhotos(files: readonly File[]) {

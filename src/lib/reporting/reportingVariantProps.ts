@@ -12,7 +12,6 @@ export interface ReportingVariantProps {
   ontype: (type: ObstacleType) => void;
   onheight: (height: number) => void;
   onillumination: () => void;
-  onabsence: (notPresent: boolean) => void;
   oncustomtype: (value: string) => void;
   ondescription: (value: string) => void;
   onphotos: (files: readonly File[]) => void;
