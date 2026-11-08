@@ -6,8 +6,11 @@
     title: string;
     /** Secondary text under the title; a snippet when part of it is styled, e.g. a status tag. */
     description?: string | Snippet;
-    /** Status icon in a circle; success is the only one so far. */
-    icon?: 'success';
+    /**
+     * Icon in a circle. success: green check, for a report actually sent (default).
+     * pending: grey clock in the Ready to send tag colours, for a report saved but not sent.
+     */
+    icon?: 'success' | 'pending';
     /** Optional link-styled follow-up under the text, e.g. View report. */
     action?: { label: string; onclick: () => void };
   }
@@ -16,22 +19,26 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { fly } from 'svelte/transition';
+  import ClockIcon from '../icons/ClockIcon.svelte';
+  import { confirmationDurationMs } from './confirmationDuration';
 
   interface Props {
     /** Null renders nothing; the live region stays so the next notice is announced. */
     notice: ConfirmationNotice | null;
     /** Close button, the action, or the timeout. */
     onclose: () => void;
-    /** Milliseconds before closing on its own; paused while a mouse is over it or the user has tabbed into it. */
-    duration?: number;
     /**
-     * card: white card with icon, title, text and action (default).
-     * strip: the earlier compact green strip, kept for the error report until it moves to card.
+     * Milliseconds before closing on its own; by default from the length of the title and text.
+     * Paused while a mouse is over it or the user has tabbed into it, then resumed with the time left.
      */
-    appearance?: 'card' | 'strip';
+    duration?: number;
   }
 
-  let { notice, onclose, duration = 7000, appearance = 'card' }: Props = $props();
+  let { notice, onclose, duration }: Props = $props();
+  let card = $state<HTMLDivElement>();
+  // Time left for the notice on screen; plain values, so the timer effect never reruns on them.
+  let remainingMs = 0;
+  let timedNotice: ConfirmationNotice | null = null;
   let hovered = $state(false);
   let focused = $state(false);
   // Zero until mounted and under reduced motion: the card then appears and leaves at once.
@@ -48,10 +55,28 @@
     return () => preference.removeEventListener('change', update);
   });
 
+  // Title and text as read: a snippet description is measured from what it rendered.
+  function readText(current: ConfirmationNotice): string {
+    const description = card?.querySelector('.confirmation-toast-description')?.textContent ?? '';
+    return `${current.title} ${description}`;
+  }
+
+  // Runs after the card renders. Pausing (or closing, or unmounting) clears the timer and keeps
+  // the time left; resuming starts from that, and a new notice starts its own full time.
   $effect(() => {
-    if (!notice || hovered || focused) return;
-    const timer = setTimeout(close, duration);
-    return () => clearTimeout(timer);
+    const current = notice;
+    if (!current) { timedNotice = null; return; }
+    if (current !== timedNotice) {
+      timedNotice = current;
+      remainingMs = duration ?? confirmationDurationMs(readText(current));
+    }
+    if (hovered || focused) return;
+    const startedAt = performance.now();
+    const timer = setTimeout(close, remainingMs);
+    return () => {
+      clearTimeout(timer);
+      remainingMs = Math.max(0, remainingMs - (performance.now() - startedAt));
+    };
   });
 
   // Only a mouse actually moving over the card pauses: pointerenter also fires when the card
@@ -82,12 +107,16 @@
 <div class="confirmation-toast" role="status" aria-live="polite">
   {#if notice}
     <!-- Mouse hover and keyboard focus only pause the timer; nothing moves focus here, aria-live announces it. -->
-    <div class="confirmation-toast-card" data-appearance={appearance} role="presentation"
+    <div class="confirmation-toast-card" role="presentation" bind:this={card}
       transition:fly={{ y: 16, duration: motionDuration }}
       onpointermove={pointermove} onpointerleave={() => { hovered = false; }}
       onfocusin={focusin} onfocusout={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) focused = false; }}>
       <span class="confirmation-toast-icon" data-icon={notice.icon ?? 'success'} aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M6.5 12.5 10.5 16.5 17.5 8" /></svg>
+        {#if notice.icon === 'pending'}
+          <svg viewBox="0 0 24 24" fill="none"><ClockIcon /></svg>
+        {:else}
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6.5 12.5 10.5 16.5 17.5 8" /></svg>
+        {/if}
       </span>
       <div class="confirmation-toast-text">
         <p class="confirmation-toast-title">{notice.title}</p>
@@ -175,19 +204,7 @@
     stroke-linejoin: round;
   }
   .confirmation-toast-icon svg { width: var(--icon-size-small); height: var(--icon-size-small); stroke-width: calc(var(--icon-stroke-width) + 0.75); }
-
-  /* The earlier compact green strip: one line, a bare check, no circle. */
-  .confirmation-toast-card[data-appearance='strip'] {
-    align-items: center;
-    gap: var(--space-2);
-    width: fit-content;
-    max-width: 100%;
-    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
-    border: 0;
-    background: var(--color-status-success-surface);
-  }
-  [data-appearance='strip'] .confirmation-toast-icon { width: auto; height: auto; background: none; color: var(--color-status-success); }
-  [data-appearance='strip'] .confirmation-toast-icon svg { width: var(--icon-size-default); height: var(--icon-size-default); stroke-width: var(--icon-stroke-width); }
-  [data-appearance='strip'] .confirmation-toast-title { color: var(--color-status-success); }
-  [data-appearance='strip'] .confirmation-toast-close { margin-block: 0; }
+  /* Waiting, not done: the Ready to send tag's neutral grey, never the sent green. */
+  .confirmation-toast-icon[data-icon='pending'] { background: var(--color-status-ready-surface); color: var(--color-status-ready); }
+  .confirmation-toast-icon[data-icon='pending'] svg { stroke-width: var(--icon-stroke-width); }
 </style>

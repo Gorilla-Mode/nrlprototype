@@ -4,7 +4,7 @@ import { formatHeightFromMeters, type Draft, type Lighting } from '../drafts/typ
 import type { ReportPhoto } from './photos.js';
 import type { Report } from './reportsData.js';
 
-const reporter = { reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten' } as const;
+export const reporter = { reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten' } as const;
 const stepLabels = ['Obstacle details', 'Additional information'] as const;
 
 const lightingByIllumination: Record<Illumination, Lighting> = { illuminated: 'yes', 'not-illuminated': 'no', unknown: 'unknown' };

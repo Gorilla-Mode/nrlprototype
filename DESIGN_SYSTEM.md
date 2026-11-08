@@ -70,20 +70,32 @@ below `ds`, so they never undo a Designsystemet component.
   Status: `StatusBadge` (`ds-tag`), coloured per status as in the table above. Dialogs: `Dialog`
   and `Lightbox` (`ds-dialog`).
 - Confirmations: `ConfirmationToast` confirms a finished action without interrupting.
-  - Content: `title`, an optional grey `description`, an `icon` (a success check in a
-    circle, `--confirmation-toast-success`, Kartverket green) and an optional `action`.
+  - Content: `title`, an optional grey `description`, an `icon` and an optional `action`.
+    The `icon` is `success`, a green check in a circle (`--confirmation-toast-success`),
+    only for a report that was actually sent. Otherwise it is `pending`, a clock
+    (`ClockIcon`) in the Ready to send tag's grey (`--color-status-ready` on its
+    `-surface`), for a report that was saved but not sent.
     The action is a blue link-style button under the text (`--color-action-secondary`).
     `description` may be a snippet when part of it is styled. For example, Report saved
     names the status with its `StatusBadge`, so the status looks the same as in Reports.
   - Layout: a raised, rounded card with a shadow at the bottom centre over the map,
     with X at the top right. There is no green background and no green title.
   - Behaviour: the live region (`role="status"`, `aria-live="polite"`) is always present.
-    Nothing moves focus into it. The card closes after 7 s, pausing only while a mouse
-    moves over it or the user has tabbed into it. It slides in and out over
+    Nothing moves focus into it. It closes after `confirmationDurationMs`: 5 s plus 1 s
+    per started 10 words of title and text. It pauses only while a mouse moves over it
+    or the user has tabbed into it, and resumes with the time left. X or a press on the
+    map closes it. It slides in and out over
     `--confirmation-toast-motion` (instant with reduced motion).
-  - Use: Send report and Save and continue use the card. The error report still uses `appearance="strip"`,
-    the earlier green strip, until it moves to the card. A failed action uses an alert
-    `Dialog`, never this confirmation.
+  - Use: Send report and Save and continue use the card, for new obstacles and error
+    reports alike, and so does Save draft for an error report. A failed action uses an
+    alert `Dialog`, never this confirmation.
+- Report summaries: `ReportSummaryDialog` has a row table with a blue pencil per editable
+  row, the fixed saved-not-sent text, and stacked Save and continue (primary) over Send
+  report. The new-obstacle and error-report summaries differ only in title and rows.
+- The error-report form shares the new-obstacle form's field styles, height button with
+  m/ft toggle and keypad, selected blue, and Save draft beside the green Finish report.
+  Reports labels error reports `Error report · <obstacle>` on cards and detail pages, with
+  the same statuses as other reports.
 - The map toolbars and the reporting forms keep their own controls: they are fixed
   user-test layouts over the map.
 

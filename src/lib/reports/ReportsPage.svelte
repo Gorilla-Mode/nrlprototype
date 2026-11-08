@@ -10,6 +10,8 @@
   import { sendToKartverket, type ReportSender } from './bulkSend';
   import { isSent, type Report, type StatusTabKey } from './reportsData';
   import { reportStore } from './reportStore';
+  import { deliverErrorReport } from './errorReportRecords';
+  import { errorReportHeading } from '../obstacles/errorReport';
   import DraftCard from '../drafts/DraftCard.svelte';
   import DraftDetailPage from '../drafts/DraftDetailPage.svelte';
   import type { Draft } from '../drafts/types';
@@ -18,7 +20,7 @@
   import { obstacleTypeLabel } from '../reporting/obstacle';
   import { matchesGeometryFilter, matchesHeightFilter, type GeometryKey, type HeightFilterKey } from './filtering';
 
-  let { onback, onshowonmap, sendreport = sendToKartverket, highlightId = null, openId = null, filter = 'all' }: {
+  let { onback, onshowonmap, sendreport = sendToKartverket, highlightId = null, openId = null, filter = 'all', onediterrorreport }: {
     onback: () => void;
     onshowonmap?: (target: GeometryCameraTarget) => void;
     /** A report just saved elsewhere: listed first and briefly tinted when the page opens. */
@@ -27,6 +29,8 @@
     openId?: string | null;
     /** Status tab chosen when the page opens. */
     filter?: StatusTabKey;
+    /** An error report's draft or Ready report is edited in the error form on the map. */
+    onediterrorreport?: (id: string) => void;
     /** Delivers one selected report; the prototype default always succeeds. */
     sendreport?: ReportSender;
   } = $props();
@@ -59,6 +63,7 @@
   }
 
   function openDraft(draft: Draft) {
+    if (draft.errorReport) { onediterrorreport?.(draft.id); return; }
     selectedDraft = structuredClone(draft);
     view = 'draft-detail';
   }
@@ -75,7 +80,8 @@
     const report = untrack(() => reports).find((entry) => entry.id === initialOpenId);
     const draft = report ? undefined : untrack(() => drafts).find((entry) => entry.id === initialOpenId);
     if (report) openReport(report);
-    else if (draft) openDraft(draft);
+    // An error draft has no detail page; it is listed first and highlighted instead of leaving the page.
+    else if (draft && !draft.errorReport) openDraft(draft);
   }
 
   // Confirmation after a draft is sent: the new report and when sending succeeded.
@@ -115,7 +121,8 @@
   // Delivered reports change status at once, so the data stays true even if the page closes.
   function bulkSent(sent: readonly Report[]) {
     for (const report of sent) {
-      reportStore.submitReport(report.id);
+      const submitted = reportStore.submitReport(report.id);
+      if (submitted) deliverErrorReport(submitted);
       bulkSentIds.add(report.id);
     }
   }
@@ -180,12 +187,14 @@
   function matchesReportQuery(report: Report, q: string): boolean {
     const needle = q.trim().toLowerCase();
     if (!needle) return true;
+    if (report.errorReport) return errorReportHeading(report.errorReport).toLowerCase().includes(needle);
     return report.name.toLowerCase().includes(needle) || obstacleTypeLabel(report.obstacleType).toLowerCase().includes(needle);
   }
 
   function matchesDraftQuery(draft: Draft, q: string): boolean {
     const needle = q.trim().toLowerCase();
     if (!needle) return true;
+    if (draft.errorReport) return errorReportHeading(draft.errorReport).toLowerCase().includes(needle);
     return draft.title.toLowerCase().includes(needle) || obstacleTypeLabel(draft.category).toLowerCase().includes(needle);
   }
 
@@ -245,7 +254,7 @@
 <svelte:window onkeydown={closeOnEscape} />
 
 {#if view === 'report-detail' && selectedReport}
-  <ReportDetailPage report={selectedReport} onback={backToList} {onshowonmap} />
+  <ReportDetailPage report={selectedReport} onback={backToList} {onshowonmap} onediterror={onediterrorreport} />
 {:else if view === 'draft-detail' && selectedDraft}
   <DraftDetailPage draft={selectedDraft} onBack={backToList} onSend={draftSent} />
 {:else}

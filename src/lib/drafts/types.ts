@@ -1,6 +1,7 @@
 import type { ObstacleType } from '../reporting/obstacle.js';
 import type { ReportGeometry } from '../reports/reportGeometry.js';
 import type { ReportPhoto } from '../reports/photos.js';
+import type { ErrorReportRecord } from '../obstacles/errorReport.js';
 
 export type Draft = {
   id: string;
@@ -26,6 +27,8 @@ export type Draft = {
   geometry: ReportGeometry | null;
   /** Optional photos, downscaled; at most maxPhotos. */
   photos: ReportPhoto[];
+  /** Set for an error report on a registered obstacle; absent for a new obstacle. */
+  errorReport?: ErrorReportRecord;
 };
 
 /** Whether the obstacle is lit. Optional: pilots cannot always tell. */

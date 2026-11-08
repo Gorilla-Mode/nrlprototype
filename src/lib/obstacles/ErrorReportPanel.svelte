@@ -1,26 +1,33 @@
 <script lang="ts">
-  import { onMount, tick, type Component } from 'svelte';
+  import { onMount, tick, untrack, type Component } from 'svelte';
   import ObstacleIcon from '../icons/ObstacleIcon.svelte';
   import DoesNotExistIcon from '../icons/DoesNotExistIcon.svelte';
   import WrongPositionIcon from '../icons/WrongPositionIcon.svelte';
   import WrongHeightIcon from '../icons/WrongHeightIcon.svelte';
   import LitIcon from '../icons/LitIcon.svelte';
   import MicIcon from '../icons/MicIcon.svelte';
-  import SendIcon from '../icons/SendIcon.svelte';
   import HeightKeypad from '../reporting/HeightKeypad.svelte';
+  import { maxObstacleHeightMeters } from '../reporting/reporting';
+  import { displayUnitToMeters, formatHeightLabel, metersToDisplayUnit, type HeightUnit } from '../reporting/obstacleReportDraft';
   import type { RegisteredObstacle } from './registeredObstacles';
   import { describeMove, type GeoPosition } from './position';
   import {
-    applyPositionChoice, buildErrorReport, describeHeightDifference, describeLightingCorrection, describeMissingRequirement, errorKindChoices, formatCoordinates, isErrorReportValid,
-    isValidHeight, toggleErrorKind, type ErrorKind, type ErrorReport, type PositionChoice,
+    applyPositionChoice, describeHeightDifference, describeLightingCorrection, describeMissingRequirement, emptyErrorReportAnswers, errorKindChoices, formatCoordinates, isErrorReportValid,
+    isValidHeight, toggleErrorKind, type ErrorKind, type ErrorReportAnswers, type PositionChoice,
   } from './errorReport';
 
-  let { obstacle, hidden = false, ondismiss, onfinish, onpickposition }: {
+  let { obstacle, initial = emptyErrorReportAnswers, hidden = false, ondismiss, onsave, onfinish, onpickposition }: {
     obstacle: RegisteredObstacle;
+    /** Answers of a saved draft or Ready report being edited; read once when the form opens. */
+    initial?: ErrorReportAnswers;
     /** Closes the dialog while the map is used, keeping every answer. */
     hidden?: boolean;
+    /** X, Escape and the backdrop: unsaved answers are discarded. */
     ondismiss: () => void;
-    onfinish: (report: ErrorReport) => void;
+    /** Save draft: stored as a Draft, whatever is filled in. */
+    onsave: (answers: ErrorReportAnswers) => void;
+    /** Finish report: stored as Ready to send, then summarised. */
+    onfinish: (answers: ErrorReportAnswers) => void;
     /** "Wrong position" opens the map; the result returns through `applyPosition`. */
     onpickposition: (current: { selected: boolean; position: GeoPosition | null }) => void;
   } = $props();
@@ -33,16 +40,20 @@
   };
   const closeIcon = 'm6 6 12 12M6 18 18 6';
 
-  let errorKinds = $state<ErrorKind[]>([]);
-  let heightValue = $state<number | null>(null);
-  let description = $state('');
-  let correctedPosition = $state.raw<GeoPosition | null>(null);
+  const start = untrack(() => initial);
+  let errorKinds = $state<ErrorKind[]>([...start.errorKinds]);
+  let heightValue = $state<number | null>(start.actualHeightM);
+  let description = $state(start.description);
+  let correctedPosition = $state.raw<GeoPosition | null>(start.correctedPosition);
+  // Same unit toggle and keypad as the new-obstacle form; the answer stays in metres.
+  let heightUnit = $state<HeightUnit>('m');
 
   let heightWrong = $derived(errorKinds.includes('wrong-height'));
   let actualHeightM = $derived(heightValue);
   let lightingWrong = $derived(errorKinds.includes('wrong-lighting'));
   let positionWrong = $derived(errorKinds.includes('wrong-position'));
-  let input = $derived({ errorKinds, actualHeightM, correctedPosition, description });
+  let input = $derived<ErrorReportAnswers>({ errorKinds, actualHeightM, correctedPosition, description });
+  let heightText = $derived(isValidHeight(actualHeightM) ? formatHeightLabel(actualHeightM, heightUnit) : 'Not set');
   let valid = $derived(isErrorReportValid(input));
   let missingRequirement = $derived(valid ? null : describeMissingRequirement(input));
 
@@ -51,12 +62,10 @@
   let descriptionField = $state<HTMLTextAreaElement>();
   let heightButton = $state<HTMLButtonElement>();
   let keypadOpen = $state(false);
-  // Four digits, as the error flow has always accepted; validation stays in isErrorReportValid.
-  const maxHeightM = 9999;
   let backdropPress = false;
 
   function closeKeypad(value?: number) {
-    if (value !== undefined) heightValue = value;
+    if (value !== undefined) heightValue = displayUnitToMeters(value, heightUnit);
     keypadOpen = false;
     void tick().then(() => heightButton?.focus({ preventScroll: true }));
   }
@@ -101,8 +110,11 @@
     descriptionField.style.height = `${descriptionField.scrollHeight}px`;
   }
 
+  // Plain copies: the stored answers never share state with this form.
+  const answers = (): ErrorReportAnswers => ({ ...input, errorKinds: [...input.errorKinds] });
+
   function finish() {
-    if (valid) onfinish(buildErrorReport(obstacle, input));
+    if (valid) onfinish(answers());
   }
 </script>
 
@@ -169,26 +181,20 @@
 
     {#if heightWrong}
       <section>
-        <h3 class="section-label" id="error-report-height-label">Actual height (estimate)</h3>
-        <div class="height-box">
-          <button
-            type="button"
-            class="height-field"
-            bind:this={heightButton}
-            aria-haspopup="dialog"
-            aria-labelledby="error-report-height-label error-report-height-value"
-            aria-describedby="error-report-height-comparison"
-            onclick={() => { keypadOpen = true; }}
-          >
-            <span id="error-report-height-value" class:placeholder={!isValidHeight(actualHeightM)}>
-              {isValidHeight(actualHeightM) ? `${actualHeightM} m` : 'Tap to enter'}
-            </span>
+        <div class="section-label-row">
+          <h3 class="section-label" id="error-report-height-label">Actual height (estimate) - Required</h3>
+          <button type="button" class="unit-toggle" aria-label="Toggle height unit" onclick={() => { heightUnit = heightUnit === 'm' ? 'ft' : 'm'; }}>
+            {heightUnit}
           </button>
-          <p id="error-report-height-comparison" class="height-comparison">
-            <span>Registered: {obstacle.heightM} m</span>
-            {#if isValidHeight(actualHeightM)}<strong>{describeHeightDifference(actualHeightM, obstacle.heightM)}</strong>{/if}
-          </p>
         </div>
+        <button type="button" class="button height-button" bind:this={heightButton}
+          aria-label={`Actual height: ${heightText}. Edit height`} aria-haspopup="dialog"
+          aria-describedby="error-report-height-comparison"
+          onclick={() => { keypadOpen = true; }}>{heightText}</button>
+        <p id="error-report-height-comparison" class="height-comparison">
+          <span>Registered: {formatHeightLabel(obstacle.heightM, heightUnit)}</span>
+          {#if isValidHeight(actualHeightM)}<strong>{describeHeightDifference(actualHeightM, obstacle.heightM)}</strong>{/if}
+        </p>
       </section>
     {/if}
 
@@ -214,16 +220,17 @@
   <footer class="dialog-footer report-footer">
     <!-- Always rendered so the live region announces each change. -->
     <p id="error-report-finish-hint" class="finish-hint" aria-live="polite">{missingRequirement ?? ''}</p>
-    <button type="button" class="button cancel" onclick={ondismiss}>Cancel</button>
-    <button type="button" class="button finish" disabled={!valid} aria-describedby={missingRequirement ? 'error-report-finish-hint' : undefined} onclick={finish}>
-      <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><SendIcon /></svg>
+    <!-- The same actions as the new-obstacle form. -->
+    <button type="button" class="button" onclick={() => onsave(answers())}>Save draft</button>
+    <button type="button" class="button button--primary" disabled={!valid} aria-describedby={missingRequirement ? 'error-report-finish-hint' : undefined} onclick={finish}>
       Finish report
     </button>
   </footer>
   </div>
 
   {#if keypadOpen && heightWrong}
-    <HeightKeypad value={heightValue} max={maxHeightM}
+    <HeightKeypad value={heightValue === null ? null : metersToDisplayUnit(heightValue, heightUnit)} unit={heightUnit}
+      max={metersToDisplayUnit(maxObstacleHeightMeters, heightUnit)}
       onconfirm={(value) => closeKeypad(value)} oncancel={() => closeKeypad()} />
   {/if}
 </dialog>
@@ -296,19 +303,19 @@
     border-color: var(--color-action-secondary); background: var(--color-action-selected); color: var(--color-action-secondary);
   }
 
-  .height-box {
-    display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4);
-    padding: var(--space-3); border-radius: var(--radius-control);
-    background: var(--color-error-report-highlight-surface); color: var(--color-error-report-on-highlight);
+  /* Height field, unit toggle and labels as in ObstacleReportPanel. */
+  .section-label-row { display: flex; align-items: center; justify-content: space-between; }
+  .section-label-row .section-label { margin-bottom: 0; }
+  .unit-toggle {
+    min-height: var(--target-size-min); height: auto; padding-inline: var(--space-2);
+    border: var(--border-default); border-radius: var(--radius-pill);
+    background: var(--color-background-subtle); color: var(--color-text-secondary);
+    font-size: var(--font-size-caption); font-weight: var(--font-weight-semibold); text-transform: uppercase; cursor: pointer;
   }
-  .height-field {
-    flex: 0 1 12rem; min-height: var(--control-height-large); padding-inline: var(--space-4);
-    border: var(--border-default); border-radius: var(--radius-control);
-    background: var(--color-background-raised); color: var(--color-text-primary); cursor: pointer;
-    font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); font-variant-numeric: tabular-nums; text-align: start;
-  }
-  .height-field .placeholder { color: var(--color-text-secondary); font-weight: var(--font-weight-regular); }
-  .height-comparison { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; font-size: var(--font-size-body-small); }
+  .unit-toggle:hover { background: var(--color-map-control-hover); }
+  .height-button { width: 100%; min-height: var(--report-button-height); font-variant-numeric: tabular-nums; }
+  .height-comparison { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin: var(--space-2) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
+  .height-comparison strong { color: var(--color-text-primary); }
 
   .description-box { position: relative; }
   .description-field {
@@ -330,12 +337,8 @@
     color: var(--color-text-secondary); font-size: var(--font-size-body-small); text-align: center;
   }
   .finish-hint:empty { margin: 0; }
-  .report-footer .button { flex: 1; min-height: var(--report-button-height); border: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
-  .report-footer .geometry-icon { width: var(--icon-size-default); height: var(--icon-size-default); }
-  .cancel { background: var(--color-background-subtle); }
-  .finish { background: var(--color-error-report-finish); color: var(--color-error-report-on-accent); }
-  .finish:not(:disabled):hover, .finish:not(:disabled):active { background: var(--color-error-report-finish-hover); }
-  .finish:disabled { background: var(--color-error-report-finish); color: var(--color-error-report-on-accent); opacity: var(--opacity-disabled); cursor: not-allowed; }
+  /* Same footer buttons as ObstacleReportPanel: global .button and green .button--primary. */
+  .report-footer .button { flex: 1; min-height: var(--report-button-height); }
 
   .report-header, .report-footer { padding-block: clamp(var(--space-6), 1.324rem + 0.751vw, var(--space-8)); }
   .report-content { padding-block: clamp(var(--space-5), 1.162rem + 0.376vw, var(--space-6)) clamp(var(--space-6), 1.324rem + 0.751vw, var(--space-8)); gap: clamp(var(--space-5), 1.162rem + 0.376vw, var(--space-6)); }

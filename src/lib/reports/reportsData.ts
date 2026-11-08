@@ -2,6 +2,7 @@ import { obstacleTypeLabel, type ObstacleType } from '../reporting/obstacle.js';
 import type { ReportGeometry } from './reportGeometry.js';
 import type { Lighting } from '../drafts/types.js';
 import type { ReportPhoto } from './photos.js';
+import { errorReportHeading, type ErrorReportRecord } from '../obstacles/errorReport.js';
 
 export type ReportStatus = 'ready' | 'pending' | 'approved' | 'declined';
 
@@ -28,6 +29,8 @@ export interface Report {
   geometry: ReportGeometry | null;
   /** Optional photos, downscaled; at most maxPhotos. */
   photos: ReportPhoto[];
+  /** Set for an error report on a registered obstacle; absent for a new obstacle. */
+  errorReport?: ErrorReportRecord;
 }
 
 /** Card heading, as the name is optional: "Aerial Span · 30 m", or just the type when no height is set. */
@@ -38,6 +41,7 @@ export function obstacleHeading(type: ObstacleType, meters: number | null): stri
 }
 
 export function reportHeading(report: Report): string {
+  if (report.errorReport) return errorReportHeading(report.errorReport);
   return obstacleHeading(report.obstacleType, report.heightMeters);
 }
 

@@ -34,8 +34,16 @@ circle, until a new hold places one. Active position correction preserves its ge
 candidate and original registered position while switching input methods, but discards
 the saved ordinary target when crosshair is disabled. Starting correction in crosshair
 mode does not save its midpoint as an ordinary circle. Circle-only correction cancellation
-restores the prior circle. The error-report form keeps its own answers and the existing
-prototype completion handler.
+restores the prior circle.
+
+Error reports follow the new-obstacle flow. HomeMap owns the error form and position
+correction and gives each report an id. Save draft and Finish report hand App an
+`ErrorReportRecord`, which holds the registered obstacle and the answers. App stores it
+with the report store as a Draft, or as a Ready report with `errorReport` set, using
+`errorReportRecords.ts`. Finish opens the shared `ReportSummaryDialog`, where any answer's
+pencil reopens the form. The same confirmations, failure alert and statuses follow. Edit in
+Reports also reopens the form on the map. The payload is still `buildErrorReport(obstacle,
+answers)`, logged by `deliverErrorReport` when the report is sent from any path.
 
 `radialMenu.ts` defines the shared 96 px inner and 154 px outer radii for geometry and
 error-report menus and placed circles. Hover and release exclude the inclusive inner
@@ -108,7 +116,7 @@ in the report store; nothing is sent automatically. Finish clears the map select
 opens the shared result summary. Its edit actions reopen the step holding a value with
 the finished draft: Finish saves again and returns to the summary, while closing the form
 discards the edit and returns to it. Both summary actions return to the map and confirm there
-with the shared ConfirmationToast (also used after an error report). Save and continue
+with the shared ConfirmationToast. Save and continue
 (primary) keeps the report saved and unsent: Report saved names its status with its
 StatusBadge. Send report submits it: Report sent adds a review note. View report opens that
 report's detail page by id, over its status tab. If sending fails, an alert says it stays

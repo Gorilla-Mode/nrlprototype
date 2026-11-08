@@ -1,5 +1,6 @@
 <script lang="ts">
   import StatusBadge from './StatusBadge.svelte';
+  import { errorKindsLabel } from '../obstacles/errorReport';
   import { formatShortDate, reportActionLabel, reportActivity, reportHeading, reportProgressLine, type Report } from './reportsData';
 
   let { report, onopen, selectMode = false, selected = false, ontoggleselect, justSent = false, justSaved = false, unavailableHint }: {
@@ -52,8 +53,8 @@
       <StatusBadge status={report.status} />
     </div>
 
-    <!-- The optional name; empty when the pilot gave none. -->
-    <div class="reports-card-info">{report.name}</div>
+    <!-- The optional name, empty when the pilot gave none; an error report says what is wrong. -->
+    <div class="reports-card-info">{report.errorReport ? errorKindsLabel(report.errorReport.answers.errorKinds) : report.name}</div>
     <div class="reports-card-step">{reportProgressLine(report)}</div>
   </div>
 

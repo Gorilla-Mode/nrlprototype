@@ -4,10 +4,12 @@ import { createRawSnippet, type Component, type Snippet } from 'svelte';
 import { render } from 'svelte/server';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
 
-type Notice = { title: string; description?: string | Snippet; icon?: 'success'; action?: { label: string; onclick: () => void } };
-type Props = { notice: Notice | null; onclose: () => void; duration?: number; appearance?: 'card' | 'strip' };
+type Notice = { title: string; description?: string | Snippet; icon?: 'success' | 'pending'; action?: { label: string; onclick: () => void } };
+type Props = { notice: Notice | null; onclose: () => void; duration?: number };
 const url = await compileSvelteComponent('src/lib/components/ConfirmationToast.svelte', {
   'svelte/transition': import.meta.resolve('svelte/transition'),
+  '../icons/ClockIcon.svelte': await compileSvelteComponent('src/lib/icons/ClockIcon.svelte'),
+  './confirmationDuration': new URL('../src/lib/components/confirmationDuration.js', import.meta.url).href,
 });
 const { default: ConfirmationToast } = await import(url) as { default: Component<Props> };
 const noop = () => {};
@@ -25,14 +27,12 @@ test('the live region is always present, so a notice added later is announced', 
 
 test('a sent report is a card: check circle, title, description, View report below, then Close', () => {
   const html = render(ConfirmationToast, { props: { notice: sent, onclose: noop } }).body;
-  assert.match(html, /data-appearance="card"/);
   assert.match(html, /class="confirmation-toast-icon[^"]*" data-icon="success" aria-hidden="true"/);
   assert.match(html, /confirmation-toast-title[^"]*">Report sent<\/p>[\s\S]*confirmation-toast-description[^"]*">Kartverket will review it\. You'll be notified when it's registered\.<\/p>[\s\S]*>View report<\/button>[\s\S]*aria-label="Close"/);
 });
 
 test('without a description or action only the title and Close are shown', () => {
-  const html = render(ConfirmationToast, { props: { notice: { title: 'Report sent' }, onclose: noop, appearance: 'strip' } }).body;
-  assert.match(html, /data-appearance="strip"/);
+  const html = render(ConfirmationToast, { props: { notice: { title: 'Report sent' }, onclose: noop } }).body;
   assert.doesNotMatch(html, /confirmation-toast-description|confirmation-toast-action/);
 });
 
@@ -42,4 +42,12 @@ test('a snippet description renders its markup, e.g. the saved status as a tag',
   assert.match(html, />Report saved<\/p>/);
   assert.match(html, /confirmation-toast-description[^"]*"><span>Saved as <span class="ds-tag" data-status="ready">Ready to send<\/span>\. You can find it in Reports\.<\/span>(<!---->)?<\/p>/);
   assert.match(html, />View report<\/button>/);
+});
+
+test('pending shows a clock, not the sent check; success keeps the check', () => {
+  const pending = render(ConfirmationToast, { props: { notice: { title: 'Report saved', icon: 'pending' }, onclose: noop } }).body;
+  assert.match(pending, /data-icon="pending"[^>]*>(<!--[^>]*-->)?<svg[^>]*><circle cx="12" cy="12" r="10"/);
+  assert.doesNotMatch(pending, /M6\.5 12\.5 10\.5 16\.5 17\.5 8/);
+  const sent = render(ConfirmationToast, { props: { notice: { title: 'Report sent' }, onclose: noop } }).body;
+  assert.match(sent, /data-icon="success"[^>]*>(<!--[^>]*-->)?<svg[^>]*><path d="M6\.5 12\.5 10\.5 16\.5 17\.5 8"/);
 });

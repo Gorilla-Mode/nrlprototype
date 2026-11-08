@@ -11,6 +11,8 @@
   import PhotoField from './PhotoField.svelte';
   import Dropdown from './Dropdown.svelte';
   import { obstacleTypeChoices, obstacleTypeLabel } from '../reporting/obstacle';
+  import { errorReportRows } from '../obstacles/errorReport';
+  import { deliverErrorReport } from './errorReportRecords';
   import { geometryCameraTarget, geometryKind, locationCaption as captionFor, type GeometryCameraTarget, type ReportGeometry } from './reportGeometry';
 
   const typeOptions = obstacleTypeChoices.map(({ type, label }) => ({ value: type, label }));
@@ -19,6 +21,8 @@
   export let report: Report;
   export let onback: () => void = () => {};
   export let onshowonmap: ((target: GeometryCameraTarget) => void) | undefined = undefined;
+  /** An error report is edited in the error form on the map, not on this page. */
+  export let onediterror: ((id: string) => void) | undefined = undefined;
 
   let editing = false;
 
@@ -45,6 +49,7 @@
     reportStore.updateReport(report);
     const sent = reportStore.submitReport(report.id);
     if (!sent) return;
+    deliverErrorReport(sent);
     report = structuredClone(sent);
     editing = false;
     sentAt = new Date(sent.sentAt ?? sent.updatedAt);
@@ -95,7 +100,11 @@
   }
 
   // Only a Ready report's location can change; a sent one keeps "Show on map".
-  $: locationEditable = report.status === 'ready' && !!report.geometry;
+  $: errorRecord = report.errorReport;
+  // Every answer but the description, which has its own card below.
+  $: errorRows = errorRecord ? errorReportRows(errorRecord).filter((row) => row.key !== 'description') : [];
+  // An error report's position is an answer in the error form, not a drawn location.
+  $: locationEditable = report.status === 'ready' && !!report.geometry && !errorRecord;
   $: typeLabel = obstacleTypeLabel(report.obstacleType);
   $: heightDisplay = formatHeightFromMeters(report.heightMeters);
   // The name is optional; without one the page is titled like its card.
@@ -124,8 +133,22 @@
         </div>
       {/if}
       <div class="title-block">
-        <div class="subtitle">{#if geometryType}{geometryType} ·{' '}{/if}<strong class="type-highlight">{typeLabel}</strong> · {heightDisplay}</div>
+        {#if errorRecord}
+          <div class="subtitle"><strong class="type-highlight">Error report</strong> · Registered {errorRecord.obstacle.type} · {errorRecord.obstacle.heightM} m · ID {errorRecord.obstacle.id}</div>
+        {:else}
+          <div class="subtitle">{#if geometryType}{geometryType} ·{' '}{/if}<strong class="type-highlight">{typeLabel}</strong> · {heightDisplay}</div>
+        {/if}
       </div>
+      {#if errorRecord}
+        <div class="fields-row">
+          {#each errorRows as row (row.key)}
+            <div class="field-box">
+              <div class="field-label">{row.label.toUpperCase()}</div>
+              <div class="field-value">{row.value}</div>
+            </div>
+          {/each}
+        </div>
+      {:else}
       <div class="fields-row">
         <div class="field-box">
           {#if editing}
@@ -181,6 +204,7 @@
           <PhotoField bind:photos={report.photos} editable={editing} label={title} />
         </div>
       </div>
+      {/if}
 
       <!-- A Ready report's fields are shown above; the card only explains sent and reviewed states. -->
       {#if !isReady}
@@ -196,6 +220,7 @@
           <div class="ready-desc muted">Reviewed by {report.reviewer}. This report was not added to the register.</div>
         {/if}
 
+        {#if !errorRecord}
         <div class="summary-grid">
           <div class="summary-item">
             <div class="summary-label">Geometry drawn on map</div>
@@ -214,6 +239,7 @@
             <div class="summary-value muted">{descriptionStatus}</div>
           </div>
         </div>
+        {/if}
       </div>
       {/if}
 
@@ -221,7 +247,7 @@
         <div class="section-label">DESCRIPTION AND REPORTER</div>
         <hr class="divider" />
 
-        {#if editing}
+        {#if editing && !errorRecord}
           <label class="pilot-label" for="pilot-report">What the pilot reported</label>
           <textarea id="pilot-report" class="pilot-report-input" bind:value={report.pilotReportText}></textarea>
         {:else}
@@ -284,7 +310,11 @@
     <footer class="bottom-bar">
       <div class="actions">
         {#if isReady}
-          <button class="ds-button" data-variant="secondary" data-color="neutral" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
+          {#if errorRecord}
+            <button class="ds-button" data-variant="secondary" data-color="neutral" on:click={() => onediterror?.(report.id)}>Edit report</button>
+          {:else}
+            <button class="ds-button" data-variant="secondary" data-color="neutral" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
+          {/if}
           <button class="ds-button" data-variant="primary" on:click={sendForReview}>
             <span class="paper-plane">➤</span> Send for Review
           </button>

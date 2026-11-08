@@ -3,6 +3,7 @@
   import type { Draft } from './types';
   import { heightInMeters } from './types';
   import { formatShortDate, obstacleHeading, relativeDate } from '../reports/reportsData';
+  import { errorKindsLabel, errorReportHeading } from '../obstacles/errorReport';
 
   export let draft: Draft;
   export let onEdit: (draft: Draft) => void = () => {};
@@ -18,12 +19,12 @@
   aria-disabled={selectMode ? true : undefined} aria-describedby={selectMode ? unavailableHint : undefined}>
   <div class="reports-card-main">
     <div class="reports-card-top">
-      <span class="reports-card-name">{obstacleHeading(draft.category, heightInMeters(draft.heightAboveGround))}</span>
+      <span class="reports-card-name">{draft.errorReport ? errorReportHeading(draft.errorReport) : obstacleHeading(draft.category, heightInMeters(draft.heightAboveGround))}</span>
       <StatusBadge status="draft" />
     </div>
 
     <!-- The optional name; empty when the pilot gave none. -->
-    <div class="reports-card-info">{draft.title}</div>
+    <div class="reports-card-info">{draft.errorReport ? errorKindsLabel(draft.errorReport.answers.errorKinds) : draft.title}</div>
     <div class="reports-card-step">Step {draft.currentStep} of {draft.totalSteps} · {draft.stepLabel}</div>
   </div>
 

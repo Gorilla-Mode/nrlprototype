@@ -12,7 +12,7 @@
   import ErrorReportToolbar from './ErrorReportToolbar.svelte';
   import PositionCorrectionToolbar from './PositionCorrectionToolbar.svelte';
   import ErrorReportPanel from '../obstacles/ErrorReportPanel.svelte';
-  import type { ErrorReport, PositionChoice } from '../obstacles/errorReport';
+  import { emptyErrorReportAnswers, type ErrorReportAnswers, type ErrorReportRecord, type PositionChoice } from '../obstacles/errorReport';
   import { distanceM, minimumMoveM, moveParts, type GeoPosition } from '../obstacles/position';
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
@@ -23,7 +23,6 @@
   import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
   import { reportStore } from '../reports/reportStore';
   import type { ReportGeometry } from '../reports/reportGeometry';
-  import ConfirmationToast, { type ConfirmationNotice } from '../components/ConfirmationToast.svelte';
 
   import type { PlacementEditingVariantId } from './placementEditing';
   import type { EditableVertexHandle } from './createVertexEditingInteraction';
@@ -33,6 +32,7 @@
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
     selectedObstacle = $bindable<RegisteredObstacle | null>(null),
+    onerrorsave, onerrorfinish,
   }: {
     placementEditing?: PlacementEditingVariantId;
     /** Shows the task button for user-test participants. */
@@ -56,6 +56,10 @@
     accuracy?: number | null;
     /** The registered obstacle chosen for an error report; read by the report form. */
     selectedObstacle?: RegisteredObstacle | null;
+    /** Error report Save draft; the same id across saves of one report. */
+    onerrorsave?: (id: string, record: ErrorReportRecord) => void;
+    /** Error report Finish report; the same id across saves of one report. */
+    onerrorfinish?: (id: string, record: ErrorReportRecord) => void;
   } = $props();
   let mapWrapper: HTMLElement;
 
@@ -68,8 +72,9 @@
   let errorReportMode = $state(false);
   let registeredObstacles = $state.raw<RegisteredObstacle[]>([]);
   // The user's own unsent reports: drafts and Ready reports that have a location.
+  // Error reports are about obstacles already on the map, so they draw no geometry of their own.
   let reportGeometries = $derived<ReportGeometry[]>([...$reportStore.drafts, ...$reportStore.reports.filter((report) => report.status === 'ready')]
-    .flatMap(({ geometry }) => (geometry ? [geometry] : [])));
+    .flatMap(({ geometry, errorReport }) => (geometry && !errorReport ? [geometry] : [])));
   let errorCircle = $state<ScreenPoint | null>(null);
   let errorMatch = $state.raw<RegisteredObstacle | null>(null);
   let errorCirclePosition = $state.raw<GeographicVertex | null>(null);
@@ -81,7 +86,8 @@
   let pickedPosition = $derived<GeoPosition | null>(
     positionPick && errorCirclePosition ? { lng: errorCirclePosition[0], lat: errorCirclePosition[1] } : null);
   let pickedDistanceM = $derived(selectedObstacle && pickedPosition ? distanceM(selectedObstacle, pickedPosition) : 0);
-  let reportSent = $state<ConfirmationNotice | null>(null);
+  // The error report being filled in: its id and the answers the form opens with.
+  let errorSession = $state.raw<{ id: string; initial: ErrorReportAnswers } | null>(null);
   onMount(() => {
     let cancelled = false;
     void loadRegisteredObstacles().then((obstacles) => { if (!cancelled) registeredObstacles = obstacles; });
@@ -97,7 +103,15 @@
   function selectErrorObstacle() {
     const target = mapCanvas?.sampleErrorReportTarget();
     if (!target?.match) return;
+    errorSession = { id: crypto.randomUUID(), initial: emptyErrorReportAnswers };
     selectedObstacle = target.match;
+  }
+
+  /** Reopens a saved error report (draft or Ready) in the form, from the summary or Reports. */
+  export function openErrorReport(id: string, record: ErrorReportRecord) {
+    errorReportMode = true;
+    errorSession = { id, initial: record.answers };
+    selectedObstacle = record.obstacle;
   }
 
   // The toggle stays reachable while picking; turning the mode off abandons the whole report.
@@ -105,6 +119,7 @@
     if (errorReportMode) return;
     positionPick = null;
     selectedObstacle = null;
+    errorSession = null;
   });
 
   async function pickPosition({ selected, position }: { selected: boolean; position: GeoPosition | null }) {
@@ -136,6 +151,7 @@
 
   async function dismissErrorForm() {
     selectedObstacle = null;
+    errorSession = null;
     await tick();
     mapWrapper.querySelector<HTMLElement>('[data-report-error]')?.focus({ preventScroll: true });
   }
@@ -146,12 +162,15 @@
     errorPanel?.applyPosition(choice);
   }
 
-  function finishErrorReport(report: ErrorReport) {
-    // No backend yet: the console is the only consumer.
-    console.log('Error report:', report);
+  // Save draft and Finish report both leave the form and the mode; App stores and confirms.
+  function leaveErrorReport(answers: ErrorReportAnswers, done: ((id: string, record: ErrorReportRecord) => void) | undefined) {
+    if (!selectedObstacle || !errorSession) return;
+    const { id } = errorSession;
+    const record: ErrorReportRecord = { obstacle: selectedObstacle, answers };
     selectedObstacle = null;
+    errorSession = null;
     endErrorReport();
-    reportSent = { title: 'Report sent' };
+    done?.(id, record);
   }
   let mapCanvas: MapCanvas;
   let vertexHandles = $state.raw<readonly EditableVertexHandle[]>([]);
@@ -344,10 +363,11 @@
 
   </div>
 
-  {#if selectedObstacle}
-    {#key selectedObstacle.id}
-      <ErrorReportPanel bind:this={errorPanel} obstacle={selectedObstacle} hidden={!!positionPick}
-        ondismiss={dismissErrorForm} onfinish={finishErrorReport} onpickposition={pickPosition} />
+  {#if selectedObstacle && errorSession}
+    {#key errorSession.id}
+      <ErrorReportPanel bind:this={errorPanel} obstacle={selectedObstacle} initial={errorSession.initial} hidden={!!positionPick}
+        ondismiss={dismissErrorForm} onsave={(answers) => leaveErrorReport(answers, onerrorsave)}
+        onfinish={(answers) => leaveErrorReport(answers, onerrorfinish)} onpickposition={pickPosition} />
     {/key}
   {/if}
 
@@ -384,9 +404,6 @@
       {/if}
     </div>
   {/if}
-
-  <!-- The error report keeps its strip until it moves to the card design. -->
-  <ConfirmationToast notice={reportSent} appearance="strip" duration={10000} onclose={() => { reportSent = null; }} />
 
   <div class="location-status" role="status">
     {#if locationMessage}

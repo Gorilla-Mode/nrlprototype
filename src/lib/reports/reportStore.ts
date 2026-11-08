@@ -95,6 +95,7 @@ export function draftToReport(draft: Draft): Report {
     lighting: draft.lighting, pilotReportText: draft.pilotReportText,
     reportedByName: draft.reportedByName, reportedByOrg: draft.reportedByOrg,
     geometry: draft.geometry, photos: draft.photos,
+    ...(draft.errorReport ? { errorReport: draft.errorReport } : {}),
   };
 }
 
@@ -108,6 +109,7 @@ export function reportToDraft(report: Report, heightSet: boolean): Draft {
     heightAboveGround: value, lighting: report.lighting, pilotReportText: report.pilotReportText,
     reportedByName: report.reportedByName, reportedByOrg: report.reportedByOrg,
     geometry: report.geometry, photos: report.photos,
+    ...(report.errorReport ? { errorReport: report.errorReport } : {}),
   };
 }
 

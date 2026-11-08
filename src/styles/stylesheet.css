@@ -165,11 +165,6 @@
   /* Not redefined for dark themes yet; the error report keeps its design colours. */
   --color-error-report-coordinates: var(--palette-orange-600);
   --color-error-report-move: var(--palette-orange-600);
-  --color-error-report-highlight-surface: var(--palette-violet-50);
-  --color-error-report-on-highlight: var(--palette-gray-900);
-  --color-error-report-finish: var(--palette-forest-800);
-  --color-error-report-finish-hover: color-mix(in srgb, var(--palette-forest-800) 85%, var(--palette-black));
-  --color-error-report-on-accent: var(--palette-neutral-0);
 }
 
 /* 3. Light and dark themes */

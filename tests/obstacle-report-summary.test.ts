@@ -9,8 +9,9 @@ import { draft } from './helpers/reporting.js';
 
 const dialogActionsUrl = await compileSvelteComponent('src/lib/components/DialogActions.svelte');
 const dialogUrl = await compileSvelteComponent('src/lib/components/Dialog.svelte', { './DialogActions.svelte': dialogActionsUrl });
+const summaryDialogUrl = await compileSvelteComponent('src/lib/reporting/ReportSummaryDialog.svelte', { '../components/Dialog.svelte': dialogUrl });
 const summaryUrl = await compileSvelteComponent('src/lib/reporting/ObstacleReportSummary.svelte', {
-  '../components/Dialog.svelte': dialogUrl,
+  './ReportSummaryDialog.svelte': summaryDialogUrl,
   // The location editor renders only after its pencil is pressed, which SSR cannot do.
   '../map/LocationEditor.svelte': 'data:text/javascript,export default function LocationEditor() {}',
   './obstacle': new URL('../src/lib/reporting/obstacle.js', import.meta.url).href,

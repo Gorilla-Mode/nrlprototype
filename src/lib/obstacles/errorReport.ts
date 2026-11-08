@@ -1,5 +1,5 @@
 import type { RegisteredObstacle } from './registeredObstacles.js';
-import type { GeoPosition } from './position.js';
+import { describeMove, type GeoPosition } from './position.js';
 
 export type ErrorKind = 'does-not-exist' | 'wrong-position' | 'wrong-height' | 'wrong-lighting';
 
@@ -112,4 +112,56 @@ export function buildErrorReport(obstacle: RegisteredObstacle, input: ErrorRepor
 
 export function formatCoordinates({ lat, lng }: Pick<RegisteredObstacle, 'lat' | 'lng'>): string {
   return `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? 'E' : 'W'}`;
+}
+
+/** The answers as stored: plain data, so a draft or Ready report can be reopened in the form. */
+export interface ErrorReportAnswers {
+  errorKinds: ErrorKind[];
+  actualHeightM: number | null;
+  correctedPosition: GeoPosition | null;
+  description: string;
+}
+
+/**
+ * An error report as Reports stores it: the registered obstacle as it was when reported, and
+ * the answers. What is sent is still buildErrorReport(obstacle, answers).
+ */
+export interface ErrorReportRecord {
+  obstacle: RegisteredObstacle;
+  answers: ErrorReportAnswers;
+}
+
+export const emptyErrorReportAnswers: ErrorReportAnswers = { errorKinds: [], actualHeightM: null, correctedPosition: null, description: '' };
+
+/** The obstacle's name, or its type when it has none. */
+export function registeredObstacleLabel(obstacle: RegisteredObstacle): string {
+  return obstacle.name ?? obstacle.type;
+}
+
+/** Card and page heading; says it is an error report, not a new obstacle. */
+export function errorReportHeading({ obstacle }: ErrorReportRecord): string {
+  return `Error report · ${registeredObstacleLabel(obstacle)}`;
+}
+
+/** "Wrong height, Wrong lighting", in choice order; "Described below" when only a description says it. */
+export function errorKindsLabel(kinds: readonly ErrorKind[]): string {
+  const labels = errorKindChoices.filter(({ kind }) => kinds.includes(kind)).map(({ label }) => label);
+  return labels.length ? labels.join(', ') : 'Described below';
+}
+
+/** One row per answer, in the order the form asks; shared by the summary and the detail page. */
+export function errorReportRows({ obstacle, answers }: ErrorReportRecord): { key: 'obstacle' | 'kinds' | 'height' | 'lighting' | 'position' | 'description'; label: string; value: string }[] {
+  const kinds = answers.errorKinds;
+  const height = kinds.includes('wrong-height') && isValidHeight(answers.actualHeightM)
+    ? `${answers.actualHeightM} m (registered ${obstacle.heightM} m)` : 'Not reported';
+  const position = !kinds.includes('wrong-position') ? 'Not reported'
+    : answers.correctedPosition ? `${describeMove(obstacle, answers.correctedPosition)} · ${formatCoordinates(answers.correctedPosition)}` : 'Position not specified';
+  return [
+    { key: 'obstacle', label: 'Obstacle', value: `${registeredObstacleLabel(obstacle)} · ID ${obstacle.id}` },
+    { key: 'kinds', label: 'What is wrong', value: errorKindsLabel(kinds) },
+    { key: 'height', label: 'Actual height', value: height },
+    { key: 'lighting', label: 'Lighting', value: kinds.includes('wrong-lighting') ? describeLightingCorrection(obstacle.lit) : 'Not reported' },
+    { key: 'position', label: 'Position', value: position },
+    { key: 'description', label: 'Description', value: answers.description.trim() || 'Not added' },
+  ];
 }

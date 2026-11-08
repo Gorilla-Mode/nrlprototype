@@ -19,6 +19,9 @@
   import { reportingVariants } from './lib/reporting/reportingVariants';
   import ReportingDebug from './lib/reporting/ReportingDebug.svelte';
   import ObstacleReportSummary from './lib/reporting/ObstacleReportSummary.svelte';
+  import ReportSummaryDialog, { type SummaryRow } from './lib/reporting/ReportSummaryDialog.svelte';
+  import { errorReportRows, type ErrorReportRecord } from './lib/obstacles/errorReport';
+  import { deliverErrorReport, errorReportToDraft, errorReportToReport } from './lib/reports/errorReportRecords';
   import StatusBadge from './lib/reports/StatusBadge.svelte';
   import Dialog from './lib/components/Dialog.svelte';
   import ConfirmationToast, { type ConfirmationNotice } from './lib/components/ConfirmationToast.svelte';
@@ -83,7 +86,9 @@
   let notificationsOpen = $derived(isNotificationsHash(hash));
   let settingsSection = $derived(settingsSectionFromHash(hash));
   let pageOpen = $derived(guideOpen || faqOpen || reportsOpen || notificationsOpen || settingsSection !== null);
-  let reportOpen = $derived(details.open || details.summaryOpen);
+  // A finished error report's summary; the report is already saved as Ready.
+  let errorSummary = $state.raw<{ id: string; record: ErrorReportRecord } | null>(null);
+  let reportOpen = $derived(details.open || details.summaryOpen || errorSummary !== null);
   let menuOpen = $state(false);
   let menuWasOpen = false;
   let opacity = $state(0);
@@ -154,6 +159,11 @@
       openReportId = page.openReportId ?? null;
       reportsFilter = page.filter ?? 'all';
       openPage(page.hash);
+    }
+    if (pendingErrorEdit && !pageOpen) {
+      const edit = pendingErrorEdit;
+      pendingErrorEdit = null;
+      void tick().then(() => homeMap?.openErrorReport(edit.id, edit.record));
     }
     if (pendingCamera && !pageOpen) {
       const target = pendingCamera;
@@ -253,13 +263,11 @@
     if (details.result?.report.id === result.report.id) detailsController.setResultGeometry(geometry);
   }
 
-  // The report is already saved as Ready; sending submits it. A failed send leaves it Ready.
-  function sendSummaryReport() {
-    const id = details.result?.report.id;
-    returnFocus = null;
-    closeSummary();
+  // Sends a saved Ready report and confirms it on the map; a failed send leaves it Ready.
+  function confirmSent(id: string | undefined) {
     const sent = id ? reportStore.submitReport(id) : undefined;
     if (!sent) { summaryOutcome = { kind: 'failed' }; return; }
+    deliverErrorReport(sent);
     mapNotice = {
       title: 'Report sent',
       description: "Kartverket will review it. You'll be notified when it's registered.",
@@ -273,20 +281,75 @@
     if (!history.state?.nrlDetailsDepth) syncRoute();
   }
 
-  // Save and continue: the report stays saved, not sent; back on the map, a confirmation says where.
-  function continueFromSummary() {
+  function sendSummaryReport() {
     const id = details.result?.report.id;
     returnFocus = null;
     closeSummary();
+    confirmSent(id);
+  }
+
+  // The report stays saved, not sent; back on the map, a confirmation names its status and where it is.
+  function confirmSaved(id: string | undefined) {
     const { reports, drafts } = reportStore.getState();
     const status = reports.some((report) => report.id === id) ? 'ready' : drafts.some((draft) => draft.id === id) ? 'draft' : null;
     if (!id || !status) return;
     savedStatus = status;
     mapNotice = {
       title: 'Report saved',
+      // Saved, not sent: a waiting clock, not the sent check.
+      icon: 'pending',
       description: savedDescription,
       action: { label: 'View report', onclick: () => viewReport(id, status) },
     };
+  }
+
+  function continueFromSummary() {
+    const id = details.result?.report.id;
+    returnFocus = null;
+    closeSummary();
+    confirmSaved(id);
+  }
+
+  // Error reports: the same Draft and Ready records, summary and confirmations as new obstacles.
+  function saveErrorDraft(id: string, record: ErrorReportRecord) {
+    if (reportStore.saveDraft(errorReportToDraft(id, record, { existing: storedRecord(id) }))) confirmSaved(id);
+  }
+
+  function finishErrorReport(id: string, record: ErrorReportRecord) {
+    if (reportStore.markReady(errorReportToReport(id, record, { existing: storedRecord(id) }))) errorSummary = { id, record };
+  }
+
+  // Every answer is edited in the error form; the obstacle itself is not an answer.
+  let errorSummaryRows = $derived<SummaryRow[]>(errorSummary
+    ? errorReportRows(errorSummary.record).map((row) => ({ ...row, edit: row.key === 'obstacle' ? undefined : { onclick: editErrorSummary } }))
+    : []);
+
+  function editErrorSummary() {
+    const summary = errorSummary;
+    errorSummary = null;
+    if (summary) homeMap.openErrorReport(summary.id, summary.record);
+  }
+
+  function leaveErrorSummary(next: (id: string | undefined) => void) {
+    const id = errorSummary?.id;
+    errorSummary = null;
+    returnFocus = null;
+    next(id);
+  }
+
+  function closeErrorSummary() {
+    errorSummary = null;
+    restoreMapFocus();
+  }
+
+  // Edit draft / Edit report on an error report in Reports: back to the map, into the error form.
+  let pendingErrorEdit: { id: string; record: ErrorReportRecord } | null = null;
+  function editStoredErrorReport(id: string) {
+    const { drafts, reports } = reportStore.getState();
+    const record = (drafts.find((draft) => draft.id === id) ?? reports.find((report) => report.id === id))?.errorReport;
+    if (!record) return;
+    pendingErrorEdit = { id, record };
+    backToMap();
   }
 
   function outcomeToMap() {
@@ -345,7 +408,9 @@
   <ReportingDebug variants={reportingVariants} selectedId={reporting.variant.id} onchange={selectReportingVariant} {placementEditing} onplacementchange={selectPlacementEditing} />
 {/snippet}
 
-<div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || reportOpen} aria-hidden={pageOpen || reportOpen}>
+<!-- A press anywhere on the map dismisses its confirmation; the toast sits outside this element. -->
+<div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || reportOpen} aria-hidden={pageOpen || reportOpen}
+  onpointerdown={() => { mapNotice = null; }}>
   <HomeMap bind:this={homeMap} bind:menuOpen bind:opacity bind:isGrayscale={grayscale}
     {placementEditing} {userTest}
     bind:geolocationState={locationState} bind:locationMessage bind:accuracy
@@ -354,7 +419,8 @@
     debugContent={reporting.debug ? reportingDebug : undefined}
     onreportstart={() => detailsController.start(reporting.variant)}
     oncomplete={openDetails} onresumedetails={details.draft ? () => openDetails() : undefined}
-    onselectiondelete={() => detailsController.clear()} />
+    onselectiondelete={() => detailsController.clear()}
+    onerrorsave={saveErrorDraft} onerrorfinish={finishErrorReport} />
 </div>
 {#if details.draft && details.variant && ActiveReportingView}
   {#key details.draft.report.id}
@@ -374,6 +440,10 @@
 {:else if !details.open && details.error}
   <p class="details-error" role="alert">{details.error}</p>
 {/if}
+{#if errorSummary}
+  <ReportSummaryDialog title="Error report saved – not sent yet" rows={errorSummaryRows}
+    oncontinue={() => leaveErrorSummary(confirmSaved)} onsend={() => leaveErrorSummary(confirmSent)} onclose={closeErrorSummary} />
+{/if}
 {#snippet savedDescription()}Saved as <StatusBadge status={savedStatus} />. You can find it in Reports.{/snippet}
 {#if summaryOutcome?.kind === 'failed'}
   <!-- Instead of a confirmation: the message is the alert's description, so the body stays empty. -->
@@ -385,7 +455,8 @@
 <ConfirmationToast notice={mapNotice} onclose={() => { mapNotice = null; }} />
 {#if guideOpen}<ReportObstacleGuide onback={backToMap} />{/if}
 {#if faqOpen}<FaqPage onback={backToMap} onguide={() => openPage(reportingGuideRoute)} />{/if}
-{#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} highlightId={highlightReportId} openId={openReportId} filter={reportsFilter} />{/if}
+{#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} highlightId={highlightReportId} openId={openReportId} filter={reportsFilter}
+  onediterrorreport={editStoredErrorReport} />{/if}
 {#if notificationsOpen}
   <NotificationsPage {notifications} onback={backToMap} onmarkallread={() => { notifications = markAllRead(notifications); }} />
 {/if}
