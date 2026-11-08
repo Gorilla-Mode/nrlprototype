@@ -58,6 +58,15 @@ is inert but remains alive. When leaving it, stop active camera movement and pre
 callbacks from recentering an inert map; location observation itself may continue.
 Unsupported routes must fall back safely without inventing pages or persisted state.
 
+`#/reports/{id}/edit` opens the Reports page with the edit page (`DraftDetailPage`) for that
+draft, or for that Ready report opened as a draft with `reportToDraft`. Reloads, back and
+direct links work. An id that cannot be edited (sent, error report or unknown) falls back
+to the list. App guards unsaved edits on the back arrow, Escape and browser back/forward:
+it restores the edit route and asks "You have unsaved changes. Leave without saving?".
+`beforeunload` covers reloads. Saving uses the same store calls as before: complete →
+`markReady`, otherwise `saveDraft`; Send → `markReady` + `submitReport`.
+`missingDraftFields` decides Draft or Ready to send.
+
 ## Reporting variants
 
 `src/lib/reporting/reportingVariants.ts` registers each reporting view with its ID,
@@ -110,7 +119,12 @@ one-argument Finish callbacks remain compatible. `onContinue` is an intermediate
 All views use canonical metres, the same six obstacle types, and original photo files.
 Other alone includes custom type.
 
-Close and successful Save Draft return to the map with Resume details. Delete discards
+Close returns to the map with Resume details. A successful Save Draft instead ends the
+drawing session, as Finish does: the selection and Resume details are cleared, and the
+draft shows as an ordinary report marker. It confirms with Draft saved: not sent, any
+`missingDetailsFields` (the same check as `completePayload`), and View drafts. View drafts
+opens Reports on Drafts with that draft first and marked by its id. A draft without a
+chosen type keeps `typeMissing`, so its card reads Untitled obstacle, not Other. Delete discards
 the active draft. Save Draft stores a draft and Finish stores a Ready ("Ready to send") report
 in the report store; nothing is sent automatically. Finish clears the map selection and
 opens the shared result summary. Its edit actions reopen the step holding a value with

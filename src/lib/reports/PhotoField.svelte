@@ -10,9 +10,11 @@
     editable: boolean;
     /** Report or draft name, used in labels and the viewer title. */
     label: string;
+    /** "Optional" in the caption; off where the section heading already says it. */
+    showOptional?: boolean;
   }
 
-  let { photos = $bindable(), editable, label }: Props = $props();
+  let { photos = $bindable(), editable, label, showOptional = true }: Props = $props();
 
   // Same glyphs as "Take photo" in the reporting panel and the app's close buttons.
   const cameraIcon = 'M4 8h3l2-2h6l2 2h3v11H4ZM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z';
@@ -28,8 +30,8 @@
 
   let caption = $derived.by(() => {
     if (busy) return 'Adding photo…';
-    if (!photos.length) return 'Optional';
-    if (editable) return `${photos.length} of ${maxPhotos} · Optional`;
+    if (!photos.length) return showOptional ? 'Optional' : '';
+    if (editable) return `${photos.length} of ${maxPhotos}${showOptional ? ' · Optional' : ''}`;
     return `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}`;
   });
 

@@ -29,6 +29,8 @@ export type Draft = {
   photos: ReportPhoto[];
   /** Set for an error report on a registered obstacle; absent for a new obstacle. */
   errorReport?: ErrorReportRecord;
+  /** True when no obstacle type was chosen; `category` then holds Other only as a placeholder. */
+  typeMissing?: boolean;
 };
 
 /** Whether the obstacle is lit. Optional: pilots cannot always tell. */

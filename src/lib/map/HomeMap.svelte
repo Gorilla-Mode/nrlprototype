@@ -32,7 +32,7 @@
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
     selectedObstacle = $bindable<RegisteredObstacle | null>(null),
-    onerrorsave, onerrorfinish,
+    onerrorsave, onerrorfinish, reportsHighlight = false,
   }: {
     placementEditing?: PlacementEditingVariantId;
     /** Shows the task button for user-test participants. */
@@ -60,6 +60,8 @@
     onerrorsave?: (id: string, record: ErrorReportRecord) => void;
     /** Error report Finish report; the same id across saves of one report. */
     onerrorfinish?: (id: string, record: ErrorReportRecord) => void;
+    /** Briefly marks the Reports button, where a just-saved draft went. */
+    reportsHighlight?: boolean;
   } = $props();
   let mapWrapper: HTMLElement;
 
@@ -340,6 +342,7 @@
     oncomplete={() => mapCanvas?.completeDrawing()}
     {onresumedetails}
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
+    {reportsHighlight}
   />
 
   <div class:covered={isLayerFadeOpen} inert={isLayerFadeOpen}>

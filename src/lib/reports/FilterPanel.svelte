@@ -10,7 +10,8 @@
     ondismiss: () => void;
   } = $props();
 
-  const geometryOptions: GeometryKey[] = ['Point', 'Line'];
+  // The same names as the drawing tool's geometry choices.
+  const geometryOptions: GeometryKey[] = ['Point', 'Line', 'Polygon'];
   const heightOptions: { key: HeightFilterKey; label: string }[] = [
     { key: 'any', label: 'Any height' },
     { key: 'under30', label: 'Under 30 m' },

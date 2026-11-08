@@ -1254,10 +1254,15 @@ button {
   --confirmation-toast-success: var(--palette-green-600);
   --confirmation-toast-on-success: var(--palette-neutral-0);
   --confirmation-toast-motion: var(--duration-deliberate);
+  /* The report edit page's location map: tall enough to see where the obstacle is. */
+  --report-edit-map-height: 20rem;
+  /* The Reports button's ring while a draft confirmation shows. */
+  --reports-highlight-duration: 1.6s;
+  --reports-highlight-ring: 3px;
 }
 :root {
   --report-sent-highlight-duration: 1.5s;
-  --report-saved-highlight-duration: 2s;
+  --report-saved-highlight-duration: 3s;
 }
 .report-sent-name { color: var(--color-text-primary); font-size: var(--font-size-body); }
 .report-sent-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
@@ -1319,9 +1324,15 @@ button {
 .reports-card-just-sent { animation: reports-just-sent var(--report-sent-highlight-duration) var(--ease-standard); }
 @keyframes reports-just-sent { from { background: var(--color-status-success-surface); } to { background: var(--color-background-raised); } }
 /* Reduced motion: the tint holds, then ends in one step instead of fading. */
-/* A report just saved from the reporting flow fades from the same tint. */
-.reports-card-just-saved { animation: reports-just-sent var(--report-saved-highlight-duration) var(--ease-standard); }
+/* A report or draft just saved from the reporting flow: the selected blue with a blue ring
+   (well over 3:1 against the card), held, then faded. Blue, as saved is not sent or approved. */
+.reports-card-just-saved { animation: reports-just-saved var(--report-saved-highlight-duration) var(--ease-standard); }
+@keyframes reports-just-saved {
+  0%, 60% { background: var(--color-action-selected); border-color: var(--color-action-secondary); box-shadow: inset 0 0 0 var(--border-width-emphasis) var(--color-action-secondary), var(--shadow-surface); }
+  100% { background: var(--color-background-raised); border-color: var(--color-border-default); box-shadow: var(--shadow-surface); }
+}
 @media (prefers-reduced-motion: reduce) { .reports-card-just-sent, .reports-card-just-saved { animation-timing-function: steps(1, end); } }
+.reports-card-untitled { color: var(--color-text-secondary); }
 
 /* 29. Full-screen pages: Reports, report and draft details, FAQ, Settings, Notifications and
    the reporting guide share one scroll surface, header (PageHeader), width, gutter and type. */

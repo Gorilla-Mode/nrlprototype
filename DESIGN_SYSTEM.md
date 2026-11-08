@@ -74,7 +74,10 @@ below `ds`, so they never undo a Designsystemet component.
     The `icon` is `success`, a green check in a circle (`--confirmation-toast-success`),
     only for a report that was actually sent. Otherwise it is `pending`, a clock
     (`ClockIcon`) in the Ready to send tag's grey (`--color-status-ready` on its
-    `-surface`), for a report that was saved but not sent.
+    `-surface`), for a report that was saved but not sent. `draft` is a pencil
+    (`PencilIcon`) in the same grey, for Save draft. While the draft confirmation shows,
+    the Reports map button pulses a blue ring for `--reports-highlight-duration`. Under
+    reduced motion the ring stays static instead.
     The action is a blue link-style button under the text (`--color-action-secondary`).
     `description` may be a snippet when part of it is styled. For example, Report saved
     names the status with its `StatusBadge`, so the status looks the same as in Reports.
@@ -96,6 +99,9 @@ below `ds`, so they never undo a Designsystemet component.
   m/ft toggle and keypad, selected blue, and Save draft beside the green Finish report.
   Reports labels error reports `Error report · <obstacle>` on cards and detail pages, with
   the same statuses as other reports.
+- A card just saved from the reporting flow (`reports-card-just-saved`) holds the selected
+  blue with a blue inset ring, then fades over `--report-saved-highlight-duration` (3 s).
+  Under reduced motion it holds, then ends in one step.
 - The map toolbars and the reporting forms keep their own controls: they are fixed
   user-test layouts over the map.
 
@@ -105,6 +111,29 @@ reporting guide) share `PageHeader`: ← and the page title on the left as one b
 stays the page's h1), optional actions on the right, on one width, gutter and type scale (`--page-*` tokens). A page never has
 both ← and X; X belongs only to dialogs, drawers and popups over a page. In the guide,
 ← goes to the previous step and, from the first step, back to the previous page.
+
+The report edit page keeps its card layout, with no subtitle and no geometry caption
+under Type.
+- Under the title, one muted line from the report: Reported by name · organisation ·
+  Created date · Last edited (time today, otherwise date), in `<time>` elements.
+- Three cards come first: Type, Height above ground and Lighting, a labelled list of
+  Yes, lit / No, not lit / Unknown. They stack on phones.
+  - Labels are sentence-case `<label>`s, body size, semibold, primary colour.
+  - The fields share height (`--control-height-default`), frame, radius and padding, with
+    body-size regular text.
+  - The lists use our own chevron, inset like the height field's "m".
+  - Help text is body-small, secondary, under the field.
+  - A missing required value turns the field's own frame red and adds "Required to
+    send" with a warning icon, linked with `aria-describedby` and `aria-invalid`.
+- Next comes Description and photo (optional): a framed description (`--border-strong`)
+  about three lines tall that grows as it fills, with Add photo below it.
+- Last is Location in full width, with a `--report-edit-map-height` map, Edit location and
+  e.g. "Point · 60.3913° N, 5.3221° E".
+
+Send for Review is the blue primary
+(`data-color="brand1"`), an exception asked for on this page only. Its note sits
+right-aligned beside it. The Reports geometry filter offers Point, Line and Polygon, the
+drawing tool's names.
 
 ## Map-specific decisions
 

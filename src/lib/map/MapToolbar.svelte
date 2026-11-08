@@ -7,9 +7,11 @@
   import type { ObstacleGeometryType } from '../reporting/obstacle';
   import type { CrosshairDrawingState } from './createMapDrawingInteraction';
 
-  let { drawing, crosshairState, onedit, onplace, oncanceledit, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), selectionControlsCovered = false, showSelectionControls = true, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, menuOpen }: {
+  let { drawing, crosshairState, onedit, onplace, oncanceledit, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), selectionControlsCovered = false, showSelectionControls = true, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, menuOpen, reportsHighlight = false }: {
     onmenu: () => void;
     onreports: () => void;
+    /** A short ring on Reports, where a just-saved draft went; static under reduced motion. */
+    reportsHighlight?: boolean;
     menuOpen: boolean;
     drawing: DrawingState;
     crosshairState?: CrosshairDrawingState;
@@ -34,7 +36,7 @@
 <div class="map-toolbar" role="group" aria-label="Map tools">
   <SearchBar onselect={onsearchselect} />
 
-  <MapButton type="button" aria-label="Reports" onclick={onreports}>
+  <MapButton type="button" aria-label="Reports" class={reportsHighlight ? 'reports-highlight' : undefined} onclick={onreports}>
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M13 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9l-6-6Z" />
       <path d="M13 3v6h6M8.5 13h7M8.5 16.5h7M8.5 9h1" />
@@ -57,6 +59,21 @@
 
 <style>
   .covered { visibility: hidden; }
+  /* A blue ring, not a status: it only points at where the draft went. Layout never changes. */
+  .map-toolbar :global(.reports-highlight) {
+    animation: reports-highlight var(--reports-highlight-duration) var(--ease-standard) 1;
+  }
+  @keyframes reports-highlight {
+    0%, 100% { box-shadow: 0 0 0 0 transparent, var(--shadow-control); }
+    30%, 60% { box-shadow: 0 0 0 var(--reports-highlight-ring) var(--color-action-secondary), var(--shadow-control); }
+  }
+  /* Without motion, the ring stays while the draft confirmation is shown. */
+  @media (prefers-reduced-motion: reduce) {
+    .map-toolbar :global(.reports-highlight) {
+      animation: none;
+      box-shadow: 0 0 0 var(--reports-highlight-ring) var(--color-action-secondary), var(--shadow-control);
+    }
+  }
 
   .map-toolbar {
     position: absolute;

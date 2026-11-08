@@ -23,6 +23,8 @@
   export let onshowonmap: ((target: GeometryCameraTarget) => void) | undefined = undefined;
   /** An error report is edited in the error form on the map, not on this page. */
   export let onediterror: ((id: string) => void) | undefined = undefined;
+  /** A Ready report is edited on its edit page (#/reports/{id}/edit). */
+  export let onedit: ((id: string) => void) | undefined = undefined;
 
   let editing = false;
 
@@ -313,7 +315,7 @@
           {#if errorRecord}
             <button class="ds-button" data-variant="secondary" data-color="neutral" on:click={() => onediterror?.(report.id)}>Edit report</button>
           {:else}
-            <button class="ds-button" data-variant="secondary" data-color="neutral" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
+            <button class="ds-button" data-variant="secondary" data-color="neutral" on:click={() => (onedit ? onedit(report.id) : toggleEditing())}>{editing ? 'Done editing' : 'Edit report'}</button>
           {/if}
           <button class="ds-button" data-variant="primary" on:click={sendForReview}>
             <span class="paper-plane">➤</span> Send for Review

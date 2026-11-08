@@ -29,6 +29,7 @@ export function detailsToDraft(payload: DetailsPayload, context: DetailsRecordCo
     heightAboveGround: value, lighting: lightingByIllumination[payload.illumination],
     pilotReportText: payload.description, ...reporter,
     geometry: payload.obstacle_position, photos: context.photos,
+    ...(payload.type ? {} : { typeMissing: true }),
   };
 }
 

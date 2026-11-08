@@ -9,8 +9,9 @@
     /**
      * Icon in a circle. success: green check, for a report actually sent (default).
      * pending: grey clock in the Ready to send tag colours, for a report saved but not sent.
+     * draft: grey pencil in the same neutral colours (also the Draft tag's), for a saved draft.
      */
-    icon?: 'success' | 'pending';
+    icon?: 'success' | 'pending' | 'draft';
     /** Optional link-styled follow-up under the text, e.g. View report. */
     action?: { label: string; onclick: () => void };
   }
@@ -20,6 +21,7 @@
   import { onMount } from 'svelte';
   import { fly } from 'svelte/transition';
   import ClockIcon from '../icons/ClockIcon.svelte';
+  import PencilIcon from '../icons/PencilIcon.svelte';
   import { confirmationDurationMs } from './confirmationDuration';
 
   interface Props {
@@ -114,6 +116,8 @@
       <span class="confirmation-toast-icon" data-icon={notice.icon ?? 'success'} aria-hidden="true">
         {#if notice.icon === 'pending'}
           <svg viewBox="0 0 24 24" fill="none"><ClockIcon /></svg>
+        {:else if notice.icon === 'draft'}
+          <svg viewBox="0 0 24 24" fill="none"><PencilIcon /></svg>
         {:else}
           <svg viewBox="0 0 24 24" fill="none"><path d="M6.5 12.5 10.5 16.5 17.5 8" /></svg>
         {/if}
@@ -205,6 +209,6 @@
   }
   .confirmation-toast-icon svg { width: var(--icon-size-small); height: var(--icon-size-small); stroke-width: calc(var(--icon-stroke-width) + 0.75); }
   /* Waiting, not done: the Ready to send tag's neutral grey, never the sent green. */
-  .confirmation-toast-icon[data-icon='pending'] { background: var(--color-status-ready-surface); color: var(--color-status-ready); }
-  .confirmation-toast-icon[data-icon='pending'] svg { stroke-width: var(--icon-stroke-width); }
+  .confirmation-toast-icon:is([data-icon='pending'], [data-icon='draft']) { background: var(--color-status-ready-surface); color: var(--color-status-ready); }
+  .confirmation-toast-icon:is([data-icon='pending'], [data-icon='draft']) svg { stroke-width: var(--icon-stroke-width); }
 </style>

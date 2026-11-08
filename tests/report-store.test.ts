@@ -185,6 +185,8 @@ test('a map form draft records its step, height and geometry, and has no name un
 
   const untyped = detailsToDraft(payload({ height: null }), { step: 1, totalSteps: 1, photos: [], existing: { name: 'Kept', createdAt: '2026-10-01T12:00:00' } });
   assert.equal(untyped.category, ObstacleType.Other);
+  assert.equal(untyped.typeMissing, true);
+  assert.equal(draft.typeMissing, undefined);
   assert.equal(untyped.heightAboveGround, 'Not set');
   assert.equal(untyped.title, 'Kept');
   assert.equal(untyped.createdAt, '2026-10-01T12:00:00');

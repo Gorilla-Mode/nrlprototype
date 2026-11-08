@@ -4,11 +4,12 @@ import { createRawSnippet, type Component, type Snippet } from 'svelte';
 import { render } from 'svelte/server';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
 
-type Notice = { title: string; description?: string | Snippet; icon?: 'success' | 'pending'; action?: { label: string; onclick: () => void } };
+type Notice = { title: string; description?: string | Snippet; icon?: 'success' | 'pending' | 'draft'; action?: { label: string; onclick: () => void } };
 type Props = { notice: Notice | null; onclose: () => void; duration?: number };
 const url = await compileSvelteComponent('src/lib/components/ConfirmationToast.svelte', {
   'svelte/transition': import.meta.resolve('svelte/transition'),
   '../icons/ClockIcon.svelte': await compileSvelteComponent('src/lib/icons/ClockIcon.svelte'),
+  '../icons/PencilIcon.svelte': await compileSvelteComponent('src/lib/icons/PencilIcon.svelte'),
   './confirmationDuration': new URL('../src/lib/components/confirmationDuration.js', import.meta.url).href,
 });
 const { default: ConfirmationToast } = await import(url) as { default: Component<Props> };
@@ -50,4 +51,12 @@ test('pending shows a clock, not the sent check; success keeps the check', () =>
   assert.doesNotMatch(pending, /M6\.5 12\.5 10\.5 16\.5 17\.5 8/);
   const sent = render(ConfirmationToast, { props: { notice: { title: 'Report sent' }, onclose: noop } }).body;
   assert.match(sent, /data-icon="success"[^>]*>(<!--[^>]*-->)?<svg[^>]*><path d="M6\.5 12\.5 10\.5 16\.5 17\.5 8"/);
+});
+
+test('a saved draft shows a grey pencil, its title and Open draft, never the sent check', () => {
+  const html = render(ConfirmationToast, { props: { notice: { title: 'Draft saved', icon: 'draft', description: "Your report is saved as a draft and hasn't been sent.", action: { label: 'Open draft', onclick: noop } }, onclose: noop } }).body;
+  assert.match(html, /data-icon="draft"[^>]*>(<!--[^>]*-->)?<svg[^>]*><path d="M4 20h4L19 9l-4-4L4 16v4ZM13\.5 6\.5l4 4"/);
+  assert.doesNotMatch(html, /M6\.5 12\.5 10\.5 16\.5 17\.5 8/);
+  assert.match(html, />Draft saved<\/p>/);
+  assert.match(html, />Open draft<\/button>/);
 });

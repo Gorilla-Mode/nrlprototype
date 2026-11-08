@@ -8,13 +8,13 @@
   import NotificationsPage from './lib/notifications/NotificationsPage.svelte';
   import SettingsPage from './lib/settings/SettingsPage.svelte';
   import { settingsSectionFromHash, type SettingsSection, type LanguagePreference } from './lib/settings/settings';
-  import { isReportsHash, reportsRoute } from './lib/reports/reports';
+  import { isReportsHash, reportEditIdFromHash, reportEditRoute, reportsRoute } from './lib/reports/reports';
   import { isNotificationsHash, markAllRead, notificationsRoute, sampleNotifications, type ReportStatusNotification } from './lib/notifications/notifications';
   import type { GeolocationState } from './lib/map/createGeolocationController';
   import type { CameraTarget } from './lib/map/createMapController';
   import { reportingGuideRoute } from './lib/map/tutorial';
   import ReportObstacleGuide from './lib/map/ReportObstacleGuide.svelte';
-  import { createDetailsController, initialDetailsState, type DetailsHooks, type DetailsState } from './lib/reporting/createDetailsController';
+  import { createDetailsController, initialDetailsState, missingDetailsFields, type DetailsHooks, type DetailsState } from './lib/reporting/createDetailsController';
   import { reportingSettings, reportingVariantUrl, resolveReportingRoute, summaryRoute } from './lib/reporting/reporting';
   import { reportingVariants } from './lib/reporting/reportingVariants';
   import ReportingDebug from './lib/reporting/ReportingDebug.svelte';
@@ -82,7 +82,12 @@
   let guideOpen = $derived(hash === reportingGuideRoute);
   let ActiveReportingView = $derived(reportingVariants.find(({ id }) => id === details.variant?.id)?.component);
   let faqOpen = $derived(hash === '#/FAQ');
-  let reportsOpen = $derived(isReportsHash(hash));
+  // #/reports/{id}/edit: the Reports page with that draft's or Ready report's edit page open.
+  let reportEditId = $derived(reportEditIdFromHash(hash));
+  let reportsOpen = $derived(isReportsHash(hash) || reportEditId !== null);
+  // Unsaved edits on the edit page, and the question asked before leaving them.
+  let editDirty = $state(false);
+  let leaveEdit = $state.raw<(() => void) | null>(null);
   let notificationsOpen = $derived(isNotificationsHash(hash));
   let settingsSection = $derived(settingsSectionFromHash(hash));
   let pageOpen = $derived(guideOpen || faqOpen || reportsOpen || notificationsOpen || settingsSection !== null);
@@ -113,6 +118,10 @@
   let summaryOutcome = $state.raw<{ kind: 'failed' } | null>(null);
   // Report sent or saved: confirmed at the bottom of the map, with a link to that report.
   let mapNotice = $state.raw<ConfirmationNotice | null>(null);
+  // Required fields a just-saved draft still lacks, from the same check as Ready to send.
+  let draftMissing = $state<string[]>([]);
+  // While the draft confirmation shows, the Reports button is highlighted: that is where it went.
+  let reportsHighlight = $derived(mapNotice?.icon === 'draft');
   // The saved report's status, named and styled by its tag in the saved confirmation.
   let savedStatus = $state<'ready' | 'draft'>('ready');
   // A map confirmation never floats over a page or report form opened after it.
@@ -127,6 +136,14 @@
   }
 
   function syncRoute() {
+    // Browser back/forward or a typed address away from an edit page with unsaved changes:
+    // put the edit page back and ask first.
+    const editing = reportEditIdFromHash(hash);
+    if (editDirty && editing !== null && reportEditIdFromHash(window.location.hash) !== editing) {
+      history.pushState({ nrlEditEntry: true }, '', reportEditRoute(editing));
+      leaveEdit = () => { editDirty = false; history.back(); };
+      return;
+    }
     const wasPageOpen = pageOpen;
     const wasReportOpen = reportOpen || hash.startsWith('#/Report/');
     hash = window.location.hash;
@@ -205,8 +222,24 @@
     }
   }
 
+  // Save draft: back on the map, a confirmation says it is a draft, not sent, what is missing and where it is.
   async function saveDetails() {
-    if (await detailsController.saveAndDismiss()) closeDetails();
+    const draft = details.draft;
+    if (!await detailsController.saveAndDismiss()) return;
+    closeDetails();
+    // The draft is stored: end the drawing session like Finish does, so no selection or
+    // Resume details remains and the draft shows as an ordinary report marker.
+    homeMap.clearSelection();
+    detailsController.clear();
+    if (!draft) return;
+    const id = draft.report.id;
+    draftMissing = missingDetailsFields(draft);
+    mapNotice = {
+      title: 'Draft saved',
+      icon: 'draft',
+      description: draftDescription,
+      action: { label: 'View drafts', onclick: () => showInReports(id, 'draft') },
+    };
   }
 
   async function continueDetails() {
@@ -273,6 +306,12 @@
       description: "Kartverket will review it. You'll be notified when it's registered.",
       action: { label: 'View report', onclick: () => viewReport(sent.id, 'sent') },
     };
+  }
+
+  // Opens Reports on a tab with this item first and highlighted, without opening it.
+  function showInReports(id: string, filter: StatusTabKey) {
+    pendingPage = { hash: reportsRoute, highlightReportId: id, openReportId: null, filter };
+    if (!history.state?.nrlDetailsDepth) syncRoute();
   }
 
   // Opens a report's or draft's detail page by its id, over its status tab.
@@ -364,6 +403,40 @@
     if (!history.state?.nrlDetailsDepth) syncRoute();
   }
 
+  function openReportEdit(id: string) {
+    history.pushState({ ...history.state, nrlEditEntry: true }, '', reportEditRoute(id));
+    syncRoute();
+  }
+
+  // Back to the list: the entry before the edit page, or the list itself after a direct link.
+  function exitReportEdit(saved: boolean) {
+    if (!saved && editDirty) {
+      leaveEdit = () => exitReportEdit(true);
+      return;
+    }
+    editDirty = false;
+    if (history.state?.nrlEditEntry) history.back();
+    else {
+      history.replaceState(history.state, '', reportsRoute);
+      syncRoute();
+    }
+  }
+
+  // Read the pending exit before clearing it: once cleared, nothing is left to call.
+  function leaveWithoutSavingNow() {
+    const leave = leaveEdit;
+    leaveEdit = null;
+    leave?.();
+  }
+
+  // Reloading or closing the tab with unsaved edits gets the browser's own question.
+  $effect(() => {
+    if (!editDirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  });
+
   function openPage(nextHash: string) {
     if (!pageOpen) {
       returnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
@@ -420,7 +493,7 @@
     onreportstart={() => detailsController.start(reporting.variant)}
     oncomplete={openDetails} onresumedetails={details.draft ? () => openDetails() : undefined}
     onselectiondelete={() => detailsController.clear()}
-    onerrorsave={saveErrorDraft} onerrorfinish={finishErrorReport} />
+    onerrorsave={saveErrorDraft} onerrorfinish={finishErrorReport} {reportsHighlight} />
 </div>
 {#if details.draft && details.variant && ActiveReportingView}
   {#key details.draft.report.id}
@@ -444,6 +517,7 @@
   <ReportSummaryDialog title="Error report saved – not sent yet" rows={errorSummaryRows}
     oncontinue={() => leaveErrorSummary(confirmSaved)} onsend={() => leaveErrorSummary(confirmSent)} onclose={closeErrorSummary} />
 {/if}
+{#snippet draftDescription()}Your report is saved as a draft and hasn't been sent.{#if draftMissing.length}{' '}<br />Missing: {draftMissing.join(', ')}{/if}{/snippet}
 {#snippet savedDescription()}Saved as <StatusBadge status={savedStatus} />. You can find it in Reports.{/snippet}
 {#if summaryOutcome?.kind === 'failed'}
   <!-- Instead of a confirmation: the message is the alert's description, so the body stays empty. -->
@@ -456,7 +530,14 @@
 {#if guideOpen}<ReportObstacleGuide onback={backToMap} />{/if}
 {#if faqOpen}<FaqPage onback={backToMap} onguide={() => openPage(reportingGuideRoute)} />{/if}
 {#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} highlightId={highlightReportId} openId={openReportId} filter={reportsFilter}
-  onediterrorreport={editStoredErrorReport} />{/if}
+  onediterrorreport={editStoredErrorReport} editId={reportEditId} onopenedit={openReportEdit} onexitedit={exitReportEdit}
+  oneditdirty={(dirty) => { editDirty = dirty; }} />{/if}
+{#if leaveEdit}
+  {#snippet leaveSubtitle()}<p>You have unsaved changes. Leave without saving?</p>{/snippet}
+  {#snippet keepEditing()}<button type="button" class="ds-button dialog-action-primary" data-variant="primary" onclick={() => { leaveEdit = null; }}>Keep editing</button>{/snippet}
+  {#snippet leaveWithoutSaving()}<button type="button" class="ds-button dialog-action-secondary" data-variant="tertiary" data-color="brand1" onclick={leaveWithoutSavingNow}>Leave without saving</button>{/snippet}
+  <Dialog title="Unsaved changes" icon="warning" role="alertdialog" subtitle={leaveSubtitle} primary={keepEditing} secondary={leaveWithoutSaving} onclose={() => { leaveEdit = null; }}>{''}</Dialog>
+{/if}
 {#if notificationsOpen}
   <NotificationsPage {notifications} onback={backToMap} onmarkallread={() => { notifications = markAllRead(notifications); }} />
 {/if}

@@ -60,8 +60,14 @@ export function detailsPayload(draft: DetailsDraft): DetailsPayload {
   };
 }
 
+/** Required fields still unset, in form order; empty exactly when the report can be finished (Ready to send). */
+export function missingDetailsFields(draft: Pick<DetailsDraft, 'type' | 'height'>): ('obstacle type' | 'height')[] {
+  return [...(draft.type ? [] : ['obstacle type' as const]), ...(draft.height === null ? ['height' as const] : [])];
+}
+
 /** The payload when every required field is set; otherwise null. */
 export function completePayload(draft: DetailsDraft): ContinueDetailsPayload | null {
+  if (missingDetailsFields(draft).length) return null;
   const payload = detailsPayload(draft);
   const { type, height } = payload;
   return type && height !== null ? { ...payload, type, height } : null;
