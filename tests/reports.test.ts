@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { isReportsHash, reportsRoute } from '../src/lib/reports/reports.js';
+import { canonicalReportsHash, isReportsHash, reportsRoute } from '../src/lib/reports/reports.js';
 import { settingsSectionFromHash } from '../src/lib/settings/settings.js';
 import { countForStatusTab, formatLongDate, formatSentAt, formatShortDate, editedText, isSent, relativeDate, reportActionLabel, reportActivity, reportProgressLine, reportSecondaryLine, statusTabs } from '../src/lib/reports/reportsData.js';
 import { drafts, reports } from './helpers/reportFixtures.js';
@@ -9,9 +9,16 @@ import { PHOTO_MAX_EDGE, scaledSize } from '../src/lib/reports/photos.js';
 import { ObstacleType, obstacleTypeChoices, obstacleTypeLabel } from '../src/lib/reporting/obstacle.js';
 
 test('the Reports route resolves only for its own hash and never collides with Settings', () => {
-  assert.equal(reportsRoute, '#/Reports');
+  assert.equal(reportsRoute, '#/reports');
   assert.equal(isReportsHash(reportsRoute), true);
-  for (const hash of ['', '#', '#/FAQ', '#/Settings', '#/Settings/profile', '#/Reports/1', '#/reports']) {
+  // Older links and bookmarks keep working, and are rewritten to the lower-case route.
+  assert.equal(isReportsHash('#/Reports'), true);
+  assert.equal(canonicalReportsHash('#/Reports'), '#/reports');
+  assert.equal(canonicalReportsHash('#/reports'), null);
+  assert.equal(canonicalReportsHash('#/Reports/abc/Edit'), '#/reports/abc/edit');
+  assert.equal(canonicalReportsHash('#/Report/details'), null);
+  assert.equal(canonicalReportsHash('#/FAQ'), null);
+  for (const hash of ['', '#', '#/FAQ', '#/Settings', '#/Settings/profile', '#/Reports/1', '#/reports/1']) {
     assert.equal(isReportsHash(hash), false);
   }
   assert.equal(settingsSectionFromHash(reportsRoute), null);

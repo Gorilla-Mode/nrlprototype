@@ -58,6 +58,10 @@ is inert but remains alive. When leaving it, stop active camera movement and pre
 callbacks from recentering an inert map; location observation itself may continue.
 Unsupported routes must fall back safely without inventing pages or persisted state.
 
+Report routes are lower case: `#/reports` for the list and `#/reports/{id}/edit` for the
+edit page. They match in any case, and `syncRoute` rewrites another spelling (such as an
+older `#/Reports` link or bookmark) to the lower-case route in place.
+
 `#/reports/{id}/edit` opens the Reports page with the edit page (`DraftDetailPage`) for that
 draft, or for that Ready report opened as a draft with `reportToDraft`. Reloads, back and
 direct links work. An id that cannot be edited (sent, error report or unknown) falls back

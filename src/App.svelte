@@ -8,7 +8,7 @@
   import NotificationsPage from './lib/notifications/NotificationsPage.svelte';
   import SettingsPage from './lib/settings/SettingsPage.svelte';
   import { settingsSectionFromHash, type SettingsSection, type LanguagePreference } from './lib/settings/settings';
-  import { isReportsHash, reportEditIdFromHash, reportEditRoute, reportsRoute } from './lib/reports/reports';
+  import { canonicalReportsHash, isReportsHash, reportEditIdFromHash, reportEditRoute, reportsRoute } from './lib/reports/reports';
   import { isNotificationsHash, markAllRead, notificationsRoute, sampleNotifications, type ReportStatusNotification } from './lib/notifications/notifications';
   import type { GeolocationState } from './lib/map/createGeolocationController';
   import type { CameraTarget } from './lib/map/createMapController';
@@ -137,6 +137,9 @@
   }
 
   function syncRoute() {
+    // #/Reports and other spellings: rewrite to the lower-case route in place, keeping the history entry.
+    const canonical = canonicalReportsHash(window.location.hash);
+    if (canonical) history.replaceState(history.state, '', canonical);
     // Browser back/forward or a typed address away from an edit page with unsaved changes:
     // put the edit page back and ask first.
     const editing = reportEditIdFromHash(hash);
