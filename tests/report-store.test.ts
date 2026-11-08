@@ -184,9 +184,9 @@ test('a map form draft records its step, height and geometry, and has no name un
   assert.deepEqual(draft.geometry, { type: 'Polygon', coordinates: [[[5, 60], [5.1, 60], [5.1, 60.1], [5, 60]]] });
 
   const untyped = detailsToDraft(payload({ height: null }), { step: 1, totalSteps: 1, photos: [], existing: { name: 'Kept', createdAt: '2026-10-01T12:00:00' } });
-  assert.equal(untyped.category, ObstacleType.Other);
-  assert.equal(untyped.typeMissing, true);
-  assert.equal(draft.typeMissing, undefined);
+  // No type chosen: empty, never Other by default.
+  assert.equal(untyped.category, null);
+  assert.equal(untyped.typeMissing, undefined);
   assert.equal(untyped.heightAboveGround, 'Not set');
   assert.equal(untyped.title, 'Kept');
   assert.equal(untyped.createdAt, '2026-10-01T12:00:00');

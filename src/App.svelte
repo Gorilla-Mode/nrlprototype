@@ -31,6 +31,7 @@
   import { reportStore } from './lib/reports/reportStore';
   import { detailsToDraft, detailsToReport } from './lib/reports/detailsReport';
   import { downscalePhoto, type ReportPhoto } from './lib/reports/photos';
+  import { startPlaceNames } from './lib/reports/placeNames';
 
   let { onSaveDraft, onContinue, onFinish }: DetailsHooks = $props();
   let details = $state.raw<DetailsState>(initialDetailsState);
@@ -468,7 +469,10 @@
     syncRoute();
     window.addEventListener('popstate', syncRoute);
     window.addEventListener('hashchange', syncRoute);
+    // Place names for report cards, looked up once per location and stored.
+    const stopPlaceNames = startPlaceNames(reportStore);
     return () => {
+      stopPlaceNames();
       // Invalidate a Finish waiting on GPS before the map releases its request.
       detailsController.clear();
       window.removeEventListener('popstate', syncRoute);

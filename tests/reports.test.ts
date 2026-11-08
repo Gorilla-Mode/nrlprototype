@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { isReportsHash, reportsRoute } from '../src/lib/reports/reports.js';
 import { settingsSectionFromHash } from '../src/lib/settings/settings.js';
-import { countForStatusTab, formatLongDate, formatSentAt, formatShortDate, isSent, relativeDate, reportActionLabel, reportActivity, reportProgressLine, reportSecondaryLine, statusTabs } from '../src/lib/reports/reportsData.js';
+import { countForStatusTab, formatLongDate, formatSentAt, formatShortDate, editedText, isSent, relativeDate, reportActionLabel, reportActivity, reportProgressLine, reportSecondaryLine, statusTabs } from '../src/lib/reports/reportsData.js';
 import { drafts, reports } from './helpers/reportFixtures.js';
-import { lightingOptions, lightingSummary, lightingValueLabel, missingDraftFields } from '../src/lib/drafts/types.js';
+import { draftType, lightingOptions, lightingSummary, lightingValueLabel, missingDraftFields } from '../src/lib/drafts/types.js';
 import { PHOTO_MAX_EDGE, scaledSize } from '../src/lib/reports/photos.js';
 import { ObstacleType, obstacleTypeChoices, obstacleTypeLabel } from '../src/lib/reporting/obstacle.js';
 
@@ -53,7 +53,7 @@ test('each report card follows the status rules for its second line and action l
 test('every report and draft type is one of the shared obstacle type choices, labelled from that list', () => {
   const selectable = new Set<string>(obstacleTypeChoices.map((choice) => choice.type));
   for (const report of reports) assert.ok(selectable.has(report.obstacleType), `${report.name}: ${report.obstacleType}`);
-  for (const draft of drafts) assert.ok(selectable.has(draft.category), `${draft.title}: ${draft.category}`);
+  for (const draft of drafts) assert.ok(draft.category === null || selectable.has(draft.category), `${draft.title}: ${draft.category}`);
   for (const choice of obstacleTypeChoices) assert.equal(obstacleTypeLabel(choice.type), choice.label);
   assert.equal(obstacleTypeLabel(ObstacleType.Airspan), 'Aerial Span');
 });
@@ -64,6 +64,16 @@ test('lighting is optional: yes, no, unknown or not answered, each with its own 
   assert.equal(lightingSummary('yes'), 'Lit — reported by pilot');
   assert.equal(lightingSummary('unknown'), 'Unknown');
   assert.equal(lightingSummary(null), 'Not set');
+});
+
+test('a draft without a chosen type misses it, before height; error reports have no type to miss', () => {
+  const base = drafts[0];
+  assert.deepEqual(missingDraftFields({ ...base, category: null, heightAboveGround: 'Not set' }), ['obstacle type', 'height above ground']);
+  // Older drafts stored Other as a placeholder with typeMissing.
+  assert.deepEqual(missingDraftFields({ ...base, category: ObstacleType.Other, typeMissing: true, heightAboveGround: '29 m (95 ft)' }), ['obstacle type']);
+  assert.deepEqual(missingDraftFields({ ...base, category: ObstacleType.Other, heightAboveGround: '29 m (95 ft)' }), []);
+  assert.equal(draftType({ category: ObstacleType.Other, typeMissing: true }), null);
+  assert.equal(draftType({ category: ObstacleType.Other }), ObstacleType.Other);
 });
 
 test('only height blocks sending a draft; any lighting answer, or none, can be sent', () => {
@@ -112,7 +122,7 @@ test('each card shows one activity line: edited or sent with relative time, or t
   const now = new Date(2026, 9, 9);
   for (const report of reports) {
     const activity = reportActivity(report, now);
-    if (report.status === 'ready') assert.deepEqual(activity, { text: `Edited ${relativeDate(report.updatedAt, now)}`, date: report.updatedAt });
+    if (report.status === 'ready') assert.deepEqual(activity, { text: editedText(report.updatedAt, now), date: report.updatedAt });
     else if (report.status === 'pending') assert.deepEqual(activity, { text: `Sent ${relativeDate(report.sentAt!, now)}`, date: report.sentAt });
     else assert.deepEqual(activity, { text: `Reviewer ${report.reviewer}` });
     assert.doesNotMatch(activity.text, /Created/);

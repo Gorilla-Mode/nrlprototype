@@ -1,7 +1,10 @@
 <script lang="ts">
   import StatusBadge from './StatusBadge.svelte';
   import { errorKindsLabel } from '../obstacles/errorReport';
-  import { formatShortDate, reportActionLabel, reportActivity, reportHeading, reportProgressLine, type Report } from './reportsData';
+  import { formatShortDate, reportActionLabel, reportActivity, reportHeading, type Report } from './reportsData';
+  import { geometryKind } from './reportGeometry';
+  import { placeLabel } from './placeName';
+  import PinIcon from '../icons/PinIcon.svelte';
 
   let { report, onopen, selectMode = false, selected = false, ontoggleselect, justSent = false, justSaved = false, unavailableHint }: {
     report: Report;
@@ -20,6 +23,10 @@
   // Only ready reports can be sent to the registrar, so only those are selectable.
   let selectable = $derived(report.status === 'ready');
   let activity = $derived(reportActivity(report));
+  // The stored place name for this location, or its coordinates.
+  let place = $derived(placeLabel(report.place, report.geometry) ?? 'Location not set');
+  // Ready and sent: just the geometry; an error report also says what is wrong.
+  let detail = $derived([geometryKind(report.geometry), report.errorReport ? errorKindsLabel(report.errorReport.answers.errorKinds) : null].filter(Boolean).join(' · '));
 
   // In select mode a card only selects; cards that cannot be selected do nothing.
   function handleClick() {
@@ -53,9 +60,8 @@
       <StatusBadge status={report.status} />
     </div>
 
-    <!-- The optional name, empty when the pilot gave none; an error report says what is wrong. -->
-    <div class="reports-card-info">{report.errorReport ? errorKindsLabel(report.errorReport.answers.errorKinds) : report.name}</div>
-    <div class="reports-card-step">{reportProgressLine(report)}</div>
+    <div class="reports-card-place"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><PinIcon /></svg><span>{place}</span></div>
+    {#if detail}<div class="reports-card-step">{detail}</div>{/if}
   </div>
 
   <div class="reports-card-bottom">

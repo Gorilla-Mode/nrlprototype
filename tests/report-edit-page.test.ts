@@ -6,9 +6,10 @@ import type { Draft } from '../src/lib/drafts/types.js';
 import { matchesGeometryFilter } from '../src/lib/reports/filtering.js';
 import { geometryKind } from '../src/lib/reports/reportGeometry.js';
 import { reportEditIdFromHash, reportEditRoute } from '../src/lib/reports/reports.js';
-import { obstacleGeometryChoices } from '../src/lib/reporting/obstacle.js';
+import { ObstacleType, obstacleGeometryChoices } from '../src/lib/reporting/obstacle.js';
 import { drafts } from './helpers/reportFixtures.js';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
+import { compileStatusBadge } from './helpers/statusBadge.js';
 
 test('the edit page has its own URL, and only edit URLs give an id', () => {
   assert.equal(reportEditRoute('map-1'), '#/reports/map-1/edit');
@@ -33,7 +34,7 @@ const pageUrl = await compileSvelteComponent('src/lib/drafts/DraftDetailPage.sve
   '../map/LocationEditor.svelte': stub('LocationEditor'),
   '../reports/PhotoField.svelte': stub('PhotoField'),
   '../components/PageHeader.svelte': await compileSvelteComponent('src/lib/components/PageHeader.svelte'),
-  '../reports/StatusBadge.svelte': await compileSvelteComponent('src/lib/reports/StatusBadge.svelte'),
+  '../reports/StatusBadge.svelte': await compileStatusBadge(),
   '../reports/Dropdown.svelte': await compileSvelteComponent('src/lib/reports/Dropdown.svelte'),
   '../reporting/obstacle': new URL('../src/lib/reporting/obstacle.js', import.meta.url).href,
   '../reports/reportGeometry': new URL('../src/lib/reports/reportGeometry.js', import.meta.url).href,
@@ -49,9 +50,10 @@ const base: Draft = { ...drafts[0], geometry: { type: 'Point', coordinates: [5.3
 test('three cards on top, description and photo, then location; no Activity box', () => {
   const html = page(base);
   const labels = [...html.matchAll(/<label class="input-label[^"]*"[^>]*for="(draft-[a-z]+)"[^>]*>([^<]+)</g)].map((match) => [match[1], match[2]]);
-  assert.deepEqual(labels, [['draft-type', 'Type'], ['draft-height', 'Height above ground'], ['draft-lighting', 'Lighting']]);
+  assert.deepEqual(labels, [['draft-type', 'Obstacle type'], ['draft-height', 'Height above ground'], ['draft-lighting', 'Lighting']]);
   assert.doesNotMatch(html, />PHOTO<|ACTIVITY|DESCRIPTION AND REPORTER/);
-  assert.match(html, /DESCRIPTION AND PHOTO \(OPTIONAL\)[\s\S]*id="pilot-report"[\s\S]*class="photo-row[\s\S]*class="location-panel/);
+  assert.match(html, /<h2 class="section-heading[^"]*" id="description-heading">Description and photo \(optional\)<\/h2>[\s\S]*id="pilot-report"[\s\S]*class="photo-row[\s\S]*class="location-panel[\s\S]*<h2 class="section-heading[^"]*" id="location-heading">Location<\/h2>/);
+  assert.doesNotMatch(html, /DESCRIPTION AND PHOTO|>LOCATION</);
 });
 
 test('lighting is a labelled list with the same stored values and new labels', () => {
@@ -95,4 +97,36 @@ test('a missing height is marked on the field, explained under it, and invalid',
 test('the lists draw their own arrow beside a native select', () => {
   const html = page(base);
   assert.equal([...html.matchAll(/<select class="dropdown[^"]*"[\s\S]*?<\/select>\s*<svg class="dropdown-chevron[^"]*"[^>]*aria-hidden="true"/g)].length, 2);
+});
+
+test('no type: "Select type" is chosen, cannot be picked again, is marked missing, and the title is muted', () => {
+  const html = page({ ...base, title: '', category: null });
+  assert.match(html, /<option value="" disabled(="")? hidden(="")? selected[^>]*>Select type<\/option>/);
+  assert.match(html, /<select class="dropdown[^"]*\binvalid\b[^"]*\bunset\b[^"]*"[^>]*id="draft-type"[^>]*aria-describedby="draft-type-error"[^>]*aria-invalid="true"/);
+  assert.match(html, /id="draft-type-error"[^>]*>[\s\S]*Required to send/);
+  assert.match(html, /<h1 class="page-header-title[^"]*\bmuted\b[^"]*"[^>]*>Untitled obstacle<\/h1>/);
+  assert.match(html, /2 fields still needed/);
+  const other = page({ ...base, title: '', category: ObstacleType.Other });
+  assert.match(other, /<option value="other"[^>]*selected/);
+  assert.doesNotMatch(other, /draft-type-error|class="page-header-title[^"]*muted/);
+});
+
+test('the summary names each missing field as a link, without referring to colour', () => {
+  const html = page({ ...base, title: '', category: null, heightAboveGround: 'Not set' });
+  const text = html.replace(/<!--[^>]*-->/g, '');
+  assert.match(text, /2 fields still needed before you can send:\s*<a class="needed-link[^"]*" href="#draft-type"[^>]*>Obstacle type<\/a>, <a class="needed-link[^"]*" href="#draft-height"[^>]*>Height above ground<\/a>/);
+  assert.doesNotMatch(html, /marked in red|Fill in the fields/);
+});
+
+test('Send stays focusable: aria-disabled with a note naming what is missing, then active with the usual note', () => {
+  const missing = page({ ...base, title: '', category: null, heightAboveGround: 'Not set' });
+  const send = missing.match(/<button class="ds-button send-button[^>]*>/)?.[0] ?? '';
+  assert.match(send, /aria-describedby="send-note"/);
+  assert.match(send, /aria-disabled="true"/);
+  assert.doesNotMatch(send, /\sdisabled/);
+  assert.match(missing, /id="send-note"[\s\S]*Add obstacle type and height above ground to send/);
+  assert.doesNotMatch(missing, /Goes straight to the NRL reviewer/);
+  const ready = page({ ...base, heightAboveGround: '30 m (98 ft)' });
+  assert.doesNotMatch(ready.match(/<button class="ds-button send-button[^>]*>/)?.[0] ?? '', /aria-disabled/);
+  assert.match(ready, /Goes straight to the NRL reviewer[\s\S]*You cannot edit the report after sending/);
 });

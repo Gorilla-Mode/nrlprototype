@@ -1,7 +1,8 @@
 import type { Draft } from '../drafts/types.js';
-import { formatHeightFromMeters, heightInMeters } from '../drafts/types.js';
+import { draftType, formatHeightFromMeters, heightInMeters } from '../drafts/types.js';
 import { markSent } from './bulkSend.js';
 import type { Report, ReportStatus } from './reportsData.js';
+import { placeIsCurrent, type StoredPlace } from './placeName.js';
 
 /** Every draft and report the Reports page lists. Drafts have no status of their own. */
 export interface ReportState {
@@ -85,17 +86,23 @@ const nextStatuses: Record<ReportStatus, readonly ReportStatus[]> = {
   declined: [],
 };
 
-/** A completed draft as a Ready report, keeping its id and creation time. */
+/**
+ * A completed draft as a Ready report, keeping its id and creation time. Only a draft with a
+ * chosen type is complete (missingDraftFields), so the type is never filled in here.
+ */
 export function draftToReport(draft: Draft): Report {
+  const type = draftType(draft);
+  if (type === null) throw new Error('A draft needs an obstacle type before it can become a report.');
   const meters = heightInMeters(draft.heightAboveGround) ?? 0;
   return {
-    id: draft.id, name: draft.title, obstacleType: draft.category,
+    id: draft.id, name: draft.title, obstacleType: type,
     heightFeet: Math.round(meters * 3.28084), heightMeters: meters,
     status: 'ready', createdAt: draft.createdAt, updatedAt: draft.updatedAt,
     lighting: draft.lighting, pilotReportText: draft.pilotReportText,
     reportedByName: draft.reportedByName, reportedByOrg: draft.reportedByOrg,
     geometry: draft.geometry, photos: draft.photos,
     ...(draft.errorReport ? { errorReport: draft.errorReport } : {}),
+    ...(draft.place ? { place: draft.place } : {}),
   };
 }
 
@@ -110,6 +117,7 @@ export function reportToDraft(report: Report, heightSet: boolean): Draft {
     reportedByName: report.reportedByName, reportedByOrg: report.reportedByOrg,
     geometry: report.geometry, photos: report.photos,
     ...(report.errorReport ? { errorReport: report.errorReport } : {}),
+    ...(report.place ? { place: report.place } : {}),
   };
 }
 
@@ -133,6 +141,13 @@ export function createReportStore(repository: ReportRepository, clock: () => Dat
   const withoutId = <T extends { id: string }>(items: readonly T[], id: string) => items.filter((item) => item.id !== id);
   const upsert = <T extends { id: string }>(items: readonly T[], item: T) =>
     items.some(({ id }) => id === item.id) ? items.map((existing) => (existing.id === item.id ? item : existing)) : [item, ...items];
+
+  /** A saved item without a place keeps the one already stored for the same point, so it is not looked up again. */
+  function keepPlace<T extends Draft | Report>(item: T): T {
+    if (item.place) return item;
+    const stored = state.drafts.find(({ id }) => id === item.id)?.place ?? findReport(item.id)?.place;
+    return stored && placeIsCurrent(stored, item.geometry) ? { ...item, place: stored } : item;
+  }
 
   function setStatus(id: string, status: ReportStatus): Report | undefined {
     const report = findReport(id);
@@ -161,7 +176,7 @@ export function createReportStore(repository: ReportRepository, clock: () => Dat
     saveDraft(draft: Draft): Draft | undefined {
       const existing = findReport(draft.id);
       if (existing && existing.status !== 'ready') return undefined;
-      const saved = { ...draft, updatedAt: clock().toISOString() };
+      const saved = keepPlace({ ...draft, updatedAt: clock().toISOString() });
       commit({ drafts: upsert(state.drafts, saved), reports: withoutId(state.reports, draft.id) });
       return saved;
     },
@@ -170,7 +185,7 @@ export function createReportStore(repository: ReportRepository, clock: () => Dat
     markReady(report: Report): Report | undefined {
       const existing = findReport(report.id);
       if (existing && existing.status !== 'ready') return undefined;
-      const saved: Report = { ...report, status: 'ready', updatedAt: clock().toISOString() };
+      const saved: Report = keepPlace({ ...report, status: 'ready', updatedAt: clock().toISOString() });
       commit({ drafts: withoutId(state.drafts, report.id), reports: upsert(state.reports, saved) });
       return saved;
     },
@@ -179,11 +194,24 @@ export function createReportStore(repository: ReportRepository, clock: () => Dat
     updateReport(report: Report): Report | undefined {
       const existing = findReport(report.id);
       if (!existing) return undefined;
-      const next = { ...report, status: existing.status };
+      const next = keepPlace({ ...report, status: existing.status });
       if (sameContent(existing, next)) return existing;
       const saved = { ...next, updatedAt: clock().toISOString() };
       commit({ ...state, reports: upsert(state.reports, saved) });
       return saved;
+    },
+
+    /**
+     * Stores a looked-up place on a draft or report, only while it still matches the location.
+     * Not an edit, so the edit time and the list order stay as they are.
+     */
+    setPlace(id: string, place: StoredPlace): void {
+      const draft = state.drafts.find((item) => item.id === id);
+      const report = draft ? undefined : findReport(id);
+      const item = draft ?? report;
+      if (!item || !placeIsCurrent(place, item.geometry)) return;
+      if (draft) commit({ ...state, drafts: upsert(state.drafts, { ...draft, place }) });
+      else if (report) commit({ ...state, reports: upsert(state.reports, { ...report, place }) });
     },
 
     /** Sends a Ready report for review. */

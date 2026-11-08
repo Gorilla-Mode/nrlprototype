@@ -1,5 +1,4 @@
 import type { CompleteReport, DetailsPayload, Illumination } from '../reporting/createDetailsController.js';
-import { ObstacleType } from '../reporting/obstacle.js';
 import { formatHeightFromMeters, type Draft, type Lighting } from '../drafts/types.js';
 import type { ReportPhoto } from './photos.js';
 import type { Report } from './reportsData.js';
@@ -23,13 +22,13 @@ export function detailsToDraft(payload: DetailsPayload, context: DetailsRecordCo
   const createdAt = context.existing?.createdAt ?? payload.timestamp.toISOString();
   return {
     id: payload.id, title: context.existing?.name ?? '',
-    category: payload.type ?? ObstacleType.Other, value,
+    // Empty until the pilot chooses a type; Other only when chosen.
+    category: payload.type, value,
     currentStep: context.step, totalSteps: context.totalSteps, stepLabel: stepLabels[Math.min(context.step, stepLabels.length) - 1],
     createdAt, updatedAt: createdAt,
     heightAboveGround: value, lighting: lightingByIllumination[payload.illumination],
     pilotReportText: payload.description, ...reporter,
     geometry: payload.obstacle_position, photos: context.photos,
-    ...(payload.type ? {} : { typeMissing: true }),
   };
 }
 

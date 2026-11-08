@@ -3,6 +3,7 @@ import type { ReportGeometry } from './reportGeometry.js';
 import type { Lighting } from '../drafts/types.js';
 import type { ReportPhoto } from './photos.js';
 import { errorReportHeading, type ErrorReportRecord } from '../obstacles/errorReport.js';
+import type { StoredPlace } from './placeName.js';
 
 export type ReportStatus = 'ready' | 'pending' | 'approved' | 'declined';
 
@@ -31,6 +32,8 @@ export interface Report {
   photos: ReportPhoto[];
   /** Set for an error report on a registered obstacle; absent for a new obstacle. */
   errorReport?: ErrorReportRecord;
+  /** Place name looked up for the location; absent until looked up. */
+  place?: StoredPlace;
 }
 
 /** Card heading, as the name is optional: "Aerial Span · 30 m", or just the type when no height is set. */
@@ -84,10 +87,20 @@ export function relativeDate(timestamp: string, now: Date = new Date()): string 
   return relativeTime.format(-Math.round(days / 365), 'year');
 }
 
+const timeFormat = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+/** "Edited today 13:16" when edited today, otherwise "Edited 07.11.2026". */
+export function editedText(timestamp: string, now: Date = new Date()): string {
+  const date = parseTimestamp(timestamp);
+  if (!date) return `Edited ${timestamp}`;
+  const today = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+  return today ? `Edited today ${timeFormat.format(date)}` : `Edited ${formatShortDate(timestamp)}`;
+}
+
 /** The one activity line a report card shows: when it was last edited or sent, or who reviewed it. */
 export function reportActivity(report: Report, now: Date = new Date()): { text: string; date?: string } {
   switch (report.status) {
-    case 'ready': return { text: `Edited ${relativeDate(report.updatedAt, now)}`, date: report.updatedAt };
+    case 'ready': return { text: editedText(report.updatedAt, now), date: report.updatedAt };
     case 'pending': return { text: `Sent ${relativeDate(report.sentAt ?? '', now)}`, date: report.sentAt };
     case 'approved':
     case 'declined': return { text: reportSecondaryLine(report) };

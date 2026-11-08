@@ -44,14 +44,23 @@ needed colour is missing, ask Kartverket rather than inventing one.
 
 | Status (code)            | Name          | Colour token              | Colour         |
 |--------------------------|---------------|---------------------------|----------------|
-| `draft`                  | Draft         | `--color-status-ready`    | neutral grey   |
-| `ready`                  | Ready to send | `--color-status-ready`    | neutral grey   |
-| `pending`                | Sent          | `--color-status-sent`     | blue           |
+| `draft`                  | Draft         | `--color-status-draft`    | neutral grey   |
+| `ready`                  | Ready to send | `--color-status-ready`    | blue           |
+| `pending`                | Sent          | `--color-status-sent`     | green          |
 | `under-review` (notice)  | Under review  | `--color-status-review`   | amber          |
 | `approved`               | Approved      | `--color-status-approved` | green          |
 | `declined`               | Declined      | `--color-status-rejected` | red            |
 
 The notification status Completed keeps the information blue until its meaning is decided.
+`StatusBadge` is the one status tag on cards, edit and detail pages. Draft has a pencil,
+Ready to send a clock and Sent a check: they are decorative (`aria-hidden`), and the text
+is at least 4.5:1 on its surface. Sent is green because the report was delivered.
+
+Report cards show the heading and status tag first. Next comes the place (a pin, then the
+stored place name or the coordinates), then the geometry; a draft adds "Missing: …" from
+`missingDraftFields`. The footer says "Edited today 13:16" (a date on other days) and holds
+the action link. The list's subtitle is "Sorted by last edited". The count is in the tabs
+and announced through a hidden live region.
 
 ## Designsystemet
 
@@ -116,7 +125,7 @@ The report edit page keeps its card layout, with no subtitle and no geometry cap
 under Type.
 - Under the title, one muted line from the report: Reported by name · organisation ·
   Created date · Last edited (time today, otherwise date), in `<time>` elements.
-- Three cards come first: Type, Height above ground and Lighting, a labelled list of
+- Three cards come first: Obstacle type, Height above ground and Lighting, a labelled list of
   Yes, lit / No, not lit / Unknown. They stack on phones.
   - Labels are sentence-case `<label>`s, body size, semibold, primary colour.
   - The fields share height (`--control-height-default`), frame, radius and padding, with
@@ -127,13 +136,33 @@ under Type.
     send" with a warning icon, linked with `aria-describedby` and `aria-invalid`.
 - Next comes Description and photo (optional): a framed description (`--border-strong`)
   about three lines tall that grows as it fills, with Add photo below it.
-- Last is Location in full width, with a `--report-edit-map-height` map, Edit location and
-  e.g. "Point · 60.3913° N, 5.3221° E".
+- Last is Location in full width. Its map is at least `--report-edit-map-height` and grows
+  into the room left above the bottom bar. It has Edit location and e.g. "Point ·
+  60.3913° N, 5.3221° E".
+- Section headings ("Description and photo (optional)", "Location") are `h2`s in sentence
+  case, semibold and dark, one size above the field labels.
+- When required fields are missing, the summary names them as links that focus each
+  field ("1 field still needed before you can send: Height above ground"), never by
+  colour.
+- Send for Review is then `aria-disabled` (still focusable, sends nothing), and its note
+  names what is missing ("Add height above ground to send").
+- Every control on the page is at least 44 px tall.
 
 Send for Review is the blue primary
 (`data-color="brand1"`), an exception asked for on this page only. Its note sits
-right-aligned beside it. The Reports geometry filter offers Point, Line and Polygon, the
-drawing tool's names.
+right-aligned beside it.
+
+The Reports top has one row and a set of tabs under it.
+- Row: [search] [Geometry ▾] [Height ▾] [✓ Select]. The search takes the rest of the width.
+  All four share one height, radius, `--color-border-strong` frame and body-size regular
+  text, and line up with the cards. On phones the search gets its own line and the three
+  buttons share the next one, with Select on the right edge.
+- Filter menus: Geometry is checkboxes (Point, Line, Polygon); Height is a radio group.
+  Choices apply at once. An active filter names its choice on the button with a blue
+  frame and blue text, and Clear filters appears as a link under the row.
+- Status tabs: toggle buttons (`aria-pressed`) on the intro's full-width bottom rule. The
+  chosen tab has blue text and a 2 px blue underline; the others are grey, with a muted
+  count after the name. Counts and the `aria-live` subtitle reflect search and filters.
 
 ## Map-specific decisions
 

@@ -209,6 +209,8 @@
   }
   .confirmation-toast-icon svg { width: var(--icon-size-small); height: var(--icon-size-small); stroke-width: calc(var(--icon-stroke-width) + 0.75); }
   /* Waiting, not done: the Ready to send tag's neutral grey, never the sent green. */
-  .confirmation-toast-icon:is([data-icon='pending'], [data-icon='draft']) { background: var(--color-status-ready-surface); color: var(--color-status-ready); }
+  /* The same colours as the matching status tag: Ready to send blue, Draft grey. */
+  .confirmation-toast-icon[data-icon='pending'] { background: var(--color-status-ready-surface); color: var(--color-status-ready); }
+  .confirmation-toast-icon[data-icon='draft'] { background: var(--color-status-draft-surface); color: var(--color-status-draft); }
   .confirmation-toast-icon:is([data-icon='pending'], [data-icon='draft']) svg { stroke-width: var(--icon-stroke-width); }
 </style>

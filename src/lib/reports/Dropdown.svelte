@@ -30,7 +30,7 @@
 
 <!-- A native select, like Settings: iOS and iPadOS show the system picker. The arrow is our own. -->
 <div class="dropdown-wrap">
-  <select class="dropdown" class:invalid {id} aria-labelledby={labelledby} aria-describedby={describedby} aria-invalid={invalid || undefined} {value} onchange={choose}>
+  <select class="dropdown" class:invalid class:unset={placeholder && unset} {id} aria-labelledby={labelledby} aria-describedby={describedby} aria-invalid={invalid || undefined} {value} onchange={choose}>
     {#if placeholder}<option value="" disabled hidden selected={unset}>{placeholder}</option>{/if}
     {#each options as option (option.value)}
       <option value={option.value} selected={option.value === value}>{option.label}</option>
@@ -61,6 +61,9 @@
     cursor: pointer;
   }
   .dropdown.invalid { border-color: var(--color-status-error); }
+  /* The placeholder reads like an input's placeholder: secondary text, at least 4.5:1. */
+  .dropdown.unset { color: var(--color-text-secondary); }
+  .dropdown.unset option { color: var(--color-text-primary); }
   /* --space-3 inside the frame, like the unit in the height field, so they line up. */
   .dropdown-chevron {
     position: absolute;

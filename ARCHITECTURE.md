@@ -123,8 +123,10 @@ Close returns to the map with Resume details. A successful Save Draft instead en
 drawing session, as Finish does: the selection and Resume details are cleared, and the
 draft shows as an ordinary report marker. It confirms with Draft saved: not sent, any
 `missingDetailsFields` (the same check as `completePayload`), and View drafts. View drafts
-opens Reports on Drafts with that draft first and marked by its id. A draft without a
-chosen type keeps `typeMissing`, so its card reads Untitled obstacle, not Other. Delete discards
+opens Reports on Drafts with that draft first and marked by its id. A draft's type is null
+until the pilot chooses one; nothing defaults to Other. `draftType` also reads older
+drafts that stored Other with `typeMissing` as untyped. A missing type is a missing field,
+so the card reads Untitled obstacle and the edit page shows Select type. Delete discards
 the active draft. Save Draft stores a draft and Finish stores a Ready ("Ready to send") report
 in the report store; nothing is sent automatically. Finish clears the map selection and
 opens the shared result summary. Its edit actions reopen the step holding a value with
@@ -220,7 +222,15 @@ reporting and registered-obstacle position correction retain their existing gest
 ## External data and geolocation
 
 Raster tiles come from Kartverket, OpenStreetMap and Esri; search uses Geonorge address
-and place APIs. Retain search response validation, stale-request cancellation and
+and place APIs. Report cards name their place by reverse lookup with the same APIs.
+- Lookup: stedsnavn `/punkt` gives the nearest non-street name, and adresser `/punktsok`
+  gives the municipality (`placeName.ts`).
+- Storage: `startPlaceNames` (`placeNames.ts`) looks up each stored draft or report whose
+  location has no place yet, one at a time. It stores `{ name, at }` with
+  `reportStore.setPlace`, which leaves the edit time alone; saving keeps a place that
+  still matches.
+- Fallback: a lookup with no name stores null, and a failed lookup stores nothing until
+  the next start; the card shows coordinates meanwhile. Retain search response validation, stale-request cancellation and
 explicit loading/empty/error states. Render provider strings as text, never raw HTML.
 
 Preserve geolocation's secure-context, permission, cancellation, camera-following and

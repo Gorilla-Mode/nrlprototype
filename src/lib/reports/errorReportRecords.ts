@@ -27,7 +27,8 @@ export function errorReportToDraft(id: string, record: ErrorReportRecord, { exis
   const value = formatHeightFromMeters(meters);
   const createdAt = existing?.createdAt ?? now.toISOString();
   return {
-    id, title: existing?.name ?? '', category: ObstacleType.Other, value,
+    // An error report is about a registered obstacle: no type of its own.
+    id, title: existing?.name ?? '', category: null, value,
     currentStep: 1, totalSteps: 1, stepLabel: 'Error details',
     createdAt, updatedAt: createdAt,
     heightAboveGround: value, lighting, pilotReportText: record.answers.description.trim(), ...reporter,

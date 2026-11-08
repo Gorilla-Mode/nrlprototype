@@ -6,12 +6,16 @@ import type { Draft } from '../src/lib/drafts/types.js';
 import { ObstacleType } from '../src/lib/reporting/obstacle.js';
 import { drafts } from './helpers/reportFixtures.js';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
+import { compileStatusBadge } from './helpers/statusBadge.js';
 
 const url = await compileSvelteComponent('src/lib/drafts/DraftCard.svelte', {
-  '../reports/StatusBadge.svelte': await compileSvelteComponent('src/lib/reports/StatusBadge.svelte'),
+  '../reports/StatusBadge.svelte': await compileStatusBadge(),
   './types': new URL('../src/lib/drafts/types.js', import.meta.url).href,
   '../reports/reportsData': new URL('../src/lib/reports/reportsData.js', import.meta.url).href,
   '../obstacles/errorReport': new URL('../src/lib/obstacles/errorReport.js', import.meta.url).href,
+  '../reports/reportGeometry': new URL('../src/lib/reports/reportGeometry.js', import.meta.url).href,
+  '../reports/placeName': new URL('../src/lib/reports/placeName.js', import.meta.url).href,
+  '../icons/PinIcon.svelte': await compileSvelteComponent('src/lib/icons/PinIcon.svelte'),
 });
 const { default: DraftCard } = await import(url) as { default: Component<{ draft: Draft; justSaved?: boolean }> };
 const base: Draft = { ...drafts[0], category: ObstacleType.Other, heightAboveGround: '30 m (98 ft)' };
@@ -31,4 +35,11 @@ test('Other shows only when the pilot chose it', () => {
 test('only the just-saved draft card is marked', () => {
   assert.match(card(base, true), /class="ds-card reports-card[^"]*reports-card-just-saved/);
   assert.doesNotMatch(card(base, false), /reports-card-just-saved/);
+});
+
+test('a draft saved with no type (null) is also an untitled obstacle and lists the type as missing', () => {
+  const html = card({ ...base, category: null });
+  assert.match(html, /<span class="reports-card-untitled">Untitled obstacle<\/span>/);
+  assert.match(html, /Missing: obstacle type/);
+  assert.doesNotMatch(html, />Other/);
 });

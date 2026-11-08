@@ -2,6 +2,7 @@
   import { tick, untrack } from 'svelte';
   import ReportsHeader from './ReportsHeader.svelte';
   import ReportsToolbar from './ReportsToolbar.svelte';
+  import ReportFilters from './ReportFilters.svelte';
   import StatusTabs from './StatusTabs.svelte';
   import ReportCard from './ReportCard.svelte';
   import ReportDetailPage from './ReportDetailPage.svelte';
@@ -15,7 +16,7 @@
   import DraftCard from '../drafts/DraftCard.svelte';
   import DraftDetailPage from '../drafts/DraftDetailPage.svelte';
   import type { Draft } from '../drafts/types';
-  import { heightInMeters } from '../drafts/types';
+  import { draftType, heightInMeters } from '../drafts/types';
   import { geometryKind, type GeometryCameraTarget } from './reportGeometry';
   import { obstacleTypeLabel } from '../reporting/obstacle';
   import { matchesGeometryFilter, matchesHeightFilter, type GeometryKey, type HeightFilterKey } from './filtering';
@@ -51,11 +52,9 @@
   let selectMode = $state(false);
   let selectedIds = $state<Set<string>>(new Set());
 
-  let filterPanelOpen = $state(false);
+  // Filter chips apply at once and combine with the status chip and the search.
   let appliedGeometries = $state<Set<GeometryKey>>(new Set());
   let appliedHeightFilter = $state<HeightFilterKey>('any');
-  let pendingGeometries = $state<Set<GeometryKey>>(new Set());
-  let pendingHeightFilter = $state<HeightFilterKey>('any');
 
   let reports = $derived($reportStore.reports);
   let drafts = $derived($reportStore.drafts);
@@ -190,34 +189,11 @@
     return () => clearTimeout(timer);
   });
 
-  function openFilterPanel() {
-    pendingGeometries = new Set(appliedGeometries);
-    pendingHeightFilter = appliedHeightFilter;
-    filterPanelOpen = true;
-  }
-
-  function resetPendingFilters() {
-    pendingGeometries = new Set();
-    pendingHeightFilter = 'any';
-  }
-
-  function applyFilters() {
-    appliedGeometries = new Set(pendingGeometries);
-    appliedHeightFilter = pendingHeightFilter;
-    filterPanelOpen = false;
-  }
-
-  function dismissFilterPanel() {
-    filterPanelOpen = false;
-  }
-
   function closeOnEscape(event: KeyboardEvent) {
+    // An open filter menu handles its own Escape first and prevents this one.
     if (event.key !== 'Escape' || event.defaultPrevented) return;
     event.preventDefault();
-    // This window listener runs before the Filter panel's own, so close the panel here
-    // instead of leaving the page.
-    if (filterPanelOpen) dismissFilterPanel();
-    else if (editId) onexitedit?.(false);
+    if (editId) onexitedit?.(false);
     else onback();
   }
 
@@ -232,7 +208,8 @@
     const needle = q.trim().toLowerCase();
     if (!needle) return true;
     if (draft.errorReport) return errorReportHeading(draft.errorReport).toLowerCase().includes(needle);
-    return draft.title.toLowerCase().includes(needle) || obstacleTypeLabel(draft.category).toLowerCase().includes(needle);
+    const type = draftType(draft);
+    return draft.title.toLowerCase().includes(needle) || (type ? obstacleTypeLabel(type) : 'Untitled obstacle').toLowerCase().includes(needle);
   }
 
   function matchesStatus(report: Report, key: StatusTabKey): boolean {
@@ -279,12 +256,22 @@
 
   let draftsCount = $derived(drafts.length);
   let items = $derived(buildItems(statusFilter, query, appliedGeometries, appliedHeightFilter));
-  let pendingResultCount = $derived(buildItems(statusFilter, query, pendingGeometries, pendingHeightFilter).length);
+  // What search and filters leave across every status, so each status chip counts what it would list.
+  let matching = $derived(buildItems('all', query, appliedGeometries, appliedHeightFilter));
+  let matchingReports = $derived(matching.flatMap((item) => (item.kind === 'report' ? [item.report] : [])));
+  let matchingDraftsCount = $derived(matching.filter((item) => item.kind === 'draft').length);
   let filterActive = $derived(appliedGeometries.size > 0 || appliedHeightFilter !== 'any');
+
+  function clearFilters() {
+    appliedGeometries = new Set();
+    appliedHeightFilter = 'any';
+  }
   let noun = $derived(statusFilter === 'draft' ? 'drafts' : statusFilter === 'all' ? 'items' : 'reports');
-  let subtitle = $derived.by(() => {
+  // The counts are in the tabs, so the line only says how the list is sorted; the count is still announced.
+  const subtitle = 'Sorted by last edited';
+  let announcement = $derived.by(() => {
     const kind = statusFilter === 'draft' ? 'draft' : 'report';
-    return `${items.length} ${items.length === 1 ? kind : kind + 's'} · sorted by last edited`;
+    return `${items.length} ${items.length === 1 ? kind : kind + 's'}`;
   });
 </script>
 
@@ -299,15 +286,15 @@
   <ReportDetailPage report={selectedReport} onback={backToList} {onshowonmap} onediterror={onediterrorreport} onedit={editReport} />
 {:else}
   <main class="reports-page" class:reports-select-active={selectMode} aria-label="Reports">
-    <ReportsHeader {onback} {subtitle}>
-      <ReportsToolbar
-        bind:query
-        {selectMode} ontoggleselect={toggleSelectMode}
-        filterOpen={filterPanelOpen} {filterActive}
-        bind:pendingGeometries bind:pendingHeightFilter {pendingResultCount}
-        onopenfilter={openFilterPanel} onresetfilter={resetPendingFilters} onapplyfilter={applyFilters} ondismissfilter={dismissFilterPanel}
-      />
-      <StatusTabs {reports} {draftsCount} active={statusFilter} onselect={(key) => statusFilter = key} />
+    {#snippet filters()}<ReportFilters bind:geometries={appliedGeometries} bind:heightFilter={appliedHeightFilter} />{/snippet}
+    <ReportsHeader {onback} {subtitle} {announcement}>
+      <ReportsToolbar bind:query {selectMode} ontoggleselect={toggleSelectMode} {filters} />
+      {#if filterActive}
+        <div class="reports-header-row reports-filter-clear-row">
+          <button type="button" class="reports-filter-clear card-cta-link" onclick={clearFilters}>Clear filters</button>
+        </div>
+      {/if}
+      <StatusTabs reports={matchingReports} draftsCount={matchingDraftsCount} active={statusFilter} onselect={(key) => statusFilter = key} />
     </ReportsHeader>
 
     <div class="reports-content">

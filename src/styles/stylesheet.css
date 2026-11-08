@@ -130,10 +130,13 @@
   --color-status-error-surface: var(--palette-red-50);
   /* Report statuses: one fixed colour each in Reports and Notifications, built only on the
      status roles above (Kartverket palette), so dark themes follow. Green is approval only. */
-  --color-status-ready: var(--color-text-secondary);
-  --color-status-ready-surface: var(--color-background-subtle);
-  --color-status-sent: var(--color-status-info);
-  --color-status-sent-surface: var(--color-status-info-surface);
+  /* Draft grey (pencil), Ready to send blue (clock), Sent green (check): text on surface ≥ 4.5:1. */
+  --color-status-draft: var(--color-text-secondary);
+  --color-status-draft-surface: var(--color-background-subtle);
+  --color-status-ready: var(--color-status-info);
+  --color-status-ready-surface: var(--color-status-info-surface);
+  --color-status-sent: var(--color-status-success);
+  --color-status-sent-surface: var(--color-status-success-surface);
   --color-status-review: var(--color-status-warning);
   --color-status-review-surface: var(--color-status-warning-surface);
   --color-status-approved: var(--color-status-success);
@@ -1048,20 +1051,34 @@ button {
 .reports-intro { padding-block: var(--space-4) var(--space-5); border-bottom: var(--border-default); background: var(--color-background-raised); }
 .reports-subtitle { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-body); }
 
-/* Search, Filter and Select share one control height so they line up. Filter and Select
-   are secondary: raised surface, thin border, smaller text. */
+/* Search and Select share one control height so they line up. Select is secondary:
+   raised surface, thin border, smaller text. */
 .reports-toolbar { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-5); flex-wrap: wrap; }
 .reports-search { flex: 1; min-width: 12rem; }
-.reports-tool-button { flex: none; min-height: var(--control-height-default); font-size: var(--font-size-body-small); font-weight: var(--font-weight-medium); }
+/* .ds-input sets its own border colour on the input, so the frame is set here to match the buttons. */
+.reports-search .ds-input { --dsc-input-border-color: var(--color-border-strong); }
+/* Search, Geometry, Height and Select: one height, radius, frame colour and type. */
+.reports-tool-button { flex: none; min-height: var(--control-height-default); border: var(--border-strong); border-radius: var(--radius-control); font-size: var(--font-size-body); font-weight: var(--font-weight-regular); }
 .reports-tool-button:not(.button--primary) { background: var(--color-background-raised); }
 .reports-tool-button svg { flex: none; width: var(--icon-size-default); height: var(--icon-size-default); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 
-.reports-status-tabs { display: flex; gap: var(--space-3); margin-top: var(--space-4); flex-wrap: wrap; }
-/* ds-chip radios, like today's pills: white with a border, filled blue when chosen, no radio dot. */
-.reports-status-tab { --dsc-chip-height: var(--control-height-default); --dsc-chip-padding-inline: var(--space-5); --dsc-chip-background: var(--color-background-raised); --dsc-chip-border-color: var(--color-border-default); --dsc-chip-color: var(--color-text-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
-.reports-status-tab:has(input) { padding-inline-start: var(--dsc-chip-padding-inline); }
-.reports-status-tab > input { opacity: 0; pointer-events: none; }
-.reports-status-tab-count { margin-inline-start: var(--space-1); font-weight: var(--font-weight-medium); opacity: var(--opacity-subdued); }
+.reports-filter-clear-row { margin-top: var(--space-2); }
+.reports-filter-clear { min-height: var(--target-size-min); padding: 0; border: 0; background: none; font-size: var(--font-size-body-small); cursor: pointer; }
+
+/* Status tabs under the search row: text tabs, the pressed one in blue with a blue underline.
+   They sit on the intro's full-width bottom rule (its padding is cancelled), which separates
+   them from the list. The first tab's text lines up with the search. */
+.reports-status-rule { margin-top: var(--space-4); margin-bottom: calc(-1 * var(--space-5)); }
+.reports-status-tabs { display: flex; gap: var(--space-5); overflow-x: auto; overscroll-behavior-x: contain; }
+.reports-status-tab {
+  flex: none; display: inline-flex; align-items: center; gap: var(--space-1);
+  min-height: var(--target-size-min); padding: 0;
+  border: 0; border-bottom: var(--border-width-emphasis) solid transparent; background: none;
+  color: var(--color-text-secondary); font: inherit; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); cursor: pointer;
+}
+.reports-status-tab:hover { color: var(--color-text-primary); }
+.reports-status-tab[aria-pressed='true'] { border-bottom-color: var(--color-action-secondary); color: var(--color-action-secondary); font-weight: var(--font-weight-semibold); }
+.reports-status-tab-count { font-weight: var(--font-weight-regular); color: var(--color-text-secondary); }
 
 .reports-content { width: 100%; max-width: calc(var(--page-content-max) + 2 * var(--page-gutter)); margin-inline: auto; padding: var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) max(var(--page-content-bottom), var(--safe-area-bottom)) max(var(--page-gutter), var(--safe-area-left)); overflow-wrap: anywhere; }
 
@@ -1073,15 +1090,18 @@ button {
   .reports-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* Below 600px: search takes its own row with Filter/Select underneath, the segmented
-   control stretches full width when it wraps below the title, and status tabs scroll
-   sideways instead of wrapping onto extra lines. */
+/* Below 600px: search takes its own row with Geometry, Height and Select underneath, and
+   the segmented control stretches full width when it wraps below the title. Status tabs
+   scroll sideways inside their own row at every width. */
 @media (max-width: 37.499rem) {
   .reports-search { flex: 1 1 100%; }
+  /* Tighter so Geometry, Height and Select share one line on a phone. */
+  .reports-toolbar { column-gap: var(--space-2); }
+  .reports-tool-button { padding-inline: var(--space-3); }
+  /* Select keeps its right edge on the cards' edge, as on wider screens. */
+  .reports-toolbar > .reports-tool-button:last-child { margin-left: auto; }
   .reports-segmented { width: 100%; }
   .reports-segment { flex: 1; }
-  .reports-status-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: var(--space-1); }
-  .reports-status-tab { flex: none; }
 }
 
 .reports-card { display: flex; flex-direction: column; width: 100%; padding: 0; overflow: hidden; text-align: left; border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); box-shadow: var(--shadow-surface); color: var(--color-text-primary); cursor: pointer; }
@@ -1090,13 +1110,17 @@ button {
 .reports-card:focus-visible { outline-offset: var(--space-1); }
 /* Two zones: what the report is on top, its latest activity and action below a faint rule.
    The main zone takes any spare height, so the bottom zone lines up across a row. */
-.reports-card-main { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--card-padding-block) var(--card-padding-inline) var(--space-4); }
+/* Tighter than the shared card padding, so more cards fit; rows still share one height. */
+.reports-card-main { flex: 1; display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4) var(--card-padding-inline) var(--space-3); }
 .reports-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
 .reports-card-name { flex: 1; min-width: 0; font-size: var(--font-size-heading-small); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); overflow-wrap: anywhere; }
 .reports-card-info { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: var(--font-size-body); color: var(--color-text-secondary); }
 .reports-card-step { font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
+.reports-card-place { display: flex; align-items: center; gap: var(--space-1); min-width: 0; font-size: var(--font-size-body); color: var(--color-text-primary); }
+.reports-card-place span { min-width: 0; overflow-wrap: anywhere; }
+.reports-card-place svg { flex: none; width: var(--icon-size-small); height: var(--icon-size-small); color: var(--color-text-secondary); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 .reports-card-dot { color: var(--color-border-default); }
-.reports-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) var(--card-padding-inline); border-top: var(--border-default); }
+.reports-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) var(--card-padding-inline); border-top: var(--border-default); }
 .reports-card-meta { flex: 1; min-width: 0; font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
 /* Shared "button with arrow" pattern: a text action paired with a trailing
    chevron (report/draft card CTAs). The icon is sized in em so it always
@@ -1107,8 +1131,9 @@ button {
 .reports-card-cta { flex: none; margin-left: auto; }
 
 /* StatusBadge is a ds-tag; one colour per status on cards and detail pages alike. */
-.reports-status-badge { flex: none; }
-.reports-status-badge[data-status='draft'],
+.reports-status-badge { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); }
+.reports-status-badge svg { flex: none; width: var(--icon-size-small); height: var(--icon-size-small); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+.reports-status-badge[data-status='draft'] { --dsc-tag-background: var(--color-status-draft-surface); --dsc-tag-color: var(--color-status-draft); }
 .reports-status-badge[data-status='ready'] { --dsc-tag-background: var(--color-status-ready-surface); --dsc-tag-color: var(--color-status-ready); }
 .reports-status-badge[data-status='pending'] { --dsc-tag-background: var(--color-status-sent-surface); --dsc-tag-color: var(--color-status-sent); }
 .reports-status-badge[data-status='approved'] { --dsc-tag-background: var(--color-status-approved-surface); --dsc-tag-color: var(--color-status-approved); }

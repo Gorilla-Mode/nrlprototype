@@ -1,7 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import type { Draft } from './types';
-  import { heightInMeters, formatHeightFromMeters, missingDraftFields, type Lighting } from './types';
+  import { draftType, heightInMeters, formatHeightFromMeters, missingDraftFields, type Lighting } from './types';
+  import type { ObstacleType } from '../reporting/obstacle';
   import MiniMap from '../map/MiniMap.svelte';
   import PageHeader from '../components/PageHeader.svelte';
   import StatusBadge from '../reports/StatusBadge.svelte';
@@ -52,6 +53,7 @@
     onDone();
   }
 
+  // aria-disabled, not disabled: the button stays focusable and its note explains why; it never sends while fields are missing.
   function sendReport() {
     if (!canSend) return;
     const ready = reportStore.markReady(draftToReport(draft));
@@ -84,11 +86,16 @@
     return sameDay ? timeFormat.format(date) : formatShortDate(timestamp);
   }
 
-  // Choosing a type here means one is no longer missing.
-  const startCategory = draft.category;
-  $: if (draft.typeMissing && draft.category !== startCategory) draft.typeMissing = false;
-  // The name is optional; without one the page is titled like its card.
-  $: title = draft.title || obstacleHeading(draft.category, heightInMeters(draft.heightAboveGround));
+  // No type stays empty ("Select type") until one is chosen; nothing defaults to Other.
+  let typeChoice: ObstacleType | '' = draftType(draft) ?? '';
+  $: if (typeChoice !== '') {
+    draft.category = typeChoice;
+    if (draft.typeMissing) draft.typeMissing = false;
+  }
+  $: chosenType = typeChoice === '' ? null : typeChoice;
+  // The name is optional; without one the page is titled like its card, "Untitled obstacle" without a type.
+  $: titleMuted = !draft.title && chosenType === null;
+  $: title = draft.title || (chosenType === null ? 'Untitled obstacle' : obstacleHeading(chosenType, heightInMeters(draft.heightAboveGround)));
 
   // The location editor opens over this page; only "Use this location" changes the working copy.
   let editingLocation = false;
@@ -113,6 +120,26 @@
 
   $: canSend = missingFields.length === 0;
   $: heightMissing = missingFields.includes('height above ground');
+  $: typeMissing = missingFields.includes('obstacle type');
+
+  /** Each missing field's link text and the control it moves focus to; the list comes from missingDraftFields. */
+  const fieldTargets: Record<string, { label: string; id: string }> = {
+    'obstacle type': { label: 'Obstacle type', id: 'draft-type' },
+    'height above ground': { label: 'Height above ground', id: 'draft-height' },
+  };
+  $: missingTargets = missingFields.map((field) => fieldTargets[field] ?? { label: field, id: '' });
+  // "Add obstacle type and height above ground to send", from the same list.
+  $: missingNote = `Add ${joinFields(missingFields)} to send`;
+
+  function joinFields(fields: readonly string[]): string {
+    if (fields.length <= 1) return fields[0] ?? '';
+    return `${fields.slice(0, -1).join(', ')} and ${fields[fields.length - 1]}`;
+  }
+
+  function focusField(event: MouseEvent, id: string) {
+    event.preventDefault();
+    document.getElementById(id)?.focus();
+  }
 
   // The drawing tool's word for the geometry, shown with the coordinates in Location.
   $: geometryLabel = obstacleGeometryChoices.find(({ type }) => type === draft.geometry?.type)?.label;
@@ -122,7 +149,7 @@
 
 <section class="page">
   {#snippet statusTag()}<StatusBadge {status} />{/snippet}
-  <PageHeader {title} backLabel="Back to Reports" onback={onBack} actions={statusTag}>
+  <PageHeader {title} {titleMuted} backLabel="Back to Reports" onback={onBack} actions={statusTag}>
     <!-- Who reported it and when, from the report itself; replaces the Activity box. -->
     <p class="report-meta">
       Reported by {draft.reportedByName} · {draft.reportedByOrg}
@@ -134,16 +161,27 @@
   <div class="scroll-area">
     <div class="safe-area">
       {#if !canSend}
+        <!-- Names the missing fields as links to them; never refers to colour. -->
         <div class="needed-box">
-          <div class="needed-title">{missingFields.length} {missingFields.length === 1 ? 'field' : 'fields'} still needed</div>
-          <div class="needed-desc muted">Fill in the fields marked in red below, then send.</div>
+          <p class="needed-title">
+            {missingFields.length} {missingFields.length === 1 ? 'field' : 'fields'} still needed before you can send:
+            {#each missingTargets as target, index (target.id)}{#if index > 0}{', '}{/if}<a class="needed-link" href={`#${target.id}`} on:click={(event) => focusField(event, target.id)}>{target.label}</a>{/each}
+          </p>
         </div>
       {/if}
 
       <div class="fields-row">
         <div class="field-box">
-          <label class="input-label" id="draft-type-label" for="draft-type">Type</label>
-          <Dropdown id="draft-type" labelledby="draft-type-label" options={typeOptions} bind:value={draft.category} />
+          <!-- The same words as the summary and the note by Send. -->
+          <label class="input-label" id="draft-type-label" for="draft-type">Obstacle type</label>
+          <Dropdown id="draft-type" labelledby="draft-type-label" options={typeOptions} bind:value={typeChoice} placeholder="Select type"
+            invalid={typeMissing} describedby={typeMissing ? 'draft-type-error' : undefined} />
+          {#if typeMissing}
+            <p class="field-error" id="draft-type-error">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5v.01" /></svg>
+              Required to send
+            </p>
+          {/if}
         </div>
 
         <div class="field-box">
@@ -180,8 +218,8 @@
         </div>
       </div>
 
-      <div class="info-card">
-        <div class="section-label">DESCRIPTION AND PHOTO (OPTIONAL)</div>
+      <section class="info-card" aria-labelledby="description-heading">
+        <h2 class="section-heading" id="description-heading">Description and photo (optional)</h2>
         <hr class="divider" />
 
         <label class="pilot-label" for="pilot-report">What the pilot reported</label>
@@ -190,16 +228,16 @@
         <div class="photo-row">
           <PhotoField bind:photos={draft.photos} editable={true} label={title} showOptional={false} />
         </div>
-      </div>
+      </section>
 
-      <div class="location-panel panel">
+      <section class="location-panel panel" aria-labelledby="location-heading">
           <div class="location-heading">
-            <div class="field-label">LOCATION</div>
+            <h2 class="section-heading" id="location-heading">Location</h2>
             {#if draft.geometry}<button type="button" class="card-cta-link edit-location" bind:this={editLocationButton} on:click={openLocationEditor}>Edit location</button>{/if}
           </div>
           <MiniMap geometry={draft.geometry} label={title} onedit={draft.geometry ? openLocationEditor : undefined} />
           {#if draft.geometry}<div class="map-caption muted">{locationCaption}</div>{/if}
-      </div>
+      </section>
     </div>
   </div>
 
@@ -209,10 +247,14 @@
       <!-- The note belongs to Send: right-aligned beside it, above it when narrow. -->
       <div class="send-group">
         <div class="send-note" id="send-note">
-          <div class="note-strong">Goes straight to the NRL reviewer</div>
-          <div class="muted">You cannot edit the report after sending</div>
+          {#if canSend}
+            <div class="note-strong">Goes straight to the NRL reviewer</div>
+            <div class="muted">You cannot edit the report after sending</div>
+          {:else}
+            <div class="note-strong">{missingNote}</div>
+          {/if}
         </div>
-        <button class="ds-button" data-variant="primary" data-color="brand1" aria-describedby="send-note" disabled={!canSend} on:click={sendReport}>
+        <button class="ds-button send-button" data-variant="primary" data-color="brand1" aria-describedby="send-note" aria-disabled={canSend ? undefined : 'true'} on:click={sendReport}>
           <span class="paper-plane">➤</span> Send for Review
         </button>
       </div>
@@ -235,7 +277,9 @@
 
   /* The bar sits below the scroll area, never over it; the padding keeps a focused field clear of its edge. */
   .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; scroll-padding-block:var(--space-6); }
-  .safe-area { width:100%; max-width:calc(var(--page-content-max) + 2 * var(--page-gutter)); margin:0 auto; padding:var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) var(--space-8) max(var(--page-gutter), var(--safe-area-left)); box-sizing:border-box; }
+  /* At least the scroll area's height, so the location card can take the room left above the bar. */
+  .safe-area { display:flex; flex-direction:column; min-height:100%; width:100%; max-width:calc(var(--page-content-max) + 2 * var(--page-gutter)); margin:0 auto; padding:var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) var(--space-8) max(var(--page-gutter), var(--safe-area-left)); box-sizing:border-box; }
+  .safe-area > * { flex:none; }
 
   /* Type, height and lighting in one row; stacked on phones. */
   .fields-row { display:grid; grid-template-columns: minmax(0,1fr); gap:14px; margin-bottom:16px }
@@ -247,7 +291,6 @@
   .field-help { margin:var(--space-2) 0 0; font-size:var(--font-size-body-small); color:var(--color-text-secondary) }
   .field-error { display:flex; align-items:center; gap:var(--space-1); margin:var(--space-1) 0 0; font-size:var(--font-size-body-small); color:var(--color-status-error) }
   .field-error svg { flex:none; width:var(--icon-size-small); height:var(--icon-size-small); stroke:currentColor; stroke-width:var(--icon-stroke-width); stroke-linecap:round; stroke-linejoin:round }
-  .field-label { display:block; font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-bottom:6px }
 
   /* Same height, frame, radius and padding as the lists beside it; "m" ends --space-3 from the right, in line with their arrows. */
   .height-input-wrap {
@@ -270,13 +313,15 @@
   .height-input-wrap .unit { flex:none; color:var(--color-text-secondary); font-size:var(--font-size-body); font-weight:var(--font-weight-regular) }
 
 
-  .needed-box { border:var(--border-default); border-radius:var(--radius-card); padding:14px 16px; margin-bottom:20px; background:var(--color-background-raised) }
-  .needed-title { font-weight:700; color:var(--color-text-primary); margin-bottom:4px }
-  .needed-desc { font-size:14px }
+  .needed-box { border:var(--border-default); border-radius:var(--radius-card); padding:var(--space-1) 16px; margin-bottom:20px; background:var(--color-background-raised) }
+  .needed-title { margin:0; font-weight:700; color:var(--color-text-primary); line-height:var(--line-height-body) }
+  /* 44 px tall targets inside the sentence. */
+  .needed-link { display:inline-flex; align-items:center; min-height:var(--target-size-min); color:var(--color-action-secondary); font-weight:var(--font-weight-semibold) }
 
   .info-card { border:var(--border-default); border-radius:var(--radius-card); padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
 
-  .section-label { font-size:12px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-top:8px }
+  /* Section headings: like the field labels, sentence case, semibold and dark, one step larger. */
+  .section-heading { margin:0; font-size:var(--font-size-heading-small); font-weight:var(--font-weight-semibold); line-height:var(--line-height-tight); color:var(--color-text-primary) }
   .divider { border:0; height:1px; background:var(--color-border-default); margin:8px 0 16px }
 
   .pilot-label { display:block; font-size:14px; color:var(--color-text-primary); margin-bottom:8px }
@@ -290,7 +335,9 @@
 
   .panel { border:var(--border-default); border-radius:var(--radius-card); padding:14px; background:var(--color-background-raised) }
   /* Full width where Activity was, with a taller map. */
-  .location-panel { --reports-mini-map-height: var(--report-edit-map-height); margin-bottom:var(--space-4) }
+  /* The map is at least --report-edit-map-height and grows into any room left above the bottom bar. */
+  .location-panel { flex:1 0 auto; display:flex; flex-direction:column; --reports-mini-map-height: var(--report-edit-map-height); margin-bottom:var(--space-4) }
+  .location-panel :global(.mini-map) { flex:1 0 auto; height:auto; min-height:var(--report-edit-map-height) }
   /* Under the title row, on the header's width and gutters, so it lines up with the content. */
   .report-meta {
     box-sizing:border-box; max-width:calc(var(--page-content-max) + 2 * var(--page-gutter)); margin:0 auto;
@@ -300,7 +347,6 @@
 
   .map-caption { font-size:12px; margin-top:8px }
   .location-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2) }
-  .location-heading .field-label { margin-bottom:0 }
   .edit-location { min-height:var(--target-size-min); margin-block:calc(-1 * var(--space-3)); padding:0; border:0; background:none; font-size:var(--font-size-body-small); cursor:pointer }
 
   .bottom-bar { flex-shrink:0; background:var(--color-background-raised); border-top:var(--border-default); }
@@ -309,5 +355,8 @@
   .send-group { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:var(--space-2) var(--space-4); margin-left:auto }
   .send-note { text-align:right; font-size:12px }
   .note-strong { font-weight:700; color:var(--color-text-primary) }
+  /* Every bar and photo control is a 44 px target; Send looks disabled while fields are missing but keeps focus. */
+  .bottom-bar .ds-button, .photo-row :global(button) { min-height:var(--target-size-min) }
+  .send-button[aria-disabled='true'] { opacity:var(--opacity-disabled); cursor:not-allowed }
 
 </style>

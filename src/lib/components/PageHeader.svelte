@@ -17,13 +17,15 @@
     onback: () => void;
     /** The page's h1; pages focus it when they open. */
     heading?: HTMLHeadingElement;
+    /** A placeholder title, such as "Untitled obstacle", in secondary text. */
+    titleMuted?: boolean;
     /** Right-aligned controls, such as a status tag or "Mark all read". */
     actions?: Snippet;
     /** Content under the title row inside the header, such as progress. */
     children?: Snippet;
   }
 
-  let { title, backLabel, onback, heading = $bindable(), actions, children }: Props = $props();
+  let { title, backLabel, onback, heading = $bindable(), titleMuted = false, actions, children }: Props = $props();
 </script>
 
 <header class="page-header">
@@ -32,7 +34,7 @@
       <button type="button" class="page-header-back" aria-label={backLabel} onclick={onback}>
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12H4m0 0 6-6m-6 6 6 6" /></svg>
       </button>
-      <h1 class="page-header-title" bind:this={heading} tabindex="-1">{title}</h1>
+      <h1 class="page-header-title" class:muted={titleMuted} bind:this={heading} tabindex="-1">{title}</h1>
     </div>
     {#if actions}<div class="page-header-actions">{@render actions()}</div>{/if}
   </div>
@@ -122,4 +124,5 @@
   .page-header-title:focus:not(:focus-visible) { outline: none; }
   .page-header-actions { display: flex; flex: none; align-items: center; gap: var(--space-2); margin-inline-start: auto; }
   @media (prefers-reduced-motion: reduce) { .page-header-back::after { transition: none; } }
+  .page-header-title.muted { color: var(--color-text-secondary); }
 </style>
