@@ -863,7 +863,6 @@ button {
   --faq-link-icon: 1.0625rem;
   --faq-reveal-duration: 170ms;
   --faq-focus-offset: 0.125rem;
-  --reports-mini-map-height: 10rem;
 }
 
 .menu-drawer {
@@ -1138,6 +1137,16 @@ button {
 .reports-status-badge[data-status='pending'] { --dsc-tag-background: var(--color-status-sent-surface); --dsc-tag-color: var(--color-status-sent); }
 .reports-status-badge[data-status='approved'] { --dsc-tag-background: var(--color-status-approved-surface); --dsc-tag-color: var(--color-status-approved); }
 .reports-status-badge[data-status='declined'] { --dsc-tag-background: var(--color-status-rejected-surface); --dsc-tag-color: var(--color-status-rejected); }
+.reports-status-badge[data-status='withdrawn'] { --dsc-tag-background: var(--color-status-draft-surface); --dsc-tag-color: var(--color-status-draft); }
+
+/* Sent report page: the status block's round icon, the cards' small-caps headings and the chip's clock. */
+:root {
+  --sent-status-icon-size: 2.25rem;
+  --sent-heading-tracking: var(--guide-label-tracking);
+  --sent-chip-icon-size: 0.875rem;
+  --sent-field-column-width: 6.5rem;
+  --photo-thumb-size-large: 6rem;
+}
 
 /* Notifications: report-status updates in a single reading column sized from the
    portrait-iPad mockup. Status dots repeat the status text colour and never stand
@@ -1279,8 +1288,12 @@ button {
   --confirmation-toast-success: var(--palette-green-600);
   --confirmation-toast-on-success: var(--palette-neutral-0);
   --confirmation-toast-motion: var(--duration-deliberate);
-  /* The report edit page's location map: tall enough to see where the obstacle is. */
-  --report-edit-map-height: 20rem;
+  /* The report map on every report page: 16:9 between these heights. */
+  --report-map-min-height: 17.5rem;
+  --report-map-max-height: 26.25rem;
+  /* Its marker: a 20 px point with a 3 px white edge, so it stands out from any map background. */
+  --report-map-marker-radius: 10px;
+  --report-map-marker-stroke: 3px;
   /* The Reports button's ring while a draft confirmation shows. */
   --reports-highlight-duration: 1.6s;
   --reports-highlight-ring: 3px;

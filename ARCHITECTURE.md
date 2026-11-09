@@ -36,6 +36,13 @@ the saved ordinary target when crosshair is disabled. Starting correction in cro
 mode does not save its midpoint as an ordinary circle. Circle-only correction cancellation
 restores the prior circle.
 
+The error report button is never disabled.
+- When a new-obstacle report is in progress, the button shows it: its form through Resume
+  details, or the drawing still being placed.
+- While an error report waits on the map for a corrected position, the button returns to
+  its form.
+- Otherwise it toggles error reporting.
+
 Error reports follow the new-obstacle flow. HomeMap owns the error form and position
 correction and gives each report an id. Save draft and Finish report hand App an
 `ErrorReportRecord`, which holds the registered obstacle and the answers. App stores it
@@ -58,8 +65,12 @@ is inert but remains alive. When leaving it, stop active camera movement and pre
 callbacks from recentering an inert map; location observation itself may continue.
 Unsupported routes must fall back safely without inventing pages or persisted state.
 
-Report routes are lower case: `#/reports` for the list and `#/reports/{id}/edit` for the
-edit page. They match in any case, and `syncRoute` rewrites another spelling (such as an
+Report routes are lower case: `#/reports` for the list, `#/reports/{id}` for a Ready to send
+report's read-only page (`ReportViewPage`; for error reports with their record, whose Edit report and Edit
+location keep the error form's rules; Review and send opens it, Edit report opens the
+edit route over it, Send for Review returns to the list on Sent with the sent confirmation)
+and `#/reports/{id}/edit` for the edit page. Sent reports keep the in-page
+`ReportDetailPage`. They match in any case, and `syncRoute` rewrites another spelling (such as an
 older `#/Reports` link or bookmark) to the lower-case route in place.
 
 `#/reports/{id}/edit` opens the Reports page with the edit page (`DraftDetailPage`) for that

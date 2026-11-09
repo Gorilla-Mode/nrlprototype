@@ -5,7 +5,7 @@ import type { ReportPhoto } from './photos.js';
 import { errorReportHeading, type ErrorReportRecord } from '../obstacles/errorReport.js';
 import type { StoredPlace } from './placeName.js';
 
-export type ReportStatus = 'ready' | 'pending' | 'approved' | 'declined';
+export type ReportStatus = 'ready' | 'pending' | 'approved' | 'declined' | 'withdrawn';
 
 export interface Report {
   readonly id: string;
@@ -21,6 +21,12 @@ export interface Report {
   sentAt?: string;
   /** Reviewer name shown for approved/declined. */
   reviewer?: string;
+  /** When the reviewer approved or declined it; ISO 8601. */
+  reviewedAt?: string;
+  /** The reviewer's optional comment on a declined report. */
+  reviewerComment?: string;
+  /** When the pilot withdrew it while under review; ISO 8601. */
+  withdrawnAt?: string;
   /** Whether the obstacle is lit; null when the pilot did not answer. */
   lighting: Lighting | null;
   pilotReportText: string;
@@ -48,6 +54,17 @@ export function reportHeading(report: Report): string {
   return obstacleHeading(report.obstacleType, report.heightMeters);
 }
 
+/** Detail page title for a new obstacle: "New obstacle · Bridge · 7 m", beside "Error report · …". */
+export function newObstacleTitle(type: ObstacleType, meters: number | null): string {
+  return `New obstacle · ${obstacleHeading(type, meters)}`;
+}
+
+/** Detail page title; the list and its cards keep reportHeading. */
+export function reportPageTitle(report: Report): string {
+  if (report.errorReport) return errorReportHeading(report.errorReport);
+  return newObstacleTitle(report.obstacleType, report.heightMeters);
+}
+
 /** Second line of a report card, per status: edited/sent date, or the reviewer name. */
 export function reportSecondaryLine(report: Report): string {
   switch (report.status) {
@@ -55,6 +72,7 @@ export function reportSecondaryLine(report: Report): string {
     case 'pending': return `Sent ${formatShortDate(report.sentAt)}`;
     case 'approved':
     case 'declined': return `Reviewer ${report.reviewer}`;
+    case 'withdrawn': return `Withdrawn ${formatShortDate(report.withdrawnAt)}`;
   }
 }
 
@@ -89,6 +107,14 @@ export function relativeDate(timestamp: string, now: Date = new Date()): string 
 
 const timeFormat = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
 
+/** "today 18:10" when edited today, otherwise "07.11.2026": the report pages' "Last edited". */
+export function lastEditedLabel(timestamp: string, now: Date = new Date()): string {
+  const date = parseTimestamp(timestamp);
+  if (!date) return timestamp;
+  const today = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+  return today ? `today ${timeFormat.format(date)}` : formatShortDate(timestamp);
+}
+
 /** "Edited today 13:16" when edited today, otherwise "Edited 07.11.2026". */
 export function editedText(timestamp: string, now: Date = new Date()): string {
   const date = parseTimestamp(timestamp);
@@ -103,7 +129,8 @@ export function reportActivity(report: Report, now: Date = new Date()): { text: 
     case 'ready': return { text: editedText(report.updatedAt, now), date: report.updatedAt };
     case 'pending': return { text: `Sent ${relativeDate(report.sentAt ?? '', now)}`, date: report.sentAt };
     case 'approved':
-    case 'declined': return { text: reportSecondaryLine(report) };
+    case 'declined':
+    case 'withdrawn': return { text: reportSecondaryLine(report) };
   }
 }
 
@@ -126,6 +153,7 @@ export function reportProgressLine(report: Report): string {
     case 'pending': return 'Awaiting review by Kartverket';
     case 'approved': return 'Added to the register';
     case 'declined': return 'Not added to the register';
+    case 'withdrawn': return 'Will not be reviewed';
   }
 }
 
@@ -143,9 +171,9 @@ export const statusTabs = [
 
 export type StatusTabKey = typeof statusTabs[number]['key'];
 
-/** Everything already sent to Kartverket: awaiting review or reviewed. */
+/** Everything already sent to Kartverket: awaiting review, reviewed or withdrawn. */
 export function isSent(report: Report): boolean {
-  return report.status === 'pending' || report.status === 'approved' || report.status === 'declined';
+  return report.status !== 'ready';
 }
 
 /** Counts reports for a tab from the data; drafts are counted separately by the page. */

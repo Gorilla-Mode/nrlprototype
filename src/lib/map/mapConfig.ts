@@ -105,6 +105,33 @@ export function createPreviewStyle(geometry: Geometry, visuals: PreviewVisuals):
   };
 }
 
+export const REPORT_MAP_REGISTERED_SOURCE_ID = 'report-map-registered';
+
+/**
+ * The report map on report pages: Kartverket topo, the report's geometry (a filled point with a
+ * white edge), and optionally a registered position as a hollow ring with a white halo.
+ */
+export function createReportMapStyle(geometry: Geometry, visuals: PreviewVisuals, registered: [number, number] | null = null): StyleSpecification {
+  const style = createPreviewStyle(geometry, visuals);
+  if (!registered) return style;
+  return {
+    ...style,
+    sources: { ...style.sources, [REPORT_MAP_REGISTERED_SOURCE_ID]: { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: registered } } } },
+    layers: [
+      style.layers[0],
+      {
+        id: 'report-map-registered-halo', type: 'circle', source: REPORT_MAP_REGISTERED_SOURCE_ID,
+        paint: { 'circle-color': 'transparent', 'circle-radius': visuals.radius, 'circle-stroke-color': visuals.casing, 'circle-stroke-width': visuals.strokeWidth * 3 },
+      },
+      {
+        id: 'report-map-registered', type: 'circle', source: REPORT_MAP_REGISTERED_SOURCE_ID,
+        paint: { 'circle-color': 'transparent', 'circle-radius': visuals.radius, 'circle-stroke-color': visuals.point, 'circle-stroke-width': visuals.strokeWidth * 1.5 },
+      },
+      ...style.layers.slice(1),
+    ],
+  };
+}
+
 export const LOCATION_REGISTERED_SOURCE_ID = 'location-registered';
 export const LOCATION_CONNECTOR_SOURCE_ID = 'location-connector';
 export const LOCATION_EDIT_SOURCE_ID = 'location-edit';

@@ -1,4 +1,4 @@
-import { buildErrorReport, isValidHeight, type ErrorReportRecord } from '../obstacles/errorReport.js';
+import { buildErrorReport, isErrorReportValid, isValidHeight, type ErrorReportAnswers, type ErrorReportRecord } from '../obstacles/errorReport.js';
 import { ObstacleType } from '../reporting/obstacle.js';
 import { formatHeightFromMeters, type Draft, type Lighting } from '../drafts/types.js';
 import { reporter } from './detailsReport.js';
@@ -47,6 +47,22 @@ export function errorReportToReport(id: string, record: ErrorReportRecord, { exi
     lighting, pilotReportText: record.answers.description.trim(), ...reporter,
     geometry, photos: [], errorReport: record,
   };
+}
+
+/**
+ * What the error report edit page saves: the Ready report with the edited answers when they are
+ * complete, otherwise a draft (as on the new obstacle edit page). Name, creation time, reporter and
+ * photos are kept; height, lighting and location follow the answers. The store keeps the place name
+ * only while it still matches the location.
+ */
+export function editedErrorReport(report: Report, answers: ErrorReportAnswers, photos: Report['photos']):
+  { kind: 'ready'; report: Report } | { kind: 'draft'; draft: Draft } {
+  if (!report.errorReport) throw new Error('Only an error report can be edited as one.');
+  const record: ErrorReportRecord = { obstacle: report.errorReport.obstacle, answers: structuredClone(answers) };
+  const context: ErrorRecordContext = { existing: { name: report.name, createdAt: report.createdAt } };
+  const kept = { reportedByName: report.reportedByName, reportedByOrg: report.reportedByOrg, photos: [...photos] };
+  if (isErrorReportValid(answers)) return { kind: 'ready', report: { ...errorReportToReport(report.id, record, context), ...kept } };
+  return { kind: 'draft', draft: { ...errorReportToDraft(report.id, record, context), ...kept } };
 }
 
 /**

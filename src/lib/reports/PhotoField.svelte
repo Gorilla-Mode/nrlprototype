@@ -12,9 +12,11 @@
     label: string;
     /** "Optional" in the caption; off where the section heading already says it. */
     showOptional?: boolean;
+    /** Large: 96 px thumbnails, as on the sent report page. */
+    thumbSize?: 'default' | 'large';
   }
 
-  let { photos = $bindable(), editable, label, showOptional = true }: Props = $props();
+  let { photos = $bindable(), editable, label, showOptional = true, thumbSize = 'default' }: Props = $props();
 
   // Same glyphs as "Take photo" in the reporting panel and the app's close buttons.
   const cameraIcon = 'M4 8h3l2-2h6l2 2h3v11H4ZM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z';
@@ -75,7 +77,7 @@
 {/if}
 
 {#if photos.length}
-  <ul class="photo-list" aria-label="Photos">
+  <ul class="photo-list" class:large={thumbSize === 'large'} aria-label="Photos">
     {#each photos as photo, index (photo.id)}
       <li class="photo-item">
         <button bind:this={thumbButtons[index]} type="button" class="photo-thumb" aria-haspopup="dialog"
@@ -153,6 +155,7 @@
     cursor: pointer;
   }
   .photo-thumb { cursor: zoom-in; }
+  .photo-list.large .photo-thumb { width: var(--photo-thumb-size-large); height: var(--photo-thumb-size-large); }
   .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
   .photo-add-more { border-style: dashed; background: var(--color-background-raised); }
 

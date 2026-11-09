@@ -8,7 +8,7 @@
   import NotificationsPage from './lib/notifications/NotificationsPage.svelte';
   import SettingsPage from './lib/settings/SettingsPage.svelte';
   import { settingsSectionFromHash, type SettingsSection, type LanguagePreference } from './lib/settings/settings';
-  import { canonicalReportsHash, isReportsHash, reportEditIdFromHash, reportEditRoute, reportsRoute } from './lib/reports/reports';
+  import { canonicalReportsHash, isReportsHash, reportEditIdFromHash, reportEditRoute, reportViewIdFromHash, reportViewRoute, reportsRoute } from './lib/reports/reports';
   import { isNotificationsHash, markAllRead, notificationsRoute, sampleNotifications, type ReportStatusNotification } from './lib/notifications/notifications';
   import type { GeolocationState } from './lib/map/createGeolocationController';
   import type { CameraTarget } from './lib/map/createMapController';
@@ -32,11 +32,23 @@
   import { detailsToDraft, detailsToReport } from './lib/reports/detailsReport';
   import { downscalePhoto, type ReportPhoto } from './lib/reports/photos';
   import { startPlaceNames } from './lib/reports/placeNames';
+  import { describeTarget, reportDebug, watchReportInputs } from './lib/debug/reportDebug'; // TEMPORARY [REPORT-DEBUG]
 
   let { onSaveDraft, onContinue, onFinish }: DetailsHooks = $props();
+  // TEMPORARY [REPORT-DEBUG]: the last action that changed the form, logged with each open/close.
+  let formCause = 'app start';
+  const cause = (name: string) => { formCause = name; reportDebug(`action: ${name}`, { formOpen: details.open, summaryOpen: details.summaryOpen, draft: !!details.draft, hash: window.location.hash }); };
   let details = $state.raw<DetailsState>(initialDetailsState);
   const detailsController = createDetailsController({
-    onChange: (state) => { details = state; },
+    onChange: (state) => {
+      // TEMPORARY [REPORT-DEBUG]: every change to whether the new-obstacle form or summary is open, and what asked for it.
+      if (state.open !== details.open || state.summaryOpen !== details.summaryOpen || !!state.draft !== !!details.draft) {
+        reportDebug(`form ${state.open ? 'OPEN' : 'CLOSED'} / summary ${state.summaryOpen ? 'OPEN' : 'CLOSED'}`, {
+          cause: formCause, draft: !!state.draft, busy: state.busy, step: state.step, hash: window.location.hash,
+        });
+      }
+      details = state;
+    },
     // Saved drafts and finished reports go to the report store; optional integrations are awaited after.
     getHooks: () => ({
       onSaveDraft: async (payload, reason) => { await storeDraft(payload); await onSaveDraft?.(payload, reason); },
@@ -85,7 +97,9 @@
   let faqOpen = $derived(hash === '#/FAQ');
   // #/reports/{id}/edit: the Reports page with that draft's or Ready report's edit page open.
   let reportEditId = $derived(reportEditIdFromHash(hash));
-  let reportsOpen = $derived(isReportsHash(hash) || reportEditId !== null);
+  // #/reports/{id}: the Reports page with that Ready report's read-only page open.
+  let reportViewId = $derived(reportViewIdFromHash(hash));
+  let reportsOpen = $derived(isReportsHash(hash) || reportEditId !== null || reportViewId !== null);
   // Unsaved edits on the edit page, and the question asked before leaving them.
   let editDirty = $state(false);
   let leaveEdit = $state.raw<(() => void) | null>(null);
@@ -95,6 +109,8 @@
   // A finished error report's summary; the report is already saved as Ready.
   let errorSummary = $state.raw<{ id: string; record: ErrorReportRecord } | null>(null);
   let reportOpen = $derived(details.open || details.summaryOpen || errorSummary !== null);
+  // TEMPORARY [REPORT-DEBUG]
+  $effect(() => { reportDebug(`error summary ${errorSummary ? 'OPEN' : 'CLOSED'}`, { id: errorSummary?.id ?? null }); });
   let menuOpen = $state(false);
   let menuWasOpen = false;
   let opacity = $state(0);
@@ -137,6 +153,8 @@
   }
 
   function syncRoute() {
+    reportDebug('route', { from: hash, to: window.location.hash }); // TEMPORARY
+    if (hash !== window.location.hash) formCause = `route change ${hash || '(map)'} → ${window.location.hash || '(map)'}`; // TEMPORARY
     // #/Reports and other spellings: rewrite to the lower-case route in place, keeping the history entry.
     const canonical = canonicalReportsHash(window.location.hash);
     if (canonical) history.replaceState(history.state, '', canonical);
@@ -205,6 +223,8 @@
   }
 
   function openDetails(report?: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) {
+    cause(report ? 'openDetails (new obstacle registered)' : 'openDetails (Resume details)'); // TEMPORARY
+    if (report && pageOpen) reportDebug('openDetails: a page is open, so the new form is dismissed at once', { hash: window.location.hash }); // TEMPORARY
     returnFocus = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     if (report) {
       detailsController.begin(report, details.variant ?? reporting.variant, positionReady);
@@ -219,6 +239,7 @@
   }
 
   function closeDetails() {
+    reportDebug('closeDetails', { nrlDetailsDepth: history.state?.nrlDetailsDepth ?? null, hash: window.location.hash }); // TEMPORARY
     if (history.state?.nrlDetailsDepth) history.go(-history.state.nrlDetailsDepth);
     else {
       history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -228,6 +249,7 @@
 
   // Save draft: back on the map, a confirmation says it is a draft, not sent, what is missing and where it is.
   async function saveDetails() {
+    cause('Save draft'); // TEMPORARY
     const draft = details.draft;
     if (!await detailsController.saveAndDismiss()) return;
     closeDetails();
@@ -247,6 +269,7 @@
   }
 
   async function continueDetails() {
+    cause('Continue'); // TEMPORARY
     if (!await detailsController.continue() || !details.variant) return;
     history.pushState({ nrlDetailsDepth: (history.state?.nrlDetailsDepth ?? 0) + 1 }, '', details.variant.stepRoutes[details.step - 1]);
     syncRoute();
@@ -262,6 +285,7 @@
   }
 
   async function finishDetails() {
+    cause('Finish report'); // TEMPORARY
     if (!await detailsController.finish()) return;
     homeMap.clearSelection();
     if (details.summaryOpen) {
@@ -271,11 +295,13 @@
   }
 
   function closeSummary() {
+    cause('close summary (X, Save and continue or Send report)'); // TEMPORARY
     detailsController.closeSummary();
     closeDetails();
   }
 
   function editSummary(step: number) {
+    cause(`edit from summary (step ${step})`); // TEMPORARY
     if (!detailsController.editResult(step) || !details.variant) return;
     history.replaceState(history.state, '', details.variant.stepRoutes[details.step - 1]);
     syncRoute();
@@ -283,6 +309,7 @@
 
   // Closing a form opened from the summary returns to the summary, not the map.
   function dismissDetails() {
+    cause('close form (X / Escape)'); // TEMPORARY
     if (!detailsController.cancelEdit()) { closeDetails(); return; }
     history.replaceState(history.state, '', summaryRoute);
     syncRoute();
@@ -392,7 +419,11 @@
     const record = (drafts.find((draft) => draft.id === id) ?? reports.find((report) => report.id === id))?.errorReport;
     if (!record) return;
     pendingErrorEdit = { id, record };
-    backToMap();
+    // From a report's own page, one step back is only the list, so go straight to the map.
+    if (reportViewIdFromHash(window.location.hash)) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+      syncRoute();
+    } else backToMap();
   }
 
   function outcomeToMap() {
@@ -405,6 +436,21 @@
     summaryOutcome = null;
     pendingPage = { hash: reportsRoute, highlightReportId: null, filter };
     if (!history.state?.nrlDetailsDepth) syncRoute();
+  }
+
+  function openReportView(id: string) {
+    history.pushState({ ...history.state, nrlViewEntry: true }, '', reportViewRoute(id));
+    syncRoute();
+  }
+
+  // Back to the list: the entry before the read-only page, or the list itself after a direct link.
+  function exitReportView() {
+    if (!reportViewIdFromHash(window.location.hash)) return;
+    if (history.state?.nrlViewEntry) history.back();
+    else {
+      history.replaceState(history.state, '', reportsRoute);
+      syncRoute();
+    }
   }
 
   function openReportEdit(id: string) {
@@ -474,8 +520,10 @@
     window.addEventListener('hashchange', syncRoute);
     // Place names for report cards, looked up once per location and stored.
     const stopPlaceNames = startPlaceNames(reportStore);
+    const stopReportDebug = watchReportInputs(); // TEMPORARY [REPORT-DEBUG]
     return () => {
       stopPlaceNames();
+      stopReportDebug(); // TEMPORARY [REPORT-DEBUG]
       // Invalidate a Finish waiting on GPS before the map releases its request.
       detailsController.clear();
       window.removeEventListener('popstate', syncRoute);
@@ -490,7 +538,7 @@
 
 <!-- A press anywhere on the map dismisses its confirmation; the toast sits outside this element. -->
 <div class="map-page" class:map-page-hidden={pageOpen} inert={pageOpen || reportOpen} aria-hidden={pageOpen || reportOpen}
-  onpointerdown={() => { mapNotice = null; }}>
+  onpointerdown={(event) => { reportDebug('map click handler (App: closes the toast)', { type: event.type, target: describeTarget(event.target), toastOpen: !!mapNotice, inert: pageOpen || reportOpen }); mapNotice = null; }}>
   <HomeMap bind:this={homeMap} bind:menuOpen bind:opacity bind:isGrayscale={grayscale}
     {placementEditing} {userTest}
     bind:geolocationState={locationState} bind:locationMessage bind:accuracy
@@ -538,7 +586,8 @@
 {#if faqOpen}<FaqPage onback={backToMap} onguide={() => openPage(reportingGuideRoute)} />{/if}
 {#if reportsOpen}<ReportsPage onback={backToMap} onshowonmap={showOnMap} highlightId={highlightReportId} openId={openReportId} filter={reportsFilter}
   onediterrorreport={editStoredErrorReport} editId={reportEditId} onopenedit={openReportEdit} onexitedit={exitReportEdit}
-  oneditdirty={(dirty) => { editDirty = dirty; }} />{/if}
+  oneditdirty={(dirty) => { editDirty = dirty; }}
+  viewId={reportViewId} onopenview={openReportView} onexitview={exitReportView} />{/if}
 {#if leaveEdit}
   {#snippet leaveSubtitle()}<p>You have unsaved changes. Leave without saving?</p>{/snippet}
   {#snippet keepEditing()}<button type="button" class="ds-button dialog-action-primary" data-variant="primary" onclick={() => { leaveEdit = null; }}>Keep editing</button>{/snippet}

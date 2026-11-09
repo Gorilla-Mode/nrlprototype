@@ -145,3 +145,10 @@ test('every report card gets a third line for its status, like a draft step line
     declined: 'Not added to the register',
   });
 });
+
+test('report pages say "Last edited today 18:10" today and the date on other days', async () => {
+  const { lastEditedLabel } = await import('../src/lib/reports/reportsData.js');
+  const now = new Date(2026, 10, 8, 19, 0);
+  assert.equal(lastEditedLabel(new Date(2026, 10, 8, 18, 10).toISOString(), now), 'today 18:10');
+  assert.equal(lastEditedLabel(new Date(2026, 10, 7, 18, 10).toISOString(), now), '07.11.2026');
+});

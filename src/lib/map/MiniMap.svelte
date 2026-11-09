@@ -2,21 +2,37 @@
   import { tick } from 'svelte';
   import { Map as MapLibreMap } from 'maplibre-gl';
   import MapLightbox from './MapLightbox.svelte';
-  import { createPreviewStyle } from './mapConfig';
-  import { previewCamera, readPreviewVisuals } from './previewMap';
-  import type { ReportGeometry } from '../reports/reportGeometry';
+  import { createReportMapStyle } from './mapConfig';
+  import { readReportMapVisuals, reportMapCamera } from './previewMap';
+  import { coordinateLabel, type ReportGeometry } from '../reports/reportGeometry';
+  import { obstacleGeometryChoices } from '../reporting/obstacle';
 
   interface Props {
     geometry: ReportGeometry | null;
     /** Names the obstacle for assistive technology and titles the enlarged map. */
     label: string;
-    /** Opens the geometry on the main map; only the "Show on map" button does this. */
-    onshowonmap?: () => void;
     /** When set, the preview opens the location editor instead of the enlarged map. */
     onedit?: () => void;
+    /**
+     * An error report's registered position, when the reported (corrected) one differs:
+     * drawn as a hollow ring beside the filled reported point, both in view, with a legend.
+     */
+    registered?: { lat: number; lng: number } | null;
+    /** Replaces the caption under the map, e.g. how far an error report moves the obstacle. */
+    caption?: string;
   }
 
-  let { geometry, label, onshowonmap, onedit }: Props = $props();
+  /**
+   * The report map on every report page (edit, Ready, sent and error reports): one height rule
+   * (16:9, within --report-map-min/max-height), one zoom, one marker, and the same caption.
+   */
+  let { geometry, label, onedit, registered = null, caption: captionOverride }: Props = $props();
+  let registeredPoint = $derived<[number, number] | null>(registered ? [registered.lng, registered.lat] : null);
+  // "Point · 60.4053° N, 5.3455° E": the drawing tool's word, then the coordinates, no vertex count.
+  let caption = $derived(captionOverride ?? [
+    obstacleGeometryChoices.find(({ type }) => type === geometry?.type)?.label,
+    coordinateLabel(geometry),
+  ].filter(Boolean).join(' · '));
 
   let frame = $state<HTMLElement | undefined>();
   let host = $state<HTMLDivElement | undefined>();
@@ -35,16 +51,16 @@
     enlargeButton?.focus({ preventScroll: true });
   }
 
-  function render(container: HTMLDivElement, shape: ReportGeometry, onSnapshot: (url: string) => void): MapLibreMap {
+  function render(container: HTMLDivElement, shape: ReportGeometry, point: [number, number] | null, onSnapshot: (url: string) => void): MapLibreMap {
     const { width, height } = container.getBoundingClientRect();
     const map = new MapLibreMap({
       container,
-      style: createPreviewStyle(shape, readPreviewVisuals(container)),
+      style: createReportMapStyle(shape, readReportMapVisuals(container), point),
       interactive: false,
       attributionControl: false,
       fadeDuration: 0,
       canvasContextAttributes: { preserveDrawingBuffer: true },
-      ...previewCamera(shape, width, height),
+      ...reportMapCamera(shape, width, height, point),
     });
     // 'idle' fires once every tile has loaded or failed, so a slow or offline tile
     // server still ends with a preview of the geometry itself.
@@ -61,6 +77,7 @@
 
   $effect(() => {
     const shape = geometry;
+    const point = registeredPoint;
     const container = host;
     if (!shape || !container || !frame) return;
     snapshot = null;
@@ -69,7 +86,7 @@
     const observer = new IntersectionObserver((entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return;
       observer.disconnect();
-      map = render(container, shape, (url) => { map = null; snapshot = url; });
+      map = render(container, shape, point, (url) => { map = null; snapshot = url; });
     }, { rootMargin: '200px' });
     observer.observe(frame);
     return () => {
@@ -80,8 +97,9 @@
 </script>
 
 {#if !geometry}
-  <div class="mini-map mini-map-empty">No location set</div>
+  <div class="mini-map-frame"><div class="mini-map mini-map-empty">No location set</div></div>
 {:else}
+  <div class="mini-map-frame">
   <div class="mini-map" bind:this={frame}>
     <button bind:this={enlargeButton} type="button" class="mini-map-enlarge" aria-label={onedit ? `Edit location of ${label}` : `Enlarge map of ${label}`} aria-haspopup="dialog"
       onclick={() => { if (onedit) onedit(); else enlarged = true; }}>
@@ -91,23 +109,35 @@
         <div class="mini-map-canvas" bind:this={host}></div>
       {/if}
     </button>
-    {#if onshowonmap}
-      <!-- A sibling of the enlarge button, not inside it: buttons cannot nest. -->
-      <button type="button" class="mini-map-action" onclick={onshowonmap}><span>Show on map</span></button>
-    {/if}
     <span class="mini-map-attribution">© Kartverket</span>
   </div>
+  </div>
+  {#if registeredPoint}
+    <!-- Shape, not only colour, tells the two positions apart: a ring and a filled dot. -->
+    <p class="mini-map-legend">
+      <span class="mini-map-symbol registered" aria-hidden="true"></span>Registered position
+      <span class="mini-map-legend-separator" aria-hidden="true">·</span>
+      <span class="mini-map-symbol reported" aria-hidden="true"></span>Reported position
+    </p>
+  {/if}
+  <p class="mini-map-caption">{caption}</p>
   {#if enlarged}
-    <MapLightbox {geometry} {label} onclose={closeEnlarged} />
+    <MapLightbox {geometry} {label} registered={registeredPoint} onclose={closeEnlarged} />
   {/if}
 {/if}
 
 <style>
+  /*
+   * The height follows the width through container units, not aspect-ratio: with aspect-ratio
+   * the minimum height turns into a minimum width (498 px) that a grid column must make room for.
+   */
+  .mini-map-frame { container-type: inline-size; width: 100%; }
   .mini-map {
     position: relative;
     display: block;
     width: 100%;
-    height: var(--reports-mini-map-height);
+    /* 16:9 of the frame's width, within a minimum and a maximum height; never stretched to fill the page. */
+    height: clamp(var(--report-map-min-height), 56.25cqw, var(--report-map-max-height));
     margin-top: var(--space-2);
     padding: 0;
     overflow: hidden;
@@ -129,28 +159,22 @@
   .mini-map-canvas, .mini-map-image { position: absolute; inset: 0; width: 100%; height: 100%; }
   .mini-map-image { object-fit: cover; }
 
-  .mini-map-action span, .mini-map-attribution {
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-small);
-    background: var(--color-background-raised);
-    font-size: var(--font-size-caption);
+  .mini-map-attribution {
+    position: absolute; right: var(--space-2); bottom: var(--space-2);
+    padding: var(--space-1) var(--space-2); border-radius: var(--radius-small);
+    background: var(--color-background-raised); color: var(--color-text-secondary);
+    font-size: var(--font-size-caption); pointer-events: none;
   }
-  /* 44px target around the small label, which keeps its place in the corner. */
-  .mini-map-action {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    display: flex;
-    align-items: flex-end;
-    min-width: var(--target-size-min);
-    min-height: var(--target-size-min);
-    padding: 0 0 var(--space-2) var(--space-2);
-    border: 0;
-    background: transparent;
-    color: var(--color-action-secondary);
-    font-weight: var(--font-weight-semibold);
-    cursor: pointer;
+
+  .mini-map-caption, .mini-map-legend { margin: var(--space-2) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
+  .mini-map-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); color: var(--color-text-primary); }
+  .mini-map-legend-separator { color: var(--color-text-secondary); }
+  /* The same symbols as on the map: a hollow ring for registered, a filled dot with a white edge for reported. */
+  .mini-map-symbol {
+    flex: none; display: inline-block; box-sizing: border-box;
+    width: calc(2 * var(--report-map-marker-radius)); height: calc(2 * var(--report-map-marker-radius));
+    border-radius: var(--radius-round);
   }
-  .mini-map-action:hover span { text-decoration: underline; }
-  .mini-map-attribution { position: absolute; right: var(--space-2); bottom: var(--space-2); color: var(--color-text-secondary); pointer-events: none; }
+  .mini-map-symbol.registered { border: calc(1.5 * var(--report-map-marker-stroke)) solid var(--color-map-point); box-shadow: 0 0 0 var(--report-map-marker-stroke) var(--color-drawing-casing); }
+  .mini-map-symbol.reported { background: var(--color-map-point); box-shadow: 0 0 0 var(--report-map-marker-stroke) var(--color-drawing-casing), 0 0 0 calc(var(--report-map-marker-stroke) + 1px) var(--color-border-strong); }
 </style>

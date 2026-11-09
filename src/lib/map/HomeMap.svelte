@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick, type Snippet } from 'svelte';
+  import { onMount, tick, untrack, type Snippet } from 'svelte';
   import type { SettingsSection } from '../settings/settings';
   import MenuDrawer from './MenuDrawer.svelte';
   import UserTestTasks from '../usertest/UserTestTasks.svelte';
@@ -12,6 +12,7 @@
   import ErrorReportToolbar from './ErrorReportToolbar.svelte';
   import PositionCorrectionToolbar from './PositionCorrectionToolbar.svelte';
   import ErrorReportPanel from '../obstacles/ErrorReportPanel.svelte';
+  import { reportDebug } from '../debug/reportDebug'; // TEMPORARY [REPORT-DEBUG]
   import { emptyErrorReportAnswers, type ErrorReportAnswers, type ErrorReportRecord, type PositionChoice } from '../obstacles/errorReport';
   import { distanceM, minimumMoveM, moveParts, type GeoPosition } from '../obstacles/position';
   import type { GeolocationState } from './createGeolocationController';
@@ -104,13 +105,16 @@
   // The mode stays active behind the form, so Cancel returns to the placed circle.
   function selectErrorObstacle() {
     const target = mapCanvas?.sampleErrorReportTarget();
+    reportDebug('error form: select obstacle', { matched: !!target?.match, obstacle: target?.match?.id ?? null }); // TEMPORARY
     if (!target?.match) return;
     errorSession = { id: crypto.randomUUID(), initial: emptyErrorReportAnswers };
     selectedObstacle = target.match;
+    reportDebug('error form OPEN', { cause: 'Report error on the error toolbar', obstacle: target.match.id }); // TEMPORARY
   }
 
   /** Reopens a saved error report (draft or Ready) in the form, from the summary or Reports. */
   export function openErrorReport(id: string, record: ErrorReportRecord) {
+    reportDebug('error form OPEN', { cause: 'reopen saved error report (summary pencil or Reports)', id }); // TEMPORARY
     errorReportMode = true;
     errorSession = { id, initial: record.answers };
     selectedObstacle = record.obstacle;
@@ -118,11 +122,36 @@
 
   // The toggle stays reachable while picking; turning the mode off abandons the whole report.
   $effect(() => {
+    reportDebug('error report mode', { on: errorReportMode }); // TEMPORARY
     if (errorReportMode) return;
+    if (untrack(() => selectedObstacle || errorSession)) reportDebug('error form CLOSED', { cause: 'error report mode turned off' }); // TEMPORARY
     positionPick = null;
     selectedObstacle = null;
     errorSession = null;
   });
+
+  /**
+   * The error report button never does nothing and never throws away work in progress:
+   * - a new-obstacle report in progress is shown (its form, or the drawing still being placed);
+   * - an error report waiting on the map for its corrected position goes back to its form;
+   * - otherwise it turns error reporting on or off.
+   */
+  function pressErrorReport() {
+    reportDebug('error report button pressed', { // TEMPORARY
+      drawing: drawing.status, errorReportMode, positionPick: !!positionPick, errorForm: !!(selectedObstacle && errorSession),
+      canResume: !!onresumedetails, branch: drawing.status !== 'idle' ? (onresumedetails ? 'resume details' : 'focus drawing') : positionPick ? 'back to error form' : 'toggle mode',
+    });
+    if (drawing.status !== 'idle') {
+      if (onresumedetails) onresumedetails();
+      else mapCanvas?.focus();
+      return;
+    }
+    if (positionPick) {
+      finishPositionPick({ kind: 'cancel' });
+      return;
+    }
+    errorReportMode = !errorReportMode;
+  }
 
   async function pickPosition({ selected, position }: { selected: boolean; position: GeoPosition | null }) {
     if (!selectedObstacle) return;
@@ -152,6 +181,7 @@
   }
 
   async function dismissErrorForm() {
+    reportDebug('error form CLOSED', { cause: 'dismiss (X, Escape or backdrop)' }); // TEMPORARY
     selectedObstacle = null;
     errorSession = null;
     await tick();
@@ -166,6 +196,7 @@
 
   // Save draft and Finish report both leave the form and the mode; App stores and confirms.
   function leaveErrorReport(answers: ErrorReportAnswers, done: ((id: string, record: ErrorReportRecord) => void) | undefined) {
+    reportDebug('error form CLOSED', { cause: done === onerrorsave ? 'Save draft' : 'Finish report', hadForm: !!(selectedObstacle && errorSession) }); // TEMPORARY
     if (!selectedObstacle || !errorSession) return;
     const { id } = errorSession;
     const record: ErrorReportRecord = { obstacle: selectedObstacle, answers };
@@ -196,6 +227,7 @@
 
   let drawing = $state.raw<DrawingState>(idleDrawingState);
   function handleDrawingChange(state: DrawingState) {
+    if (state.status !== drawing.status) reportDebug('drawing state', { from: drawing.status, to: state.status }); // TEMPORARY
     if (drawing.status === 'idle' && state.status === 'drawing') onreportstart?.();
     drawing = state;
   }
@@ -221,6 +253,7 @@
   }
 
   function handleHoldChange(origin: HoldOrigin | null) {
+    reportDebug(origin ? 'hold/drag gesture START (radial menu)' : 'hold/drag gesture END', origin ? { x: Math.round(origin.x), y: Math.round(origin.y), errorReportMode } : { lastPointer: holdPointer }); // TEMPORARY
     const restoreFocus = !origin && mapWrapper?.contains(document.activeElement) &&
       document.activeElement?.classList.contains('hold-menu');
     holdOrigin = origin;
@@ -231,6 +264,7 @@
   }
 
   function handleMapClick() {
+    reportDebug('map click handler (HomeMap: closes layer panel, clears location message)', { layerPanelOpen: isLayerFadeOpen }); // TEMPORARY
     isLayerFadeOpen = false;
     locationMessage = '';
   }
@@ -267,7 +301,7 @@
     bind:open={isLayerFadeOpen}
     bind:grayscale={isGrayscale}
     bind:errorReportMode
-    errorReportDisabled={drawing.status !== 'idle'}
+    onerrorreport={pressErrorReport}
     zoomControls={!!positionPick}
     onzoomin={() => mapCanvas?.zoomIn()}
     onzoomout={() => mapCanvas?.zoomOut()}
@@ -300,7 +334,7 @@
     onholdchange={handleHoldChange}
     onholdmove={(x, y) => { holdPointer = { x, y }; }}
     ondrawingchange={handleDrawingChange}
-    onobstacleregistered={oncomplete}
+    onobstacleregistered={(obstacle, positionReady) => { reportDebug('obstacle registered → opening form', { id: obstacle.id, geometry: obstacle.obstacle_position.type }); oncomplete?.(obstacle, positionReady); }}
   />
   {#each vertexHandles as handle (handle.index)}
     <button type="button" class="vertex-handle" style:--hold-x={`${handle.x}px`} style:--hold-y={`${handle.y}px`}
@@ -334,7 +368,7 @@
     bind:geometryType
     showSelectionControls={!errorReportMode}
     selectionControlsCovered={isLayerFadeOpen}
-    onstart={(type) => mapCanvas?.startAtCrosshair(type)}
+    onstart={(type) => { reportDebug('Report obstacle (crosshair) pressed', { geometry: type, drawing: drawing.status }); mapCanvas?.startAtCrosshair(type); }}
     onaddpoint={() => mapCanvas?.appendAtCrosshair()}
     onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}
     onundo={() => mapCanvas?.undoDrawing()}

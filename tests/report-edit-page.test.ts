@@ -69,14 +69,16 @@ test('lighting is a labelled list with the same stored values and new labels', (
 
 test('reporter and dates sit under the title, from the report, with times', () => {
   const html = page({ ...base, reportedByName: 'Ada Lovelace', reportedByOrg: 'Luftambulansen' });
-  assert.match(html, /<h1[\s\S]*class="report-meta[^"]*">\s*Reported by Ada Lovelace · Luftambulansen\s*· Created <time datetime="[^"]+">[^<]+<\/time>\s*· Last edited <time datetime="[^"]+">/);
+  assert.match(html, /<\/header>[\s\S]*class="safe-area[\s\S]*?<p class="report-meta[^"]*">\s*Reported by Ada Lovelace, Luftambulansen\s*· Last edited <time datetime="[^"]+">/);
+  assert.doesNotMatch(html, /Created/);
   assert.doesNotMatch(html, /class="reporter-row/);
 });
 
 test('no repeated subtitle or geometry caption; the geometry word leads the location coordinates', () => {
   const html = page(base);
   assert.doesNotMatch(html, /class="subtitle|geometry<\/div>/);
-  assert.match(html, /class="map-caption[^"]*">Point · 60\.3913° N, 5\.3221° E<\/div>/);
+  // The caption is the shared report map's own (tests/mini-map.test.ts).
+  assert.doesNotMatch(html, /class="map-caption/);
 });
 
 test('Send is blue with its note beside it in one right-aligned group', () => {
@@ -109,6 +111,8 @@ test('no type: "Select type" is chosen, cannot be picked again, is marked missin
   const other = page({ ...base, title: '', category: ObstacleType.Other });
   assert.match(other, /<option value="other"[^>]*selected/);
   assert.doesNotMatch(other, /draft-type-error|class="page-header-title[^"]*muted/);
+  // With a type and no name, the title says it is a new obstacle.
+  assert.match(page({ ...base, title: '', category: ObstacleType.Bridge, heightAboveGround: '7 m (23 ft)' }), /<h1 class="page-header-title[^"]*"[^>]*>New obstacle · Bridge · 7\u00a0m<\/h1>/);
 });
 
 test('the summary names each missing field as a link, without referring to colour', () => {

@@ -6,6 +6,8 @@
   import StatusTabs from './StatusTabs.svelte';
   import ReportCard from './ReportCard.svelte';
   import ReportDetailPage from './ReportDetailPage.svelte';
+  import ReportViewPage from './ReportViewPage.svelte';
+  import ErrorReportEditPage from './ErrorReportEditPage.svelte';
   import ReportSentDialog from './ReportSentDialog.svelte';
   import BulkSendDialog from './BulkSendDialog.svelte';
   import { sendToKartverket, type ReportSender } from './bulkSend';
@@ -22,7 +24,7 @@
   import { matchesGeometryFilter, matchesHeightFilter, type GeometryKey, type HeightFilterKey } from './filtering';
 
   let { onback, onshowonmap, sendreport = sendToKartverket, highlightId = null, openId = null, filter = 'all', onediterrorreport,
-    editId = null, onopenedit, onexitedit, oneditdirty }: {
+    editId = null, onopenedit, onexitedit, oneditdirty, viewId = null, onopenview, onexitview }: {
     onback: () => void;
     onshowonmap?: (target: GeometryCameraTarget) => void;
     /** A report just saved elsewhere: listed first and briefly tinted when the page opens. */
@@ -31,7 +33,7 @@
     openId?: string | null;
     /** Status tab chosen when the page opens. */
     filter?: StatusTabKey;
-    /** An error report's draft or Ready report is edited in the error form on the map. */
+    /** An error report's draft is edited in the error form on the map. */
     onediterrorreport?: (id: string) => void;
     /** The draft or Ready report whose edit page is open, from #/reports/{id}/edit. */
     editId?: string | null;
@@ -41,6 +43,12 @@
     onexitedit?: (saved: boolean) => void;
     /** Whether the open edit page has unsaved changes. */
     oneditdirty?: (dirty: boolean) => void;
+    /** The Ready to send report whose read-only page is open, from #/reports/{id}. */
+    viewId?: string | null;
+    /** Opens a Ready report's read-only page by its URL. */
+    onopenview?: (id: string) => void;
+    /** Leaves the read-only page for the list. */
+    onexitview?: () => void;
     /** Delivers one selected report; the prototype default always succeeds. */
     sendreport?: ReportSender;
   } = $props();
@@ -60,13 +68,35 @@
   let drafts = $derived($reportStore.drafts);
 
   let view = $state<'list' | 'report-detail'>('list');
-  // .raw: the (legacy, non-runes) detail page edits a working copy in place and
-  // saves it through the report store, so stored data only changes on save.
+  // The sent report opened on the detail page; the page shows the stored one, kept current.
   let selectedReport = $state.raw<Report | null>(null);
 
+  // A Ready to send report opens its own page (#/reports/{id}), one for new obstacles and one for
+  // error reports; sent reports keep the in-page detail view for now.
+  const hasViewPage = (report: Report) => report.status === 'ready';
+
   function openReport(report: Report) {
+    if (hasViewPage(report)) { onopenview?.(report.id); return; }
     selectedReport = structuredClone(report);
     view = 'report-detail';
+  }
+
+  // The read-only page reads the stored report, so it shows edits made on the edit page.
+  let viewReport = $derived(viewId ? reports.find((report) => report.id === viewId) ?? null : null);
+  // A view URL for something that has no such page (unknown, sent, error report) falls back to the list.
+  $effect(() => {
+    const id = viewId;
+    if (!id) return;
+    const report = untrack(() => reports.find((entry) => entry.id === id));
+    if (!report || !hasViewPage(report)) untrack(() => onexitview?.());
+  });
+
+  // Sent from the read-only page: back to the list, on Sent, with the sent confirmation.
+  function viewSent(sent: Report) {
+    onexitview?.();
+    sentConfirmation = { report: sent, at: new Date(sent.sentAt ?? sent.updatedAt) };
+    statusFilter = 'sent';
+    backToList();
   }
 
   // Drafts open on their edit page; error drafts in the error form on the map.
@@ -75,25 +105,23 @@
     onopenedit?.(draft.id);
   }
 
-  // Edit report on a Ready report: the list stays behind the edit page, so returning never
-  // shows a detail page holding the copy from before the edit.
-  function editReport(id: string) {
-    backToList();
-    onopenedit?.(id);
-  }
-
   function backToList() {
     view = 'list';
     selectedReport = null;
   }
 
-  /** The edit page's working copy: a draft, or a Ready report opened as a draft. Error reports are edited on the map. */
-  function editableCopy(id: string): { draft: Draft; status: 'draft' | 'ready' } | null {
+  /**
+   * What #/reports/{id}/edit edits: a new obstacle draft or Ready report (as a draft working copy),
+   * or a Ready error report on its own edit page. Error drafts are still edited in the error form on the map.
+   */
+  type Editable = { kind: 'obstacle'; draft: Draft; status: 'draft' | 'ready' } | { kind: 'error'; report: Report };
+  function editableCopy(id: string): Editable | null {
     const draft = drafts.find((entry) => entry.id === id);
-    if (draft) return draft.errorReport ? null : { draft: structuredClone(draft), status: 'draft' };
+    if (draft) return draft.errorReport ? null : { kind: 'obstacle', draft: structuredClone(draft), status: 'draft' };
     const report = reports.find((entry) => entry.id === id);
-    if (report?.status === 'ready' && !report.errorReport) return { draft: reportToDraft(structuredClone(report), true), status: 'ready' };
-    return null;
+    if (report?.status !== 'ready') return null;
+    if (report.errorReport) return { kind: 'error', report: structuredClone(report) };
+    return { kind: 'obstacle', draft: reportToDraft(structuredClone(report), true), status: 'ready' };
   }
 
   // Made once per id: later store changes never replace the form being edited.
@@ -112,7 +140,8 @@
   if (initialOpenId) {
     const report = untrack(() => reports).find((entry) => entry.id === initialOpenId);
     const draft = report ? undefined : untrack(() => drafts).find((entry) => entry.id === initialOpenId);
-    if (report) openReport(report);
+    // A Ready report opens on its view URL once the page is in place.
+    if (report) { if (hasViewPage(report)) void tick().then(() => openReport(report)); else openReport(report); }
     // An error draft has no detail page; it is listed first and highlighted instead of leaving the page.
     // A draft opens on its edit URL once the page is in place.
     else if (draft && !draft.errorReport) void tick().then(() => openDraft(draft));
@@ -194,6 +223,7 @@
     if (event.key !== 'Escape' || event.defaultPrevented) return;
     event.preventDefault();
     if (editId) onexitedit?.(false);
+    else if (viewId) onexitview?.();
     else onback();
   }
 
@@ -279,11 +309,24 @@
 
 {#if editId && editing}
   {#key editId}
-    <DraftDetailPage draft={editing.draft} status={editing.status} onBack={() => onexitedit?.(false)} onDone={() => onexitedit?.(true)}
-      onSend={draftSent} ondirtychange={(dirty) => oneditdirty?.(dirty)} />
+    <!-- #/reports/{id}/edit: the error report edit page or the new obstacle edit page, by report type. -->
+    {#if editing.kind === 'error'}
+      <ErrorReportEditPage report={editing.report} onback={() => onexitedit?.(false)} ondone={() => onexitedit?.(true)}
+        onsend={draftSent} ondirtychange={(dirty) => oneditdirty?.(dirty)} />
+    {:else}
+      <DraftDetailPage draft={editing.draft} status={editing.status} onBack={() => onexitedit?.(false)} onDone={() => onexitedit?.(true)}
+        onSend={draftSent} ondirtychange={(dirty) => oneditdirty?.(dirty)} />
+    {/if}
+  {/key}
+{:else if viewId && viewReport}
+  {#key viewId}
+    <!-- One page for both: an error report only changes the cards' content; Edit report opens its edit page. -->
+    <ReportViewPage report={viewReport} record={viewReport.errorReport} onback={() => onexitview?.()}
+      onedit={(id) => onopenedit?.(id)} onsent={viewSent} {onshowonmap} />
   {/key}
 {:else if view === 'report-detail' && selectedReport}
-  <ReportDetailPage report={selectedReport} onback={backToList} {onshowonmap} onediterror={onediterrorreport} onedit={editReport} />
+  <!-- The stored report, so withdrawing shows its new status on the page. -->
+  <ReportDetailPage report={reports.find((report) => report.id === selectedReport?.id) ?? selectedReport} onback={backToList} {onshowonmap} />
 {:else}
   <main class="reports-page" class:reports-select-active={selectMode} aria-label="Reports">
     {#snippet filters()}<ReportFilters bind:geometries={appliedGeometries} bind:heightFilter={appliedHeightFilter} />{/snippet}

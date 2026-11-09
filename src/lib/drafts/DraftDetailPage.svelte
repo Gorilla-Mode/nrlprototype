@@ -9,10 +9,10 @@
   import LocationEditor from '../map/LocationEditor.svelte';
   import PhotoField from '../reports/PhotoField.svelte';
   import Dropdown from '../reports/Dropdown.svelte';
-  import { obstacleGeometryChoices, obstacleTypeChoices } from '../reporting/obstacle';
-  import { coordinateLabel, type ReportGeometry } from '../reports/reportGeometry';
+  import { obstacleTypeChoices } from '../reporting/obstacle';
+  import type { ReportGeometry } from '../reports/reportGeometry';
   import { draftToReport, reportStore } from '../reports/reportStore';
-  import { formatShortDate, obstacleHeading, type Report } from '../reports/reportsData';
+  import { lastEditedLabel, newObstacleTitle, type Report } from '../reports/reportsData';
 
   const typeOptions = obstacleTypeChoices.map(({ type, label }) => ({ value: type, label }));
   // Same stored values as before; only the labels say what each answer means.
@@ -76,15 +76,6 @@
     return { destroy: () => field.removeEventListener('input', fit) };
   }
 
-  const timeFormat = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
-  /** "13:16" when edited today, otherwise the date. */
-  function editedLabel(timestamp: string): string {
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) return timestamp;
-    const today = new Date();
-    const sameDay = date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
-    return sameDay ? timeFormat.format(date) : formatShortDate(timestamp);
-  }
 
   // No type stays empty ("Select type") until one is chosen; nothing defaults to Other.
   let typeChoice: ObstacleType | '' = draftType(draft) ?? '';
@@ -95,7 +86,7 @@
   $: chosenType = typeChoice === '' ? null : typeChoice;
   // The name is optional; without one the page is titled like its card, "Untitled obstacle" without a type.
   $: titleMuted = !draft.title && chosenType === null;
-  $: title = draft.title || (chosenType === null ? 'Untitled obstacle' : obstacleHeading(chosenType, heightInMeters(draft.heightAboveGround)));
+  $: title = draft.title || (chosenType === null ? 'Untitled obstacle' : newObstacleTitle(chosenType, heightInMeters(draft.heightAboveGround)));
 
   // The location editor opens over this page; only "Use this location" changes the working copy.
   let editingLocation = false;
@@ -141,25 +132,19 @@
     document.getElementById(id)?.focus();
   }
 
-  // The drawing tool's word for the geometry, shown with the coordinates in Location.
-  $: geometryLabel = obstacleGeometryChoices.find(({ type }) => type === draft.geometry?.type)?.label;
-  $: coordinates = coordinateLabel(draft.geometry);
-  $: locationCaption = [geometryLabel, coordinates].filter(Boolean).join(' · ');
 </script>
 
 <section class="page">
   {#snippet statusTag()}<StatusBadge {status} />{/snippet}
-  <PageHeader {title} {titleMuted} backLabel="Back to Reports" onback={onBack} actions={statusTag}>
-    <!-- Who reported it and when, from the report itself; replaces the Activity box. -->
-    <p class="report-meta">
-      Reported by {draft.reportedByName} · {draft.reportedByOrg}
-      · Created <time datetime={draft.createdAt}>{formatShortDate(draft.createdAt)}</time>
-      · Last edited <time datetime={draft.updatedAt}>{editedLabel(draft.updatedAt)}</time>
-    </p>
-  </PageHeader>
+  <PageHeader {title} {titleMuted} backLabel="Back to Reports" onback={onBack} actions={statusTag} />
 
   <div class="scroll-area">
     <div class="safe-area">
+      <!-- Who reported it and when, from the report itself: at the top of the content. -->
+      <p class="report-meta">
+        Reported by {draft.reportedByName}, {draft.reportedByOrg}
+        · Last edited <time datetime={draft.updatedAt}>{lastEditedLabel(draft.updatedAt)}</time>
+      </p>
       {#if !canSend}
         <!-- Names the missing fields as links to them; never refers to colour. -->
         <div class="needed-box">
@@ -236,7 +221,6 @@
             {#if draft.geometry}<button type="button" class="card-cta-link edit-location" bind:this={editLocationButton} on:click={openLocationEditor}>Edit location</button>{/if}
           </div>
           <MiniMap geometry={draft.geometry} label={title} onedit={draft.geometry ? openLocationEditor : undefined} />
-          {#if draft.geometry}<div class="map-caption muted">{locationCaption}</div>{/if}
       </section>
     </div>
   </div>
@@ -334,18 +318,11 @@
   .photo-row { margin-top:var(--space-4) }
 
   .panel { border:var(--border-default); border-radius:var(--radius-card); padding:14px; background:var(--color-background-raised) }
-  /* Full width where Activity was, with a taller map. */
-  /* The map is at least --report-edit-map-height and grows into any room left above the bottom bar. */
-  .location-panel { flex:1 0 auto; display:flex; flex-direction:column; --reports-mini-map-height: var(--report-edit-map-height); margin-bottom:var(--space-4) }
-  .location-panel :global(.mini-map) { flex:1 0 auto; height:auto; min-height:var(--report-edit-map-height) }
-  /* Under the title row, on the header's width and gutters, so it lines up with the content. */
-  .report-meta {
-    box-sizing:border-box; max-width:calc(var(--page-content-max) + 2 * var(--page-gutter)); margin:0 auto;
-    padding:0 max(var(--page-gutter), var(--safe-area-right)) var(--space-3) max(var(--page-gutter), var(--safe-area-left));
-    color:var(--color-text-secondary); font-size:var(--font-size-body-small); overflow-wrap:anywhere;
-  }
+  /* Full width where Activity was; the shared report map sets its own 16:9 height and caption. */
+  .location-panel { margin-bottom:var(--space-4) }
+  /* At the top of the content, lined up with the cards, a little space above them. */
+  .report-meta { margin:0 0 var(--space-4); color:var(--color-text-secondary); font-size:var(--font-size-body-small); overflow-wrap:anywhere }
 
-  .map-caption { font-size:12px; margin-top:8px }
   .location-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2) }
   .edit-location { min-height:var(--target-size-min); margin-block:calc(-1 * var(--space-3)); padding:0; border:0; background:none; font-size:var(--font-size-body-small); cursor:pointer }
 

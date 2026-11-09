@@ -20,9 +20,11 @@
     onuse: (geometry: ReportGeometry) => void;
     /** Cancel, X, Escape and the backdrop discard every change. */
     oncancel: () => void;
+    /** Only a point can be placed (an error report's position); the type choice is hidden. */
+    pointOnly?: boolean;
   }
 
-  let { geometry, onuse, oncancel }: Props = $props();
+  let { geometry, onuse, oncancel, pointOnly = false }: Props = $props();
 
   const registered = untrack(() => structuredClone(geometry));
   const registeredType = registered.type;
@@ -263,11 +265,13 @@
 <Lightbox title="Edit location" closeLabel="Close without changing the location" onclose={oncancel} {footer}>
   <div class="location-editor">
     <div class="location-toolbar">
+      {#if !pointOnly}
       <div class="reports-segmented" role="group" aria-label="Geometry type">
         {#each locationTypes as choice (choice.type)}
           <button type="button" class="reports-segment" aria-pressed={type === choice.type} onclick={() => chooseType(choice.type)}>{choice.label}</button>
         {/each}
       </div>
+      {/if}
       <div class="location-tools">
         {#if type !== 'Point'}
           <button type="button" class="ds-button" data-variant="secondary" data-color="neutral" disabled={vertices.length === 0} onclick={undoLastPoint}>Undo last point</button>

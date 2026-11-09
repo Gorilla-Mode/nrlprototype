@@ -15,6 +15,7 @@
     pending: 'Sent',
     approved: 'Approved',
     declined: 'Declined',
+    withdrawn: 'Withdrawn',
   };
   // Decorative: the label says the status. Draft pencil, Ready to send clock, Sent check.
   const icons: Partial<Record<ReportStatus | 'draft', Component>> = { draft: PencilIcon, ready: ClockIcon, pending: CheckIcon };

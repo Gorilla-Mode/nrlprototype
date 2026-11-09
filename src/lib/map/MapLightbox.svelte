@@ -2,19 +2,21 @@
   import { onMount } from 'svelte';
   import { Map as MapLibreMap, NavigationControl } from 'maplibre-gl';
   import Lightbox from './Lightbox.svelte';
-  import { createPreviewStyle, mapDefaults } from './mapConfig';
-  import { previewCamera, readPreviewVisuals } from './previewMap';
+  import { createReportMapStyle, mapDefaults } from './mapConfig';
+  import { readReportMapVisuals, reportMapCamera } from './previewMap';
   import type { ReportGeometry } from '../reports/reportGeometry';
 
   interface Props {
     geometry: ReportGeometry;
     /** Obstacle name, shown as the dialog title. */
     label: string;
+    /** An error report's registered position, drawn as a hollow ring beside the reported one. */
+    registered?: [number, number] | null;
     /** The opener closes the dialog and returns focus to its own trigger. */
     onclose: () => void;
   }
 
-  let { geometry, label, onclose }: Props = $props();
+  let { geometry, label, registered = null, onclose }: Props = $props();
   let mapHost: HTMLDivElement;
 
   // Lightbox has already opened the dialog, so the map measures its real size.
@@ -23,13 +25,13 @@
     const { width, height } = mapHost.getBoundingClientRect();
     const map = new MapLibreMap({
       container: mapHost,
-      style: createPreviewStyle(geometry, readPreviewVisuals(mapHost)),
+      style: createReportMapStyle(geometry, readReportMapVisuals(mapHost), registered),
       attributionControl: false,
       maxZoom: mapDefaults.maxZoom,
       dragRotate: false,
       pitchWithRotate: false,
       touchPitch: false,
-      ...previewCamera(geometry, width, height),
+      ...reportMapCamera(geometry, width, height, registered),
     });
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();

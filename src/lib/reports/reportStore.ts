@@ -78,12 +78,18 @@ function browserStorage(): Storage | undefined {
   }
 }
 
-/** Ready → Sent for review → Approved or Declined; statuses never move backwards. */
+/** Ready → Sent for review → Approved, Declined or Withdrawn; statuses never move backwards. */
 const nextStatuses: Record<ReportStatus, readonly ReportStatus[]> = {
   ready: ['pending'],
-  pending: ['approved', 'declined'],
+  pending: ['approved', 'declined', 'withdrawn'],
   approved: [],
   declined: [],
+  withdrawn: [],
+};
+
+/** The date each status records beside updatedAt: reviewed or withdrawn. */
+const statusDate: Partial<Record<ReportStatus, 'reviewedAt' | 'withdrawnAt'>> = {
+  approved: 'reviewedAt', declined: 'reviewedAt', withdrawn: 'withdrawnAt',
 };
 
 /**
@@ -153,7 +159,9 @@ export function createReportStore(repository: ReportRepository, clock: () => Dat
     const report = findReport(id);
     if (!report || !nextStatuses[report.status].includes(status)) return undefined;
     const now = clock();
-    const next = status === 'pending' ? markSent(report, now) : { ...report, status, updatedAt: now.toISOString() };
+    const dateKey = statusDate[status];
+    const next = status === 'pending' ? markSent(report, now)
+      : { ...report, status, updatedAt: now.toISOString(), ...(dateKey ? { [dateKey]: now.toISOString() } : {}) };
     commit({ ...state, reports: upsert(state.reports, next) });
     return next;
   }
@@ -216,6 +224,9 @@ export function createReportStore(repository: ReportRepository, clock: () => Dat
 
     /** Sends a Ready report for review. */
     submitReport: (id: string): Report | undefined => setStatus(id, 'pending'),
+
+    /** Withdraws a report under review; it will not be reviewed. */
+    withdrawReport: (id: string): Report | undefined => setStatus(id, 'withdrawn'),
 
     /** Moves a report forward one status; any other change is ignored. */
     updateStatus: setStatus,

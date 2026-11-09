@@ -123,8 +123,11 @@ both ← and X; X belongs only to dialogs, drawers and popups over a page. In th
 
 The report edit page keeps its card layout, with no subtitle and no geometry caption
 under Type.
-- Under the title, one muted line from the report: Reported by name · organisation ·
-  Created date · Last edited (time today, otherwise date), in `<time>` elements.
+- The header is the same `PageHeader` as the Reports list, with no page overrides: ←, title
+  and status tag only.
+- At the top of the content, above the first cards and lined up with them, one muted 14 px
+  line: "Reported by name, organisation · Last edited today 18:10" (a date on other days),
+  in a `<time>` element.
 - Three cards come first: Obstacle type, Height above ground and Lighting, a labelled list of
   Yes, lit / No, not lit / Unknown. They stack on phones.
   - Labels are sentence-case `<label>`s, body size, semibold, primary colour.
@@ -136,9 +139,7 @@ under Type.
     send" with a warning icon, linked with `aria-describedby` and `aria-invalid`.
 - Next comes Description and photo (optional): a framed description (`--border-strong`)
   about three lines tall that grows as it fills, with Add photo below it.
-- Last is Location in full width. Its map is at least `--report-edit-map-height` and grows
-  into the room left above the bottom bar. It has Edit location and e.g. "Point ·
-  60.3913° N, 5.3221° E".
+- Last is Location in full width, with the shared report map and Edit location.
 - Section headings ("Description and photo (optional)", "Location") are `h2`s in sentence
   case, semibold and dark, one size above the field labels.
 - When required fields are missing, the summary names them as links that focus each
@@ -147,6 +148,36 @@ under Type.
 - Send for Review is then `aria-disabled` (still focusable, sends nothing), and its note
   names what is missing ("Add height above ground to send").
 - Every control on the page is at least 44 px tall.
+
+The Ready to send page (`ReportViewPage`) is the edit page read-only. Its three values
+are a description list (Obstacle type, Height above ground with "Above ground, at the
+highest point", Lighting). "Description and photo" shows the text and thumbnails, or one
+muted "No description or photo added". Location has Show on map beside Edit location. The bottom bar has
+Edit report beside the same Send group.
+
+A Ready to send error report uses the same page (`ReportViewPage` with its record); only the
+cards' content differs.
+- Top row: What is wrong and Registered obstacle, then cards for a reported height or lighting.
+- Description and photo: the text or "No description added", thumbnails and Add photo, saved at once.
+- Location: the same map with both positions, the legend and "Moved 612 m east of the
+  registered position · …". Edit location places a point only.
+
+Every report page uses `MiniMap` as its one report map: the edit page, the Ready to send
+page, and `ReportDetailPage` for sent and error reports.
+- Size: 16:9 of its width, between `--report-map-min-height` and `--report-map-max-height`.
+  It follows the width through container units, never by filling the page.
+- Zoom: a point at `REPORT_MAP_ZOOM` (15, the earlier preview zoom: roads, buildings and
+  place names). A line or area, or an error report's two positions, are fitted with
+  margin and never closer than that.
+- Marker: 20 px (`--report-map-marker-radius`) with a 3 px white edge
+  (`--report-map-marker-stroke`).
+- Moved error reports: the registered position is a hollow ring and the reported one a
+  filled dot. A legend under the map uses the same symbols.
+- Caption: "Point · 60.4053° N, 5.3455° E", without a vertex count.
+- Actions sit beside the Location heading as 44 px text buttons:
+  - Edit location on the edit page and the Ready page;
+  - Show on map on the Ready, sent and error report pages;
+  - error reports change their position in the error form, so they have no Edit location.
 
 Send for Review is the blue primary
 (`data-color="brand1"`), an exception asked for on this page only. Its note sits
