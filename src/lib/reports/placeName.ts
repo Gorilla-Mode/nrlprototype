@@ -110,6 +110,11 @@ export async function lookupPlaceName(point: [number, number], fetchPlace: Place
   return combinePlace(name, municipality);
 }
 
+/** The stored place name, only while it still matches the location; null otherwise. */
+export function currentPlaceName(place: StoredPlace | undefined, geometry: ReportGeometry | null): string | null {
+  return place?.name && placeIsCurrent(place, geometry) ? place.name : null;
+}
+
 /** What a card shows: the stored name for this location, otherwise the coordinates. */
 export function placeLabel(place: StoredPlace | undefined, geometry: ReportGeometry | null): string | null {
   if (place?.name && placeIsCurrent(place, geometry)) return place.name;

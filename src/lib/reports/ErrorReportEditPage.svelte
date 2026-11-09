@@ -5,11 +5,14 @@
   import MiniMap from '../map/MiniMap.svelte';
   import LocationEditor from '../map/LocationEditor.svelte';
   import PhotoField from './PhotoField.svelte';
+  import Dropdown from './Dropdown.svelte';
   import {
-    describeHeightDifference, describeLightingCorrection, describeMissingRequirement, errorKindChoices, errorReportHeading,
-    isErrorReportValid, isValidHeight, toggleErrorKind, type ErrorKind, type ErrorReportAnswers,
+    describeEditRequirement, errorReportHeading, formatCoordinates, isValidHeight, reportedLighting,
+    type ErrorKind, type ErrorReportAnswers,
   } from '../obstacles/errorReport';
-  import { describeMoveFromRegistered } from '../obstacles/position';
+  import { describeMoveFromRegistered, describeOffsetFromRegistered } from '../obstacles/position';
+  import { obstacleTypeChoices, type ObstacleType } from '../reporting/obstacle';
+  import type { Lighting } from '../drafts/types';
   import { coordinateLabel, type ReportGeometry } from './reportGeometry';
   import { lastEditedLabel, type Report } from './reportsData';
   import { reportStore } from './reportStore';
@@ -17,8 +20,8 @@
 
   /**
    * The edit page for a Ready to send error report (#/reports/{id}/edit): the new obstacle edit
-   * page's layout and controls, with the error form's answers. Edits stay in this working copy
-   * until Save draft or Send for Review.
+   * page's header, description, location and footer, with one "What is wrong?" card. Edits stay
+   * in this working copy until Save draft or Send for Review.
    */
   let { report, onback, ondone, onsend, ondirtychange }: {
     report: Report;
@@ -30,33 +33,70 @@
     ondirtychange?: (dirty: boolean) => void;
   } = $props();
 
+  const typeOptions = obstacleTypeChoices.map(({ type, label }) => ({ value: type, label }));
+  const lightingOptions: readonly { value: Lighting; label: string }[] = [
+    { value: 'yes', label: 'Lit' }, { value: 'no', label: 'Not lit' }, { value: 'unknown', label: 'Unknown' },
+  ];
+
   // Read once: the page edits its own copy.
   const opened = untrack(() => report);
   const record = opened.errorReport!;
   const obstacle = record.obstacle;
-  let errorKinds = $state<ErrorKind[]>([...record.answers.errorKinds]);
-  let actualHeightM = $state<number | null>(record.answers.actualHeightM);
-  let correctedPosition = $state(record.answers.correctedPosition ? { ...record.answers.correctedPosition } : null);
-  let description = $state(record.answers.description);
+  const initial = record.answers;
+
+  /** The rows, in table order, and the answer each one reports. */
+  type Field = 'type' | 'height' | 'lighting' | 'position';
+  const fieldKinds: Record<Field, ErrorKind> = { type: 'wrong-type', height: 'wrong-height', lighting: 'wrong-lighting', position: 'wrong-position' };
+  const fields: readonly Field[] = ['type', 'height', 'lighting', 'position'];
+
+  // "Does not exist" hides the rows but keeps them: switching back restores every value.
+  let mode = $state<'wrong' | 'gone'>(initial.errorKinds.includes('does-not-exist') ? 'gone' : 'wrong');
+  let checked = $state<Record<Field, boolean>>({
+    type: initial.errorKinds.includes('wrong-type'), height: initial.errorKinds.includes('wrong-height'),
+    lighting: initial.errorKinds.includes('wrong-lighting'), position: initial.errorKinds.includes('wrong-position'),
+  });
+  let actualType = $state<ObstacleType | ''>(initial.actualType ?? '');
+  let actualHeightM = $state<number | null>(initial.actualHeightM);
+  // Prefilled with the opposite of the registered lighting, as the map form reports it.
+  let actualLighting = $state<Lighting>(reportedLighting(obstacle, initial));
+  let correctedPosition = $state(initial.correctedPosition ? { ...initial.correctedPosition } : null);
+  let description = $state(initial.description);
   let photos = $state([...opened.photos]);
 
-  let answers = $derived<ErrorReportAnswers>({
-    errorKinds, actualHeightM: errorKinds.includes('wrong-height') ? actualHeightM : null,
-    correctedPosition: errorKinds.includes('wrong-position') ? correctedPosition : null, description,
-  });
-  const openedAs = JSON.stringify({ answers: record.answers, photos: opened.photos.map(({ id }) => id) });
+  // Only what is shown is reported: "Does not exist" alone, or the checked rows and their values.
+  let answers = $derived<ErrorReportAnswers>(mode === 'gone'
+    ? { errorKinds: ['does-not-exist'], actualHeightM: null, correctedPosition: null, actualType: null, actualLighting: null, description }
+    : {
+      errorKinds: fields.filter((field) => checked[field]).map((field) => fieldKinds[field]),
+      actualType: checked.type && actualType !== '' ? actualType : null,
+      actualHeightM: checked.height ? actualHeightM : null,
+      actualLighting: checked.lighting ? actualLighting : null,
+      correctedPosition: checked.position ? correctedPosition : null,
+      description,
+    });
+  const key = () => JSON.stringify({ answers, photos: photos.map(({ id }) => id) });
+  const openedAs = untrack(key);
   $effect(() => {
-    ondirtychange?.(JSON.stringify({ answers, photos: photos.map(({ id }) => id) }) !== openedAs);
+    ondirtychange?.(key() !== openedAs);
   });
 
   const title = errorReportHeading(record);
-  let canSend = $derived(isErrorReportValid(answers));
-  let missing = $derived(describeMissingRequirement(answers));
-  let heightSelected = $derived(errorKinds.includes('wrong-height'));
-  let heightMissing = $derived(heightSelected && !isValidHeight(actualHeightM));
+  let missing = $derived(describeEditRequirement(answers));
+  let canSend = $derived(missing === null);
+  let noneChecked = $derived(mode === 'wrong' && !fields.some((field) => checked[field]));
+  let typeMissing = $derived(mode === 'wrong' && checked.type && actualType === '');
+  let heightMissing = $derived(mode === 'wrong' && checked.height && !isValidHeight(actualHeightM));
+
+  // "+4 m vs registered", from the typed height.
+  let heightDifference = $derived.by(() => {
+    if (!isValidHeight(actualHeightM)) return `Registered ${obstacle.heightM} m`;
+    const difference = Math.round((actualHeightM - obstacle.heightM) * 10) / 10;
+    return `${difference > 0 ? '+' : ''}${difference} m vs registered`;
+  });
+  const registeredLine = `Registered in NRL: ${obstacle.type} · ${obstacle.heightM} m · ${obstacle.lit ? 'lit' : 'not lit'} · ID ${obstacle.id}`;
 
   // The reported position when there is one, else the registered one; the map shows both.
-  let moved = $derived(errorKinds.includes('wrong-position') ? correctedPosition : null);
+  let moved = $derived(answers.errorKinds.includes('wrong-position') ? answers.correctedPosition ?? null : null);
   let geometry = $derived<ReportGeometry>({ type: 'Point', coordinates: [(moved ?? obstacle).lng, (moved ?? obstacle).lat] });
   let caption = $derived(moved ? `${describeMoveFromRegistered(obstacle, moved)} · ${coordinateLabel(geometry)}` : undefined);
 
@@ -64,12 +104,9 @@
   let editLocationButton = $state<HTMLButtonElement>();
   let returnFocus: HTMLElement | undefined;
 
-  function toggle(kind: ErrorKind, button: HTMLButtonElement) {
-    const selecting = !errorKinds.includes(kind);
-    errorKinds = toggleErrorKind(errorKinds, kind);
-    if (!errorKinds.includes('wrong-position')) correctedPosition = null;
-    // As in the error form: choosing Wrong position goes on to where the obstacle is.
-    if (kind === 'wrong-position' && selecting) openLocationEditor(button);
+  // Checking Position without a reported one goes on to the map, as in the error form.
+  function positionChanged(event: Event & { currentTarget: HTMLInputElement }) {
+    if (event.currentTarget.checked && !correctedPosition) openLocationEditor(event.currentTarget);
   }
 
   function openLocationEditor(from?: HTMLElement) {
@@ -88,7 +125,8 @@
     if (next.type === 'Point') {
       const [lng, lat] = next.coordinates;
       correctedPosition = { lat, lng };
-      if (!errorKinds.includes('wrong-position')) errorKinds = toggleErrorKind(errorKinds, 'wrong-position');
+      mode = 'wrong';
+      checked.position = true;
     }
     void closeLocationEditor();
   }
@@ -111,7 +149,7 @@
   // Plain copies: state proxies cannot be cloned or stored.
   const snapshot = () => [$state.snapshot(answers), $state.snapshot(photos)] as const;
 
-  // Complete answers keep it Ready to send; incomplete ones move it back to Drafts.
+  // Save draft always works: complete answers stay Ready to send, incomplete ones move to Drafts.
   function save() {
     const edited = editedErrorReport(opened, ...snapshot());
     if (edited.kind === 'ready') reportStore.markReady(edited.report);
@@ -121,6 +159,7 @@
 
   // aria-disabled, not disabled: the button keeps focus and its note says what is missing.
   function send() {
+    if (!canSend) return;
     const edited = editedErrorReport(opened, ...snapshot());
     if (edited.kind !== 'ready') return;
     const ready = reportStore.markReady(edited.report);
@@ -128,11 +167,6 @@
     if (!sent) return;
     deliverErrorReport(sent);
     onsend(sent);
-  }
-
-  function focusField(event: MouseEvent, id: string) {
-    event.preventDefault();
-    document.getElementById(id)?.focus();
   }
 </script>
 
@@ -146,68 +180,100 @@
         Reported by {opened.reportedByName}, {opened.reportedByOrg}
         · Last edited <time datetime={opened.updatedAt}>{lastEditedLabel(opened.updatedAt)}</time>
       </p>
-      {#if missing}
-        <!-- As on the new obstacle edit page: what is missing, as a link to the field. -->
-        <div class="needed-box">
-          <p class="needed-title">
-            {missing}:
-            <a class="needed-link" href={heightMissing ? '#error-height' : '#error-kinds'}
-              onclick={(event) => focusField(event, heightMissing ? 'error-height' : 'error-kind-first')}>{heightMissing ? 'Actual height' : 'What is wrong'}</a>
-          </p>
-        </div>
-      {/if}
+      <section class="info-card" aria-labelledby="error-what-heading">
+        <h2 class="section-heading" id="error-what-heading">What is wrong?</h2>
+        <p class="registered-line">{registeredLine}</p>
+        <hr class="divider" />
 
-      <div class="fields-row">
-        <div class="field-box" role="group" aria-labelledby="error-kinds-label" id="error-kinds">
-          <p class="input-label" id="error-kinds-label">What is wrong</p>
-          <div class="kind-list">
-            {#each errorKindChoices as choice, index (choice.kind)}
-              {@const selected = errorKinds.includes(choice.kind)}
-              <button type="button" class="kind" class:selected aria-pressed={selected} id={index === 0 ? 'error-kind-first' : undefined}
-                onclick={(event) => toggle(choice.kind, event.currentTarget)}>
-                <span class="kind-check" aria-hidden="true">{#if selected}<svg viewBox="0 0 24 24" fill="none"><path d="M6.5 12.5 10.5 16.5 17.5 8" /></svg>{/if}</span>
-                <span class="kind-text">
-                  {choice.label}
-                  {#if choice.kind === 'wrong-lighting' && selected}<span class="kind-detail">{describeLightingCorrection(obstacle.lit)}</span>{/if}
-                  {#if choice.kind === 'wrong-position' && selected}<span class="kind-detail">{moved ? describeMoveFromRegistered(obstacle, moved) : 'Position not specified'}</span>{/if}
-                </span>
-              </button>
-            {/each}
-          </div>
-          <p class="field-help">"Does not exist" cannot be combined with the others</p>
+        <div class="reports-segmented mode-switch" role="group" aria-labelledby="error-what-heading">
+          <button type="button" class="reports-segment" aria-pressed={mode === 'wrong'} onclick={() => { mode = 'wrong'; }}>Information is wrong</button>
+          <button type="button" class="reports-segment" aria-pressed={mode === 'gone'} onclick={() => { mode = 'gone'; }}>Does not exist</button>
         </div>
 
-        <div class="field-box">
-          <label class="input-label" for="error-height">Actual height</label>
-          {#if heightSelected}
-            <div class="height-input-wrap" class:invalid={heightMissing}>
-              <input id="error-height" type="number" min="0" inputmode="decimal" placeholder="Enter height"
-                aria-invalid={heightMissing || undefined}
-                aria-describedby={heightMissing ? 'error-height-help error-height-error' : 'error-height-help'}
-                value={actualHeightM ?? ''} oninput={(event) => updateHeight(event.currentTarget.value)} />
-              <span class="unit" aria-hidden="true">m</span>
-            </div>
-            <p class="field-help" id="error-height-help">
-              {isValidHeight(actualHeightM) ? describeHeightDifference(actualHeightM, obstacle.heightM) : `Registered ${obstacle.heightM} m`}
-            </p>
-            {#if heightMissing}
-              <p class="field-error" id="error-height-error">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5v.01" /></svg>
-                Required to send
-              </p>
-            {/if}
-          {:else}
-            <p class="field-value muted" id="error-height">Not reported</p>
-            <p class="field-help">Select Wrong height to correct it</p>
-          {/if}
-        </div>
-
-        <div class="field-box">
-          <p class="input-label">Registered obstacle</p>
-          <p class="field-value">{obstacle.type} · {obstacle.heightM} m · {obstacle.lit ? 'Lit' : 'Not lit'}</p>
-          <p class="field-help">In NRL today · ID {obstacle.id}</p>
-        </div>
-      </div>
+        {#if mode === 'wrong'}
+          <table class="reported-table what-table">
+            <thead>
+              <tr>
+                <th scope="col" class="check-col"><span class="sr-only">Wrong</span></th>
+                <th scope="col" class="reported-field">Field</th><th scope="col">In NRL today</th><th scope="col">Reported</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="check-col"><label class="check-target"><input type="checkbox" id="error-check-type" bind:checked={checked.type} /></label></td>
+                <th scope="row"><label class="field-name" for="error-check-type">Type</label></th>
+                <td class="current">{obstacle.type}</td>
+                <td class="reported">
+                  {#if checked.type}
+                    <span class="sr-only" id="error-type-label">Reported type</span>
+                    <Dropdown id="error-type" labelledby="error-type-label" options={typeOptions} bind:value={actualType} placeholder="Select type"
+                      invalid={typeMissing} describedby={typeMissing ? 'error-type-error' : undefined} />
+                    {#if typeMissing}<span class="field-error" id="error-type-error">Required to send</span>{/if}
+                  {:else}<span class="current">Correct</span>{/if}
+                </td>
+              </tr>
+              <tr>
+                <td class="check-col"><label class="check-target"><input type="checkbox" id="error-check-height" bind:checked={checked.height} /></label></td>
+                <th scope="row"><label class="field-name" for="error-check-height">Height</label></th>
+                <td class="current">{obstacle.heightM} m</td>
+                <td class="reported">
+                  {#if checked.height}
+                    <div class="height-row">
+                      <div class="height-input-wrap" class:invalid={heightMissing}>
+                        <input id="error-height" type="number" min="0" inputmode="decimal" placeholder="Height" aria-label="Reported height"
+                          aria-invalid={heightMissing || undefined} aria-describedby="error-height-help"
+                          value={actualHeightM ?? ''} oninput={(event) => updateHeight(event.currentTarget.value)} />
+                        <span class="unit" aria-hidden="true">m</span>
+                      </div>
+                      <span class="reported-note" id="error-height-help">{heightMissing ? 'Required to send' : heightDifference}</span>
+                    </div>
+                  {:else}<span class="current">Correct</span>{/if}
+                </td>
+              </tr>
+              <tr>
+                <td class="check-col"><label class="check-target"><input type="checkbox" id="error-check-lighting" bind:checked={checked.lighting} /></label></td>
+                <th scope="row"><label class="field-name" for="error-check-lighting">Lighting</label></th>
+                <td class="current">{obstacle.lit ? 'Lit' : 'Not lit'}</td>
+                <td class="reported">
+                  {#if checked.lighting}
+                    <span class="sr-only" id="error-lighting-label">Reported lighting</span>
+                    <Dropdown id="error-lighting" labelledby="error-lighting-label" options={lightingOptions} bind:value={actualLighting} />
+                  {:else}<span class="current">Correct</span>{/if}
+                </td>
+              </tr>
+              <tr>
+                <td class="check-col"><label class="check-target"><input type="checkbox" id="error-check-position" bind:checked={checked.position} onchange={positionChanged} /></label></td>
+                <th scope="row"><label class="field-name" for="error-check-position">Position</label></th>
+                <td class="current">{formatCoordinates(obstacle)}</td>
+                <td class="reported">
+                  {#if checked.position}
+                    <strong>{correctedPosition ? formatCoordinates(correctedPosition) : 'Not set'}</strong>
+                    <span class="reported-note">
+                      {#if correctedPosition}{describeOffsetFromRegistered(obstacle, correctedPosition)} ·{' '}{/if}<button type="button" class="card-cta-link map-link"
+                        onclick={(event) => openLocationEditor(event.currentTarget)}>Edit in map</button>
+                    </span>
+                  {:else}<span class="current">Correct</span>{/if}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          {#if noneChecked}<p class="field-error table-error" role="status">Select at least one field that is wrong</p>{/if}
+        {:else}
+          <table class="reported-table what-table">
+            <thead>
+              <tr><th scope="col" class="reported-field">Field</th><th scope="col">In NRL today</th><th scope="col">Reported</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Obstacle</th>
+                <td class="current"><s>{obstacle.type} · {obstacle.heightM} m · ID {obstacle.id}</s></td>
+                <td class="reported"><strong>Does not exist</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="reported-note">The obstacle will be reported as removed. Height, lighting and position aren't needed.</p>
+        {/if}
+      </section>
 
       <section class="info-card" aria-labelledby="error-description-heading">
         <h2 class="section-heading" id="error-description-heading">Description and photo (optional)</h2>
@@ -273,38 +339,29 @@
   .safe-area > * { flex: none; }
   .report-meta { margin: 0 0 var(--space-4); color: var(--color-text-secondary); font-size: var(--font-size-body-small); overflow-wrap: anywhere; }
 
-  .needed-box { border: var(--border-default); border-radius: var(--radius-card); padding: var(--space-1) 16px; margin-bottom: 20px; background: var(--color-background-raised); }
-  .needed-title { margin: 0; font-weight: 700; color: var(--color-text-primary); line-height: var(--line-height-body); }
-  .needed-link { display: inline-flex; align-items: center; min-height: var(--target-size-min); color: var(--color-action-secondary); font-weight: var(--font-weight-semibold); }
-
-  /* Three cards in one row; stacked on phones. */
-  .fields-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 16px; }
-  @media (min-width: 37.5rem) { .fields-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  .field-box { min-width: 0; overflow-wrap: anywhere; border: var(--border-default); border-radius: var(--radius-card); padding: 14px; background: var(--color-background-raised); }
-  .input-label { display: block; margin: 0 0 var(--space-2); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
-  .field-value { margin: 0; font-size: var(--font-size-body); color: var(--color-text-primary); }
-  .field-value.muted { color: var(--color-text-secondary); }
-  .field-help { margin: var(--space-2) 0 0; font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
-  .field-error { display: flex; align-items: center; gap: var(--space-1); margin: var(--space-1) 0 0; font-size: var(--font-size-body-small); color: var(--color-status-error); }
-  .field-error svg { flex: none; width: var(--icon-size-small); height: var(--icon-size-small); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
-
-  /* What is wrong: one 44 px toggle per answer; the check and aria-pressed say it is chosen, not colour alone. */
-  .kind-list { display: flex; flex-direction: column; gap: var(--space-1); }
-  .kind {
-    display: flex; align-items: center; gap: var(--space-2); min-height: var(--target-size-min); padding: var(--space-1) var(--space-3);
-    border: var(--border-strong); border-radius: var(--radius-control); background: var(--color-background-raised);
-    color: var(--color-text-primary); font: inherit; font-size: var(--font-size-body-small); text-align: left; cursor: pointer;
+  /* What is wrong?: the registered obstacle, the mode, then the reported table (stylesheet .reported-table). */
+  .registered-line { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); overflow-wrap: anywhere; }
+  .mode-switch { margin-bottom: var(--space-4); }
+  .mode-switch .reports-segment { flex: 1; }
+  .what-table { margin-bottom: var(--space-2); }
+  .what-table td, .what-table th { vertical-align: middle; }
+  .what-table thead th { vertical-align: bottom; }
+  .what-table .check-col { width: var(--target-size-min); padding-right: 0; }
+  /* Phones: four columns are tight, so the Field column takes only what it needs and words wrap whole. */
+  @media (max-width: 37.499rem) {
+    .what-table thead th.reported-field { width: auto; }
+    .what-table th, .what-table td { overflow-wrap: normal; }
   }
-  .kind:hover { background: var(--color-map-control-hover); }
-  .kind.selected { border-color: var(--color-action-secondary); background: var(--color-action-selected); }
-  .kind-check {
-    flex: none; display: grid; place-items: center; width: var(--icon-size-default); height: var(--icon-size-default);
-    border: var(--border-strong); border-radius: var(--radius-small); background: var(--color-background-raised); color: var(--color-action-secondary);
-  }
-  .kind.selected .kind-check { border-color: var(--color-action-secondary); }
-  .kind-check svg { width: var(--icon-size-small); height: var(--icon-size-small); stroke: currentColor; stroke-width: calc(var(--icon-stroke-width) + 0.5); stroke-linecap: round; stroke-linejoin: round; }
-  .kind-text { display: flex; flex-direction: column; min-width: 0; font-weight: var(--font-weight-semibold); }
-  .kind-detail { color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: var(--font-weight-regular); }
+  /* The checkbox's 44 px target; the field name beside it is a second label for the same box. */
+  .check-target { display: grid; place-items: center; width: var(--target-size-min); height: var(--target-size-min); margin-inline-start: calc(-1 * var(--space-3)); cursor: pointer; }
+  .check-target input { width: var(--icon-size-default); height: var(--icon-size-default); margin: 0; accent-color: var(--color-action-secondary); cursor: pointer; }
+  .field-name { display: flex; align-items: center; min-height: var(--target-size-min); cursor: pointer; }
+  .height-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
+  .height-row .height-input-wrap { width: var(--sent-field-column-width); }
+  .height-row .reported-note { margin-top: 0; }
+  .map-link { display: inline-flex; align-items: center; min-height: var(--target-size-min); margin-block: calc(-1 * var(--space-3)); padding: 0; border: 0; background: none; font-size: inherit; cursor: pointer; }
+  .table-error { margin: 0 0 var(--space-2); }
+  .field-error { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-1); font-size: var(--font-size-body-small); color: var(--color-status-error); }
 
   .height-input-wrap {
     display: flex; align-items: center; gap: var(--space-2); box-sizing: border-box;

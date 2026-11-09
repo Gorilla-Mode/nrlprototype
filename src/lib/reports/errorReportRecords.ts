@@ -1,4 +1,4 @@
-import { buildErrorReport, isErrorReportValid, isValidHeight, type ErrorReportAnswers, type ErrorReportRecord } from '../obstacles/errorReport.js';
+import { buildErrorReport, describeEditRequirement, isValidHeight, reportedLighting, type ErrorReportAnswers, type ErrorReportRecord } from '../obstacles/errorReport.js';
 import { ObstacleType } from '../reporting/obstacle.js';
 import { formatHeightFromMeters, type Draft, type Lighting } from '../drafts/types.js';
 import { reporter } from './detailsReport.js';
@@ -14,11 +14,11 @@ export interface ErrorRecordContext {
 /** Shared report fields describe the obstacle as reported: corrected where the pilot says it is wrong. */
 function reportedFields({ obstacle, answers }: ErrorReportRecord) {
   const meters = answers.errorKinds.includes('wrong-height') && isValidHeight(answers.actualHeightM) ? answers.actualHeightM : obstacle.heightM;
-  const lit = answers.errorKinds.includes('wrong-lighting') ? !obstacle.lit : obstacle.lit;
-  const lighting: Lighting = lit ? 'yes' : 'no';
+  const lighting: Lighting = answers.errorKinds.includes('wrong-lighting') ? reportedLighting(obstacle, answers) : obstacle.lit ? 'yes' : 'no';
+  const type = answers.errorKinds.includes('wrong-type') && answers.actualType ? answers.actualType : ObstacleType.Other;
   const position = answers.errorKinds.includes('wrong-position') && answers.correctedPosition ? answers.correctedPosition : obstacle;
   const geometry: ReportGeometry = { type: 'Point', coordinates: [position.lng, position.lat] };
-  return { meters, lighting, geometry };
+  return { meters, lighting, geometry, type };
 }
 
 /** Save draft: stored with the other drafts, one step, reopened in the error form. */
@@ -38,10 +38,10 @@ export function errorReportToDraft(id: string, record: ErrorReportRecord, { exis
 
 /** Finish report: a Ready report, like a finished new-obstacle report. */
 export function errorReportToReport(id: string, record: ErrorReportRecord, { existing, now = new Date() }: ErrorRecordContext = {}): Report {
-  const { meters, lighting, geometry } = reportedFields(record);
+  const { meters, lighting, geometry, type } = reportedFields(record);
   const createdAt = existing?.createdAt ?? now.toISOString();
   return {
-    id, name: existing?.name ?? '', obstacleType: ObstacleType.Other,
+    id, name: existing?.name ?? '', obstacleType: type,
     heightFeet: Math.round(meters * 3.28084), heightMeters: meters,
     status: 'ready', createdAt, updatedAt: createdAt,
     lighting, pilotReportText: record.answers.description.trim(), ...reporter,
@@ -51,7 +51,7 @@ export function errorReportToReport(id: string, record: ErrorReportRecord, { exi
 
 /**
  * What the error report edit page saves: the Ready report with the edited answers when they are
- * complete, otherwise a draft (as on the new obstacle edit page). Name, creation time, reporter and
+ * complete by the edit page's rule (describeEditRequirement), otherwise a draft (as on the new obstacle edit page). Name, creation time, reporter and
  * photos are kept; height, lighting and location follow the answers. The store keeps the place name
  * only while it still matches the location.
  */
@@ -61,7 +61,7 @@ export function editedErrorReport(report: Report, answers: ErrorReportAnswers, p
   const record: ErrorReportRecord = { obstacle: report.errorReport.obstacle, answers: structuredClone(answers) };
   const context: ErrorRecordContext = { existing: { name: report.name, createdAt: report.createdAt } };
   const kept = { reportedByName: report.reportedByName, reportedByOrg: report.reportedByOrg, photos: [...photos] };
-  if (isErrorReportValid(answers)) return { kind: 'ready', report: { ...errorReportToReport(report.id, record, context), ...kept } };
+  if (describeEditRequirement(answers) === null) return { kind: 'ready', report: { ...errorReportToReport(report.id, record, context), ...kept } };
   return { kind: 'draft', draft: { ...errorReportToDraft(report.id, record, context), ...kept } };
 }
 

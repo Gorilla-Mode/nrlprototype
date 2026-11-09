@@ -11,6 +11,7 @@ import { createReportStore, type ReportRepository, type ReportState } from '../s
 import { reportedChanges, reportedChangesHeading, sentStatusView } from '../src/lib/reports/sentReport.js';
 import { reports } from './helpers/reportFixtures.js';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
+import { reportDetailSpecifiers } from './helpers/reportDetail.js';
 
 const obstacle = { id: 'DSB-201', name: 'Sandviken', type: 'Building' as const, heightM: 10, lit: true, lat: 60.4054, lng: 5.3235 };
 const record = (answers: Partial<ErrorReportRecord['answers']>): ErrorReportRecord => ({
@@ -101,19 +102,7 @@ test('withdrawing: only under review, dated, and still listed under Sent', () =>
   assert.equal(store.updateStatus(reviewed.id, 'declined')!.reviewedAt, now.toISOString());
 });
 
-const stub = (name: string) => `data:text/javascript,export default function ${name}() {}`;
-const pageUrl = await compileSvelteComponent('src/lib/reports/ReportDetailPage.svelte', {
-  '../components/PageHeader.svelte': await compileSvelteComponent('src/lib/components/PageHeader.svelte'),
-  '../components/Dialog.svelte': stub('Dialog'),
-  '../map/MiniMap.svelte': stub('MiniMap'),
-  './PhotoField.svelte': stub('PhotoField'),
-  '../drafts/types': new URL('../src/lib/drafts/types.js', import.meta.url).href,
-  '../reporting/obstacle': new URL('../src/lib/reporting/obstacle.js', import.meta.url).href,
-  './reportsData': new URL('../src/lib/reports/reportsData.js', import.meta.url).href,
-  './reportStore': new URL('../src/lib/reports/reportStore.js', import.meta.url).href,
-  './sentReport': new URL('../src/lib/reports/sentReport.js', import.meta.url).href,
-  './reportGeometry': new URL('../src/lib/reports/reportGeometry.js', import.meta.url).href,
-});
+const pageUrl = await compileSvelteComponent('src/lib/reports/ReportDetailPage.svelte', await reportDetailSpecifiers());
 const { default: Page } = await import(pageUrl) as { default: Component<{ report: Report; onback: () => void }> };
 const page = (report: Report) => render(Page, { props: { report, onback: () => {} } }).body.replace(/<!--[^>]*-->/g, '');
 
@@ -145,14 +134,18 @@ test('reviewed and withdrawn pages have no Withdraw; a reviewer comment is shown
   assert.match(page(errorSent('declined', { reviewerComment: 'Already registered.' })), /Comment from reviewer<\/h3>\s*<p[^>]*>Already registered\.<\/p>/);
 });
 
-test('new obstacle page: its type and height as title, the fields the pilot filled in, no NRL column', () => {
-  const html = page(newSent('approved', { pilotReportText: 'Crane on the quay.' }));
-  assert.match(html, /<h1[^>]*>New obstacle · Construction · 20 m<\/h1>/);
-  assert.match(html, />Reported obstacle<\/h2>\s*<table class="changes/);
+test('new obstacle page: its place as title, the fields the pilot filled in, no NRL column', () => {
+  const place = { name: 'Tromsø', at: [18.9553, 69.6492] as [number, number] };
+  const html = page(newSent('approved', { pilotReportText: 'Crane on the quay.', place }));
+  assert.match(html, /<section class="page report-detail[^"]*">/);
+  assert.match(html, /<h1[^>]*>New obstacle · Tromsø<\/h1>/);
+  assert.match(html, />Reported obstacle<\/h2>\s*<table class="reported-table/);
   assert.match(html, /<thead[^>]*><tr><th scope="col"[^>]*>Field<\/th><th scope="col"[^>]*>Reported<\/th><\/tr><\/thead>/);
   const rows = [...html.matchAll(/<th scope="row"[^>]*>([^<]+)<\/th>\s*<td class="reported[^"]*"><strong[^>]*>([^<]+)<\/strong>/g)].map((match) => [match[1], match[2]]);
-  assert.deepEqual(rows, [['Type', 'Construction'], ['Height', '20 m (66 ft)'], ['Lighting', 'Unknown']]);
-  assert.match(html, /20 m \(66 ft\)<\/strong><span class="note[^"]*">At the highest point<\/span>/);
+  assert.deepEqual(rows, [['Type', 'Construction'], ['Height', '20 m (66 ft)'], ['Lighting', 'Unknown'], ['Position', '69.6492° N, 18.9553° E']]);
+  assert.match(html, /20 m \(66 ft\)<\/strong><span class="reported-note[^"]*">Above ground, at the highest point<\/span>/);
+  assert.match(html, /69\.6492° N, 18\.9553° E<\/strong><span class="reported-note[^"]*">Near Tromsø<\/span>/);
+  assert.doesNotMatch(html, /Show on map|Edit location/);
   assert.match(html, /The obstacle is now registered in NRL\./);
   assert.match(html, />Description and photos<\/h2>\s*<p class="description[^"]*">Crane on the quay\.<\/p>/);
   assert.doesNotMatch(html, /In NRL today/);

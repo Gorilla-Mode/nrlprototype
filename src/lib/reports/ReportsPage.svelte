@@ -322,11 +322,11 @@
   {#key viewId}
     <!-- One page for both: an error report only changes the cards' content; Edit report opens its edit page. -->
     <ReportViewPage report={viewReport} record={viewReport.errorReport} onback={() => onexitview?.()}
-      onedit={(id) => onopenedit?.(id)} onsent={viewSent} {onshowonmap} />
+      onedit={(id) => onopenedit?.(id)} onsent={viewSent} />
   {/key}
 {:else if view === 'report-detail' && selectedReport}
   <!-- The stored report, so withdrawing shows its new status on the page. -->
-  <ReportDetailPage report={reports.find((report) => report.id === selectedReport?.id) ?? selectedReport} onback={backToList} {onshowonmap} />
+  <ReportDetailPage report={reports.find((report) => report.id === selectedReport?.id) ?? selectedReport} onback={backToList} />
 {:else}
   <main class="reports-page" class:reports-select-active={selectMode} aria-label="Reports">
     {#snippet filters()}<ReportFilters bind:geometries={appliedGeometries} bind:heightFilter={appliedHeightFilter} />{/snippet}

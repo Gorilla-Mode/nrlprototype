@@ -1148,6 +1148,57 @@ button {
   --photo-thumb-size-large: 6rem;
 }
 
+/* The reported table: "Reported changes" on the sent page and "What is wrong?" on the error
+   report edit page. Registered value muted, reported value bold; one Field width on both. */
+.reported-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-body-small); }
+.reported-table thead th.reported-field { width: var(--sent-field-column-width); }
+.reported-table th, .reported-table td { padding: var(--space-2) var(--space-3) var(--space-2) 0; border-top: var(--border-default); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.reported-table thead th { border-top: 0; padding-top: 0; color: var(--color-text-secondary); font-weight: var(--font-weight-semibold); }
+.reported-table tbody th { color: var(--color-text-primary); font-weight: var(--font-weight-semibold); }
+.reported-table .current { color: var(--color-text-secondary); }
+.reported-table .reported { color: var(--color-text-primary); }
+.reported-table strong { font-weight: var(--font-weight-semibold); }
+.reported-note { display: block; margin-top: var(--space-1); color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: var(--font-weight-regular); }
+
+/* Report detail page (Ready to send and sent), sized for reading on iPad. The --detail-* tokens
+   are shared so the other report pages can adopt them later. */
+:root {
+  --detail-font-size-body: 1.0625rem;         /* 17 px: body text and table values */
+  --detail-font-size-label: 1rem;             /* 16 px: field labels, table headers, buttons */
+  --detail-font-size-helper: 0.875rem;        /* 14 px: grey helper text and the meta line */
+  --detail-font-size-card-heading: 1.125rem;  /* 18 px: card headings */
+  --detail-font-size-title: var(--font-size-heading-small); /* 20 px: page title */
+  --detail-font-size-eyebrow: 0.8125rem;      /* 13 px: small-caps section labels */
+  --detail-card-padding: var(--space-5);
+  --detail-card-gap: var(--space-5);
+  --detail-table-cell-padding: var(--space-3);
+  --detail-wide-max: 75rem;                   /* 1200 px: the two-column layout */
+  --detail-sticky-top: var(--space-5);
+}
+/* Element-qualified so it outranks the pages' own scoped rules. */
+.report-detail p.report-meta { font-size: var(--detail-font-size-helper); }
+.report-detail .ds-button { font-size: var(--detail-font-size-label); }
+.report-detail-content { display: flex; flex-direction: column; gap: var(--detail-card-gap); }
+.report-detail-card { min-width: 0; padding: var(--detail-card-padding); border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); }
+.report-detail-card-heading {
+  margin: 0 0 var(--space-3); color: var(--color-text-secondary);
+  font-size: var(--detail-font-size-eyebrow); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight);
+  /* Small caps: the font has no small-caps glyphs, so small uppercase as on the other report cards. */
+  text-transform: uppercase; letter-spacing: var(--sent-heading-tracking);
+}
+.report-detail .reported-table { font-size: var(--detail-font-size-body); }
+.report-detail .reported-table th, .report-detail .reported-table td { padding-block: var(--detail-table-cell-padding); }
+.report-detail .reported-table thead th { padding-top: 0; font-size: var(--detail-font-size-label); }
+.report-detail .reported-table tbody th { font-size: var(--detail-font-size-label); }
+.report-detail .reported-note { font-size: var(--detail-font-size-helper); }
+/* Landscape iPad and wider: the reported data on the left, the location beside it, sticky. */
+@media (min-width: 75.0625rem) {
+  .report-detail > .scroll-area > .safe-area { max-width: var(--detail-wide-max); }
+  .report-detail-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; column-gap: var(--detail-card-gap); row-gap: var(--detail-card-gap); }
+  .report-detail-content > * { grid-column: 1; }
+  .report-detail-content > .report-detail-aside { grid-column: 2; grid-row: 1 / span 6; position: sticky; top: var(--detail-sticky-top); }
+}
+
 /* Notifications: report-status updates in a single reading column sized from the
    portrait-iPad mockup. Status dots repeat the status text colour and never stand
    alone; unread cards add a subtle surface, a dot and visually hidden text. */

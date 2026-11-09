@@ -20,13 +20,17 @@
     registered?: { lat: number; lng: number } | null;
     /** Replaces the caption under the map, e.g. how far an error report moves the obstacle. */
     caption?: string;
+    /** Report detail page: an Enlarge button in the corner, and what the read-only viewer says. */
+    viewer?: { title: string; subtitle: string; note: string };
   }
 
   /**
    * The report map on every report page (edit, Ready, sent and error reports): one height rule
    * (16:9, within --report-map-min/max-height), one zoom, one marker, and the same caption.
    */
-  let { geometry, label, onedit, registered = null, caption: captionOverride }: Props = $props();
+  let { geometry, label, onedit, registered = null, caption: captionOverride, viewer }: Props = $props();
+  let enlargeCorner = $state<HTMLButtonElement | undefined>();
+  let openedFrom: HTMLButtonElement | undefined;
   let registeredPoint = $derived<[number, number] | null>(registered ? [registered.lng, registered.lat] : null);
   // "Point · 60.4053° N, 5.3455° E": the drawing tool's word, then the coordinates, no vertex count.
   let caption = $derived(captionOverride ?? [
@@ -48,7 +52,12 @@
   async function closeEnlarged() {
     enlarged = false;
     await tick();
-    enlargeButton?.focus({ preventScroll: true });
+    (openedFrom ?? enlargeButton)?.focus({ preventScroll: true });
+  }
+
+  function enlarge(from: HTMLButtonElement | undefined) {
+    openedFrom = from;
+    enlarged = true;
   }
 
   function render(container: HTMLDivElement, shape: ReportGeometry, point: [number, number] | null, onSnapshot: (url: string) => void): MapLibreMap {
@@ -102,7 +111,7 @@
   <div class="mini-map-frame">
   <div class="mini-map" bind:this={frame}>
     <button bind:this={enlargeButton} type="button" class="mini-map-enlarge" aria-label={onedit ? `Edit location of ${label}` : `Enlarge map of ${label}`} aria-haspopup="dialog"
-      onclick={() => { if (onedit) onedit(); else enlarged = true; }}>
+      onclick={() => { if (onedit) onedit(); else enlarge(enlargeButton); }}>
       {#if snapshot}
         <img class="mini-map-image" src={snapshot} alt="" />
       {:else}
@@ -110,6 +119,13 @@
       {/if}
     </button>
     <span class="mini-map-attribution">© Kartverket</span>
+    {#if viewer && !onedit}
+      <!-- A visible, 44 px way to the viewer besides tapping the map itself. -->
+      <button bind:this={enlargeCorner} type="button" class="mini-map-corner" aria-haspopup="dialog" onclick={() => enlarge(enlargeCorner)}>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" /></svg>
+        Enlarge
+      </button>
+    {/if}
   </div>
   </div>
   {#if registeredPoint}
@@ -122,7 +138,7 @@
   {/if}
   <p class="mini-map-caption">{caption}</p>
   {#if enlarged}
-    <MapLightbox {geometry} {label} registered={registeredPoint} onclose={closeEnlarged} />
+    <MapLightbox {geometry} label={viewer?.title ?? label} subtitle={viewer?.subtitle} note={viewer?.note} registered={registeredPoint} onclose={closeEnlarged} />
   {/if}
 {/if}
 
@@ -148,6 +164,16 @@
   }
   .mini-map-enlarge { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
   .mini-map-enlarge:focus-visible { outline: var(--border-width-emphasis) solid var(--color-action-secondary); outline-offset: calc(-1 * var(--border-width-emphasis)); }
+
+  .mini-map-corner {
+    position: absolute; top: var(--space-2); right: var(--space-2);
+    display: inline-flex; align-items: center; gap: var(--space-1);
+    min-width: var(--target-size-min); min-height: var(--target-size-min); padding: 0 var(--space-3);
+    border: var(--border-default); border-radius: var(--radius-control); background: var(--color-background-raised);
+    color: var(--color-text-primary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); cursor: pointer;
+  }
+  .mini-map-corner:hover { background: var(--color-map-control-hover); }
+  .mini-map-corner svg { width: var(--icon-size-default); height: var(--icon-size-default); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 
   .mini-map-empty {
     display: flex;

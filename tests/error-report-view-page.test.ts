@@ -7,26 +7,10 @@ import { describeMoveFromRegistered } from '../src/lib/obstacles/position.js';
 import type { Report } from '../src/lib/reports/reportsData.js';
 import { errorReportToReport } from '../src/lib/reports/errorReportRecords.js';
 import { compileSvelteComponent } from './helpers/svelte-server.js';
-import { compileStatusBadge } from './helpers/statusBadge.js';
+import { reportDetailSpecifiers } from './helpers/reportDetail.js';
 
-const stub = (name: string) => `data:text/javascript,export default function ${name}() {}`;
-const url = await compileSvelteComponent('src/lib/reports/ReportViewPage.svelte', {
-  '../components/PageHeader.svelte': await compileSvelteComponent('src/lib/components/PageHeader.svelte'),
-  './StatusBadge.svelte': await compileStatusBadge(),
-  '../map/MiniMap.svelte': stub('MiniMap'),
-  '../map/LocationEditor.svelte': stub('LocationEditor'),
-  './PhotoField.svelte': stub('PhotoField'),
-  '../drafts/types': new URL('../src/lib/drafts/types.js', import.meta.url).href,
-  '../reporting/obstacle': new URL('../src/lib/reporting/obstacle.js', import.meta.url).href,
-  '../obstacles/errorReport': new URL('../src/lib/obstacles/errorReport.js', import.meta.url).href,
-  '../obstacles/position': new URL('../src/lib/obstacles/position.js', import.meta.url).href,
-  './reportGeometry': new URL('../src/lib/reports/reportGeometry.js', import.meta.url).href,
-  './reportsData': new URL('../src/lib/reports/reportsData.js', import.meta.url).href,
-  './reportStore': new URL('../src/lib/reports/reportStore.js', import.meta.url).href,
-  './errorReportRecords': new URL('../src/lib/reports/errorReportRecords.js', import.meta.url).href,
-  './photos': new URL('../src/lib/reports/photos.js', import.meta.url).href,
-});
-type Props = { report: Report; record: ErrorReportRecord; onback: () => void; onedit: () => void; onsent: () => void; onshowonmap?: () => void };
+const url = await compileSvelteComponent('src/lib/reports/ReportViewPage.svelte', await reportDetailSpecifiers());
+type Props = { report: Report; record: ErrorReportRecord; onback: () => void; onedit: () => void; onsent: () => void };
 const { default: Page } = await import(url) as { default: Component<Props> };
 const noop = () => {};
 const obstacle = { id: 'DSB-201', name: 'Sandviken', type: 'Building' as const, heightM: 10, lit: true, lat: 60.4054, lng: 5.3235 };
@@ -36,26 +20,31 @@ const page = (record: ErrorReportRecord, extra: Partial<Props> = {}) => {
   return render(Page, { props: { report, record, onback: noop, onedit: noop, onsent: noop, ...extra } }).body.replace(/<!--[^>]*-->/g, '');
 };
 
-test('only what was reported: what is wrong and the registered obstacle, no repeats', () => {
+test('error report: the title, and only the fields marked wrong in the Reported change table', () => {
   const html = page(moved);
-  const pairs = [...html.matchAll(/<dt class="input-label[^"]*">([^<]+)<\/dt>\s*<dd class="field-value[^"]*">([^<]+)<\/dd>/g)].map((match) => [match[1], match[2]]);
-  assert.deepEqual(pairs, [['What is wrong', 'Wrong position'], ['Registered obstacle', 'Building · 10 m · ID DSB-201']]);
-  assert.doesNotMatch(html, /Not reported|ACTIVITY|DESCRIPTION AND REPORTER|>POSITION<|Error report<\/strong>|Registered Building · 10 m/);
+  assert.match(html, /<h1[^>]*>Error report · Sandviken<\/h1>/);
+  assert.match(html, /id="view-changes-heading">Reported change<\/h2>/);
+  assert.match(html, /<th scope="col" class="reported-field[^"]*">Field<\/th><th scope="col"[^>]*>In NRL today<\/th><th scope="col"[^>]*>Reported<\/th>/);
+  const rows = [...html.matchAll(/<th scope="row"[^>]*>([^<]+)<\/th>/g)].map((match) => match[1]);
+  assert.deepEqual(rows, ['Position']);
+  assert.doesNotMatch(html, /Not reported|class="fields-row|Registered obstacle|What is wrong/);
   assert.match(html, /Reported by [^<]+· Last edited <time/);
 });
 
-test('reported corrections add their own cards', () => {
+test('several corrections are rows; "Does not exist" is the single struck-through row', () => {
   const html = page({ obstacle, answers: { errorKinds: ['wrong-height', 'wrong-lighting'], actualHeightM: 12, correctedPosition: null, description: 'Taller now' } });
-  assert.match(html, />Actual height<\/dt>\s*<dd[^>]*>12 m \(registered 10 m\)<\/dd>/);
-  assert.match(html, />Lighting<\/dt>\s*<dd[^>]*>Lit → Not lit<\/dd>/);
+  assert.match(html, />Reported changes · 2<\/h2>/);
+  assert.match(html, /<th scope="row"[^>]*>Height<\/th>\s*<td class="current[^"]*">10 m<\/td>\s*<td class="reported[^"]*"><strong[^>]*>12 m<\/strong>/);
+  assert.match(html, /<th scope="row"[^>]*>Lighting<\/th>\s*<td class="current[^"]*">Lit<\/td>\s*<td class="reported[^"]*"><strong[^>]*>Not lit<\/strong>/);
   assert.match(html, /<p class="description[^"]*">Taller now<\/p>/);
+  const gone = page({ obstacle, answers: { errorKinds: ['does-not-exist'], actualHeightM: null, correctedPosition: null, description: '' } });
+  assert.match(gone, /<th scope="row"[^>]*>Obstacle<\/th>\s*<td class="current[^"]*"><s[^>]*>Building · 10 m · ID DSB-201<\/s>/);
 });
 
-test('the new obstacle page itself: Description and photo, then Location, both full width', () => {
-  const html = page(moved, { onshowonmap: noop });
-  assert.doesNotMatch(html, /two-col/);
-  assert.match(html, /class="fields-row[\s\S]*class="info-card[^"]*"[^>]*>[\s\S]*id="view-description-heading">Description and photo<\/h2>[\s\S]*class="location-panel panel[\s\S]*id="view-location-heading">Location<\/h2>[\s\S]*>Show on map<\/button>[\s\S]*>Edit location<\/button>/);
+test('error report keeps Add photo in its description card, and the footer', () => {
+  const html = page(moved);
   assert.match(html, /class="muted empty[^"]*">No description added<\/p>/);
+  assert.doesNotMatch(html, /Edit location|Show on map/);
   assert.match(html, /data-variant="secondary"[^>]*>Edit report<\/button>[\s\S]*Goes straight to the NRL reviewer[\s\S]*data-color="brand1"/);
 });
 

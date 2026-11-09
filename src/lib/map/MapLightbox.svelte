@@ -14,9 +14,13 @@
     registered?: [number, number] | null;
     /** The opener closes the dialog and returns focus to its own trigger. */
     onclose: () => void;
+    /** A line under the title, e.g. the report type, obstacle and coordinates. */
+    subtitle?: string;
+    /** A line in the footer, e.g. that the map is view only. */
+    note?: string;
   }
 
-  let { geometry, label, registered = null, onclose }: Props = $props();
+  let { geometry, label, registered = null, onclose, subtitle, note }: Props = $props();
   let mapHost: HTMLDivElement;
 
   // Lightbox has already opened the dialog, so the map measures its real size.
@@ -40,13 +44,16 @@
   });
 </script>
 
-<Lightbox title={label} closeLabel="Close map" {onclose}>
+{#snippet noteFooter()}<p class="map-lightbox-note">{note}</p>{/snippet}
+<!-- Pan and zoom only: the point is drawn by the map style and cannot be moved here. -->
+<Lightbox title={label} closeLabel="Close map" {onclose} {subtitle} footer={note ? noteFooter : undefined}>
   <div class="map-lightbox-canvas" bind:this={mapHost}></div>
   <span class="map-lightbox-attribution">© Kartverket</span>
 </Lightbox>
 
 <style>
   .map-lightbox-canvas { position: absolute; inset: 0; }
+  .map-lightbox-note { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
   .map-lightbox-attribution {
     position: absolute;
     right: var(--space-2);

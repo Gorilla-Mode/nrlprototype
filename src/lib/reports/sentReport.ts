@@ -1,8 +1,9 @@
-import { formatCoordinates, isValidHeight, type ErrorReportRecord } from '../obstacles/errorReport.js';
+import { formatCoordinates, isValidHeight, lightingWord, reportedLighting, type ErrorReportRecord } from '../obstacles/errorReport.js';
 import { describeOffsetFromRegistered } from '../obstacles/position.js';
 import { formatHeightFromMeters, lightingValueLabel } from '../drafts/types.js';
 import { obstacleTypeLabel } from '../reporting/obstacle.js';
 import { formatLongDate, formatShortDate, type Report } from './reportsData.js';
+import { coordinateLabel } from './reportGeometry.js';
 
 /** The sent page's four states: the stored statuses as the pilot reads them. */
 export type SentStatusKey = 'under_review' | 'approved' | 'rejected' | 'withdrawn';
@@ -95,18 +96,20 @@ export interface ReportedChange extends ReportedField {
 }
 
 /**
- * A new obstacle's rows, for the same table without "In NRL today": Type, Height and
- * Lighting, only those the pilot filled in. Unknown lighting is an answer, so it is shown.
+ * A new obstacle's rows, for the same table without "In NRL today": Type, Height, Lighting and
+ * Position, only those the pilot filled in. Unknown lighting is an answer, so it is shown.
  */
-export function reportedObstacleRows(report: Report): ReportedField[] {
+export function reportedObstacleRows(report: Report, placeName: string | null = null): ReportedField[] {
   const rows: ReportedField[] = [{ field: 'Type', reported: obstacleTypeLabel(report.obstacleType) }];
-  if (report.heightMeters > 0) rows.push({ field: 'Height', reported: formatHeightFromMeters(report.heightMeters), note: 'At the highest point' });
+  if (report.heightMeters > 0) rows.push({ field: 'Height', reported: formatHeightFromMeters(report.heightMeters), note: 'Above ground, at the highest point' });
   if (report.lighting) rows.push({ field: 'Lighting', reported: lightingValueLabel(report.lighting) });
+  const coordinates = coordinateLabel(report.geometry);
+  if (coordinates) rows.push({ field: 'Position', reported: coordinates, ...(placeName ? { note: `Near ${placeName}` } : {}) });
   return rows;
 }
 
 /**
- * One row per field the pilot marked as wrong, in the form's order. "Does not exist" is
+ * One row per field the pilot marked as wrong, in the edit page's order: Type, Height, Lighting, Position. "Does not exist" is
  * the only row when reported. Fields that were not reported get no row.
  */
 export function reportedChanges({ obstacle, answers }: ErrorReportRecord): ReportedChange[] {
@@ -115,11 +118,14 @@ export function reportedChanges({ obstacle, answers }: ErrorReportRecord): Repor
     return [{ field: 'Obstacle', current: `${obstacle.type} · ${obstacle.heightM} m · ID ${obstacle.id}`, reported: 'Does not exist', struck: true }];
   }
   const rows: ReportedChange[] = [];
+  if (kinds.includes('wrong-type') && answers.actualType) {
+    rows.push({ field: 'Type', current: obstacle.type, reported: obstacleTypeLabel(answers.actualType) });
+  }
   if (kinds.includes('wrong-height') && isValidHeight(answers.actualHeightM)) {
     rows.push({ field: 'Height', current: `${obstacle.heightM} m`, reported: `${answers.actualHeightM} m` });
   }
   if (kinds.includes('wrong-lighting')) {
-    rows.push({ field: 'Lighting', current: obstacle.lit ? 'Lit' : 'Not lit', reported: obstacle.lit ? 'Not lit' : 'Lit' });
+    rows.push({ field: 'Lighting', current: obstacle.lit ? 'Lit' : 'Not lit', reported: lightingWord(reportedLighting(obstacle, answers)) });
   }
   if (kinds.includes('wrong-position')) {
     const moved = answers.correctedPosition;

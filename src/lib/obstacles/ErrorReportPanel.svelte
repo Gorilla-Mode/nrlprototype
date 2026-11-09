@@ -13,7 +13,7 @@
   import { describeMove, type GeoPosition } from './position';
   import {
     applyPositionChoice, describeHeightDifference, describeLightingCorrection, describeMissingRequirement, emptyErrorReportAnswers, errorKindChoices, formatCoordinates, isErrorReportValid,
-    isValidHeight, toggleErrorKind, type ErrorKind, type ErrorReportAnswers, type PositionChoice,
+    isValidHeight, toggleErrorKind, type ErrorKind, type FormErrorKind, type ErrorReportAnswers, type PositionChoice,
   } from './errorReport';
 
   let { obstacle, initial = emptyErrorReportAnswers, hidden = false, ondismiss, onsave, onfinish, onpickposition }: {
@@ -32,7 +32,7 @@
     onpickposition: (current: { selected: boolean; position: GeoPosition | null }) => void;
   } = $props();
 
-  const kindIcons: Record<ErrorKind, Component> = {
+  const kindIcons: Record<FormErrorKind, Component> = {
     'does-not-exist': DoesNotExistIcon,
     'wrong-position': WrongPositionIcon,
     'wrong-height': WrongHeightIcon,

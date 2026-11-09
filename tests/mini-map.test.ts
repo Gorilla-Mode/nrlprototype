@@ -16,7 +16,7 @@ const url = await compileSvelteComponent('src/lib/map/MiniMap.svelte', {
   '../reports/reportGeometry': new URL('../src/lib/reports/reportGeometry.js', import.meta.url).href,
   '../reporting/obstacle': new URL('../src/lib/reporting/obstacle.js', import.meta.url).href,
 });
-const { default: MiniMap } = await import(url) as { default: Component<{ geometry: ReportGeometry | null; label: string; registered?: { lat: number; lng: number } | null; caption?: string }> };
+const { default: MiniMap } = await import(url) as { default: Component<{ geometry: ReportGeometry | null; label: string; registered?: { lat: number; lng: number } | null; caption?: string; viewer?: { title: string; subtitle: string; note: string }; onedit?: () => void }> };
 const point: ReportGeometry = { type: 'Point', coordinates: [5.3455, 60.4053] };
 const map = (props: { geometry: ReportGeometry | null; registered?: { lat: number; lng: number } | null }) => render(MiniMap, { props: { label: 'Mast', ...props } }).body;
 
@@ -59,4 +59,13 @@ test('a page can give its own caption; others keep the standard caption', () => 
   const html = render(MiniMap, { props: { geometry: point, label: 'Mast', caption: 'Moved 280 m northeast of the registered position · 60.4053° N, 5.3455° E' } }).body;
   assert.match(html, /class="mini-map-caption[^"]*">Moved 280 m northeast of the registered position · 60\.4053° N, 5\.3455° E<\/p>/);
   assert.match(map({ geometry: point }), /class="mini-map-caption[^"]*">Point · /);
+});
+
+test('the report detail page adds an Enlarge button to the corner; edit pages and others do not', () => {
+  const viewer = { title: 'Sandviken', subtitle: 'New obstacle · Mast · 30 m · 60.4053° N, 5.3455° E', note: 'View only.' };
+  const html = render(MiniMap, { props: { geometry: point, label: 'Mast', viewer } }).body;
+  assert.match(html, /<button type="button" class="mini-map-corner[^"]*" aria-haspopup="dialog"><svg[^>]*aria-hidden="true"[\s\S]*?<\/svg>\s*Enlarge<\/button>/);
+  assert.match(html, /aria-label="Enlarge map of Mast"/);
+  assert.doesNotMatch(map({ geometry: point }), /mini-map-corner/);
+  assert.doesNotMatch(render(MiniMap, { props: { geometry: point, label: 'Mast', viewer, onedit: () => {} } }).body, /mini-map-corner/);
 });

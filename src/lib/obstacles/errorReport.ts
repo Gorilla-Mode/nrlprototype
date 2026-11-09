@@ -1,9 +1,15 @@
 import type { RegisteredObstacle } from './registeredObstacles.js';
 import { describeMove, type GeoPosition } from './position.js';
+import type { ObstacleType } from '../reporting/obstacle.js';
+import type { Lighting } from '../drafts/types.js';
 
-export type ErrorKind = 'does-not-exist' | 'wrong-position' | 'wrong-height' | 'wrong-lighting';
+/** Wrong type is only offered on the error report edit page; the map form offers the other four. */
+export type ErrorKind = 'does-not-exist' | 'wrong-position' | 'wrong-height' | 'wrong-lighting' | 'wrong-type';
 
-export const errorKindChoices: readonly { kind: ErrorKind; label: string }[] = [
+/** The kinds the map form offers; Wrong type is edit page only. */
+export type FormErrorKind = Exclude<ErrorKind, 'wrong-type'>;
+
+export const errorKindChoices: readonly { kind: FormErrorKind; label: string }[] = [
   { kind: 'does-not-exist', label: 'Does not exist' },
   { kind: 'wrong-position', label: 'Wrong position' },
   { kind: 'wrong-height', label: 'Wrong height' },
@@ -15,8 +21,11 @@ export interface ErrorReport {
   errorKinds: ErrorKind[];
   /** Only when the height is reported wrong. */
   actualHeightM: number | null;
-  /** The corrected value is the opposite of the registered one, so only the flag is kept. */
+  /** Lighting reported wrong; the reported value is actualLighting, or the opposite of the registered one. */
   lightingWrong: boolean;
+  /** Only from the edit page: the reported lighting and type. */
+  actualLighting?: Lighting;
+  actualType?: ObstacleType;
   /** Only when the position is reported wrong and the user placed the correct one. */
   correctedLat?: number;
   correctedLng?: number;
@@ -27,6 +36,9 @@ export interface ErrorReport {
 export interface ErrorReportInput {
   errorKinds: readonly ErrorKind[];
   actualHeightM: number | null;
+  /** Edit page only; absent from the map form and from reports stored before it. */
+  actualType?: ObstacleType | null;
+  actualLighting?: Lighting | null;
   /** Optional: "Wrong position" may be reported without knowing where the obstacle is. */
   correctedPosition?: GeoPosition | null;
   description: string;
@@ -74,7 +86,21 @@ export function isErrorReportValid(input: ErrorReportInput): boolean {
   const { errorKinds, actualHeightM } = input;
   if (!hasErrorOrDescription(input)) return false;
   if (errorKinds.includes('wrong-height') && !isValidHeight(actualHeightM)) return false;
+  if (errorKinds.includes('wrong-type') && !input.actualType) return false;
   return true;
+}
+
+/**
+ * The edit page's rule, stricter than the map form's: "Information is wrong" needs at least one
+ * checked field, and a checked height or type needs its value. Null when it can be sent.
+ */
+export function describeEditRequirement(input: ErrorReportInput): string | null {
+  const { errorKinds } = input;
+  if (errorKinds.includes('does-not-exist')) return null;
+  if (!errorKinds.length) return 'Select at least one field that is wrong';
+  if (errorKinds.includes('wrong-type') && !input.actualType) return 'Choose the reported type';
+  if (errorKinds.includes('wrong-height') && !isValidHeight(input.actualHeightM)) return 'Enter the reported height';
+  return null;
 }
 
 /** Why the report cannot be finished yet, in the same order as the validation rules; null when valid. */
@@ -96,12 +122,30 @@ export function describeLightingCorrection(registeredLit: boolean): string {
   return registeredLit ? 'Lit → Not lit' : 'Not lit → Lit';
 }
 
+const lightingWords: Record<Lighting, string> = { yes: 'Lit', no: 'Not lit', unknown: 'Unknown' };
+
+/** The lighting reported for a wrong-lighting answer: the chosen value, or the opposite of the registered one. */
+export function reportedLighting(obstacle: Pick<RegisteredObstacle, 'lit'>, answers: Pick<ErrorReportAnswers, 'actualLighting'>): Lighting {
+  return answers.actualLighting ?? (obstacle.lit ? 'no' : 'yes');
+}
+
+/** "Lit → Unknown": the registered lighting and the reported one. */
+export function describeReportedLighting(obstacle: Pick<RegisteredObstacle, 'lit'>, answers: Pick<ErrorReportAnswers, 'actualLighting'>): string {
+  return `${obstacle.lit ? 'Lit' : 'Not lit'} → ${lightingWords[reportedLighting(obstacle, answers)]}`;
+}
+
+export function lightingWord(lighting: Lighting): string {
+  return lightingWords[lighting];
+}
+
 export function buildErrorReport(obstacle: RegisteredObstacle, input: ErrorReportInput, timestamp = new Date()): ErrorReport {
   return {
     obstacleId: obstacle.id,
     errorKinds: [...input.errorKinds],
     actualHeightM: input.errorKinds.includes('wrong-height') && isValidHeight(input.actualHeightM) ? input.actualHeightM : null,
     lightingWrong: input.errorKinds.includes('wrong-lighting'),
+    ...(input.errorKinds.includes('wrong-lighting') && input.actualLighting ? { actualLighting: input.actualLighting } : {}),
+    ...(input.errorKinds.includes('wrong-type') && input.actualType ? { actualType: input.actualType } : {}),
     ...(input.errorKinds.includes('wrong-position') && input.correctedPosition
       ? { correctedLat: input.correctedPosition.lat, correctedLng: input.correctedPosition.lng }
       : {}),
@@ -118,6 +162,9 @@ export function formatCoordinates({ lat, lng }: Pick<RegisteredObstacle, 'lat' |
 export interface ErrorReportAnswers {
   errorKinds: ErrorKind[];
   actualHeightM: number | null;
+  /** Edit page only: the reported type and lighting. Without actualLighting, wrong lighting means the opposite. */
+  actualType?: ObstacleType | null;
+  actualLighting?: Lighting | null;
   correctedPosition: GeoPosition | null;
   description: string;
 }
@@ -143,9 +190,10 @@ export function errorReportHeading({ obstacle }: ErrorReportRecord): string {
   return `Error report · ${registeredObstacleLabel(obstacle)}`;
 }
 
-/** "Wrong height, Wrong lighting", in choice order; "Described below" when only a description says it. */
+/** "Wrong type, Wrong height", in choice order; "Described below" when only a description says it. */
 export function errorKindsLabel(kinds: readonly ErrorKind[]): string {
-  const labels = errorKindChoices.filter(({ kind }) => kinds.includes(kind)).map(({ label }) => label);
+  const labels = [{ kind: 'wrong-type' as const, label: 'Wrong type' }, ...errorKindChoices]
+    .filter(({ kind }) => kinds.includes(kind)).map(({ label }) => label);
   return labels.length ? labels.join(', ') : 'Described below';
 }
 
@@ -160,7 +208,7 @@ export function errorReportRows({ obstacle, answers }: ErrorReportRecord): { key
     { key: 'obstacle', label: 'Obstacle', value: `${registeredObstacleLabel(obstacle)} · ID ${obstacle.id}` },
     { key: 'kinds', label: 'What is wrong', value: errorKindsLabel(kinds) },
     { key: 'height', label: 'Actual height', value: height },
-    { key: 'lighting', label: 'Lighting', value: kinds.includes('wrong-lighting') ? describeLightingCorrection(obstacle.lit) : 'Not reported' },
+    { key: 'lighting', label: 'Lighting', value: kinds.includes('wrong-lighting') ? describeReportedLighting(obstacle, answers) : 'Not reported' },
     { key: 'position', label: 'Position', value: position },
     { key: 'description', label: 'Description', value: answers.description.trim() || 'Not added' },
   ];
