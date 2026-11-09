@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import PageHeader from '../components/PageHeader.svelte';
+  import LargeTitleHeader from '../components/LargeTitleHeader.svelte';
   import Dialog from '../components/Dialog.svelte';
   import PhotoField from './PhotoField.svelte';
   import ReportedTable from './ReportedTable.svelte';
@@ -53,14 +53,15 @@
   {#snippet statusChip()}
     {#if status}<span class="ds-tag reports-status-badge sent-chip" data-size="sm" data-tone={status.tone}>{#if status.key === 'under_review'}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">{@html icons.info}</svg>{/if}{status.chipLabel}</span>{/if}
   {/snippet}
-  <PageHeader {title} backLabel="Back to reports" {onback} actions={statusChip} />
-
   <div class="scroll-area">
-    <div class="safe-area">
+    <!-- The shared large-title header: "‹ Reports" and the status chip in the bar, the title and who sent it below. -->
+    <LargeTitleHeader {title} backText="Reports" backLabel="Back to reports" {onback} actions={statusChip} wide>
       <p class="report-meta">
         Reported by {report.reportedByName}, {report.reportedByOrg}
         · Sent <time datetime={report.sentAt}>{formatShortDate(report.sentAt)}</time>
       </p>
+    </LargeTitleHeader>
+    <div class="safe-area">
 
       <!-- Portrait: one column. Wider than 1200 px: these on the left, Location sticky on the right. -->
       <div class="report-detail-content">
@@ -146,7 +147,7 @@
     width: 100%; max-width: calc(var(--page-content-max) + 2 * var(--page-gutter)); margin: 0 auto; box-sizing: border-box;
     padding: var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) var(--space-8) max(var(--page-gutter), var(--safe-area-left));
   }
-  .report-meta { margin: 0 0 var(--detail-card-gap); color: var(--color-text-secondary); overflow-wrap: anywhere; }
+  .report-meta { margin: var(--space-1) 0 0; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 
   /* One colour per status, from the status roles; the chip and the block agree. */
   [data-tone='info'] { --tone-surface: var(--color-status-info-surface); --tone-color: var(--color-status-info); }

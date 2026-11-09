@@ -458,7 +458,8 @@
     syncRoute();
   }
 
-  // Back to the list: the entry before the edit page, or the list itself after a direct link.
+  // Back where the edit page came from; after a direct link, to the report's own page while it is
+  // still Ready to send ("‹ Report"), otherwise to the list.
   function exitReportEdit(saved: boolean) {
     if (!saved && editDirty) {
       leaveEdit = () => exitReportEdit(true);
@@ -467,7 +468,9 @@
     editDirty = false;
     if (history.state?.nrlEditEntry) history.back();
     else {
-      history.replaceState(history.state, '', reportsRoute);
+      const id = reportEditIdFromHash(window.location.hash);
+      const ready = id !== null && reportStore.getReports().some((report) => report.id === id && report.status === 'ready');
+      history.replaceState(history.state, '', ready ? reportViewRoute(id) : reportsRoute);
       syncRoute();
     }
   }

@@ -33,10 +33,12 @@ const page = (report: Report) => render(Page, { props: { report, onback: noop, o
 
 test('Ready to send: titled by its place, the meta line, and the reported obstacle as a table', () => {
   const html = page({ ...base, place: sandviken });
-  assert.match(html, /aria-label="Back to Reports"/);
+  // The shared header: "‹ Reports" in the bar with the tag, the large title and the meta line below it.
+  assert.match(html, /<header class="large-title-bar[^"]*"><button type="button" class="large-title-back[^"]*" aria-label="Back to reports"><svg[\s\S]*?<\/svg>\s*Reports<\/button>\s*<div class="large-title-actions[^"]*">[\s\S]*?Ready to send[\s\S]*?<\/div><\/header>/);
   assert.match(html, /<section class="page report-detail[^"]*">/);
-  assert.match(html, /<h1 class="page-header-title[^"]*"[^>]*>New obstacle · Sandviken, Bergen<\/h1>/);
-  assert.match(html, /<\/header>[\s\S]*class="safe-area[\s\S]*?<p class="report-meta[^"]*">\s*Reported by Paul Atreides, Politihelikoptertjenesten\s*· Last edited <time datetime="[^"]+">[^<]+<\/time>/);
+  assert.match(html, /<h1 class="large-title[^"]*"[^>]*>New obstacle · Sandviken, Bergen<\/h1>\s*<p class="report-meta[^"]*">\s*Reported by Paul Atreides/);
+  assert.match(html, /<p class="report-meta[^"]*">\s*Reported by Paul Atreides, Politihelikoptertjenesten\s*· Last edited <time datetime="[^"]+">[^<]+<\/time>\s*<\/p>\s*<\/div>\s*<\/section>\s*<div class="safe-area/);
+  assert.doesNotMatch(html, /page-header-title/);
   assert.match(html, /<h2 class="report-detail-card-heading[^"]*" id="view-obstacle-heading">Reported obstacle<\/h2>\s*<table class="reported-table/);
   assert.match(html, /<th scope="col" class="reported-field[^"]*">Field<\/th><th scope="col"[^>]*>Reported<\/th>/);
   assert.doesNotMatch(html, /In NRL today|class="fields-row|<dl|<input|<select|<textarea|Created/);

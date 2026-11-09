@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte';
-  import PageHeader from '../components/PageHeader.svelte';
+  import LargeTitleHeader from '../components/LargeTitleHeader.svelte';
   import StatusBadge from './StatusBadge.svelte';
   import MiniMap from '../map/MiniMap.svelte';
   import LocationEditor from '../map/LocationEditor.svelte';
@@ -172,14 +172,15 @@
 
 <section class="page">
   {#snippet statusTag()}<StatusBadge status="ready" />{/snippet}
-  <PageHeader {title} backLabel="Back to Reports" {onback} actions={statusTag} />
-
   <div class="scroll-area">
-    <div class="safe-area">
+    <!-- The shared large-title header: "‹ Report" back to the report's page, the tag, the title and meta line. -->
+    <LargeTitleHeader {title} backText="Report" backLabel="Back to report" {onback} actions={statusTag}>
       <p class="report-meta">
         Reported by {opened.reportedByName}, {opened.reportedByOrg}
         · Last edited <time datetime={opened.updatedAt}>{lastEditedLabel(opened.updatedAt)}</time>
       </p>
+    </LargeTitleHeader>
+    <div class="safe-area">
       <section class="info-card" aria-labelledby="error-what-heading">
         <h2 class="section-heading" id="error-what-heading">What is wrong?</h2>
         <p class="registered-line">{registeredLine}</p>
@@ -330,14 +331,14 @@
   }
   .muted { color: var(--color-text-secondary); }
 
-  .scroll-area { flex: 1; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: var(--space-6); }
+  .scroll-area { flex: 1; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: calc(var(--large-title-bar-height) + var(--space-6)) var(--space-6); /* clear of the sticky bar */ }
   .safe-area {
     display: flex; flex-direction: column; min-height: 100%; width: 100%;
     max-width: calc(var(--page-content-max) + 2 * var(--page-gutter)); margin: 0 auto; box-sizing: border-box;
     padding: var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) var(--space-8) max(var(--page-gutter), var(--safe-area-left));
   }
   .safe-area > * { flex: none; }
-  .report-meta { margin: 0 0 var(--space-4); color: var(--color-text-secondary); font-size: var(--font-size-body-small); overflow-wrap: anywhere; }
+  .report-meta { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); overflow-wrap: anywhere; }
 
   /* What is wrong?: the registered obstacle, the mode, then the reported table (stylesheet .reported-table). */
   .registered-line { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); overflow-wrap: anywhere; }

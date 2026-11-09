@@ -33,7 +33,7 @@ const pageUrl = await compileSvelteComponent('src/lib/drafts/DraftDetailPage.sve
   '../map/MiniMap.svelte': stub('MiniMap'),
   '../map/LocationEditor.svelte': stub('LocationEditor'),
   '../reports/PhotoField.svelte': stub('PhotoField'),
-  '../components/PageHeader.svelte': await compileSvelteComponent('src/lib/components/PageHeader.svelte'),
+  '../components/LargeTitleHeader.svelte': await compileSvelteComponent('src/lib/components/LargeTitleHeader.svelte'),
   '../reports/StatusBadge.svelte': await compileStatusBadge(),
   '../reports/Dropdown.svelte': await compileSvelteComponent('src/lib/reports/Dropdown.svelte'),
   '../reporting/obstacle': new URL('../src/lib/reporting/obstacle.js', import.meta.url).href,
@@ -68,8 +68,9 @@ test('lighting is a labelled list with the same stored values and new labels', (
 });
 
 test('reporter and dates sit under the title, from the report, with times', () => {
-  const html = page({ ...base, reportedByName: 'Ada Lovelace', reportedByOrg: 'Luftambulansen' });
-  assert.match(html, /<\/header>[\s\S]*class="safe-area[\s\S]*?<p class="report-meta[^"]*">\s*Reported by Ada Lovelace, Luftambulansen\s*· Last edited <time datetime="[^"]+">/);
+  const html = page({ ...base, reportedByName: 'Ada Lovelace', reportedByOrg: 'Luftambulansen' }).replace(/<!--[^>]*-->/g, '');
+  // Moved up into the header, directly under the title.
+  assert.match(html, /<\/h1>\s*<p class="report-meta[^"]*">\s*Reported by Ada Lovelace, Luftambulansen\s*· Last edited <time datetime="[^"]+">[\s\S]*?<\/section>\s*<div class="safe-area/);
   assert.doesNotMatch(html, /Created/);
   assert.doesNotMatch(html, /class="reporter-row/);
 });
@@ -106,13 +107,13 @@ test('no type: "Select type" is chosen, cannot be picked again, is marked missin
   assert.match(html, /<option value="" disabled(="")? hidden(="")? selected[^>]*>Select type<\/option>/);
   assert.match(html, /<select class="dropdown[^"]*\binvalid\b[^"]*\bunset\b[^"]*"[^>]*id="draft-type"[^>]*aria-describedby="draft-type-error"[^>]*aria-invalid="true"/);
   assert.match(html, /id="draft-type-error"[^>]*>[\s\S]*Required to send/);
-  assert.match(html, /<h1 class="page-header-title[^"]*\bmuted\b[^"]*"[^>]*>Untitled obstacle<\/h1>/);
+  assert.match(html, /<h1 class="large-title[^"]*\bmuted\b[^"]*"[^>]*>Untitled obstacle<\/h1>/);
   assert.match(html, /2 fields still needed/);
   const other = page({ ...base, title: '', category: ObstacleType.Other });
   assert.match(other, /<option value="other"[^>]*selected/);
-  assert.doesNotMatch(other, /draft-type-error|class="page-header-title[^"]*muted/);
+  assert.doesNotMatch(other, /draft-type-error|class="large-title[^"]*muted/);
   // With a type and no name, the title says it is a new obstacle.
-  assert.match(page({ ...base, title: '', category: ObstacleType.Bridge, heightAboveGround: '7 m (23 ft)' }), /<h1 class="page-header-title[^"]*"[^>]*>New obstacle · Bridge · 7\u00a0m<\/h1>/);
+  assert.match(page({ ...base, title: '', category: ObstacleType.Bridge, heightAboveGround: '7 m (23 ft)' }), /<h1 class="large-title[^"]*"[^>]*>New obstacle · Bridge · 7\u00a0m<\/h1>/);
 });
 
 test('the summary names each missing field as a link, without referring to colour', () => {
@@ -133,4 +134,12 @@ test('Send stays focusable: aria-disabled with a note naming what is missing, th
   const ready = page({ ...base, heightAboveGround: '30 m (98 ft)' });
   assert.doesNotMatch(ready.match(/<button class="ds-button send-button[^>]*>/)?.[0] ?? '', /aria-disabled/);
   assert.match(ready, /Goes straight to the NRL reviewer[\s\S]*You cannot edit the report after sending/);
+});
+
+test('the shared header: a Ready report goes back to its page ("‹ Report"), a draft to the list ("‹ Reports")', () => {
+  const back = (html: string) => /class="large-title-back[^"]*" aria-label="([^"]+)"><svg[\s\S]*?<\/svg>\s*([^<]+?)<\/button>/.exec(html)?.slice(1);
+  assert.deepEqual(back(page(base)), ['Back to reports', 'Reports']);
+  const ready = render(Page, { props: { draft: base, status: 'ready', onBack: noop, onDone: noop, onSend: noop, ondirtychange: noop } }).body.replace(/<!--[^>]*-->/g, '');
+  assert.deepEqual(back(ready), ['Back to report', 'Report']);
+  assert.match(ready, /<div class="large-title-actions[^"]*">[\s\S]*?Ready to send[\s\S]*?<\/div><\/header>/);
 });

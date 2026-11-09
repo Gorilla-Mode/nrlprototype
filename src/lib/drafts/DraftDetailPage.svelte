@@ -4,7 +4,7 @@
   import { draftType, heightInMeters, formatHeightFromMeters, missingDraftFields, type Lighting } from './types';
   import type { ObstacleType } from '../reporting/obstacle';
   import MiniMap from '../map/MiniMap.svelte';
-  import PageHeader from '../components/PageHeader.svelte';
+  import LargeTitleHeader from '../components/LargeTitleHeader.svelte';
   import StatusBadge from '../reports/StatusBadge.svelte';
   import LocationEditor from '../map/LocationEditor.svelte';
   import PhotoField from '../reports/PhotoField.svelte';
@@ -136,15 +136,16 @@
 
 <section class="page">
   {#snippet statusTag()}<StatusBadge {status} />{/snippet}
-  <PageHeader {title} {titleMuted} backLabel="Back to Reports" onback={onBack} actions={statusTag} />
-
   <div class="scroll-area">
-    <div class="safe-area">
-      <!-- Who reported it and when, from the report itself: at the top of the content. -->
+    <!-- The shared large-title header. A Ready report goes back to its own page ("‹ Report"); a draft has none, so to the list. -->
+    <LargeTitleHeader {title} {titleMuted} backText={status === 'ready' ? 'Report' : 'Reports'} backLabel={status === 'ready' ? 'Back to report' : 'Back to reports'}
+      onback={onBack} actions={statusTag}>
       <p class="report-meta">
         Reported by {draft.reportedByName}, {draft.reportedByOrg}
         · Last edited <time datetime={draft.updatedAt}>{lastEditedLabel(draft.updatedAt)}</time>
       </p>
+    </LargeTitleHeader>
+    <div class="safe-area">
       {#if !canSend}
         <!-- Names the missing fields as links to them; never refers to colour. -->
         <div class="needed-box">
@@ -260,7 +261,7 @@
   .muted { color:var(--color-text-secondary) }
 
   /* The bar sits below the scroll area, never over it; the padding keeps a focused field clear of its edge. */
-  .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; scroll-padding-block:var(--space-6); }
+  .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; scroll-padding-block:calc(var(--large-title-bar-height) + var(--space-6)) var(--space-6); /* clear of the sticky bar */ }
   /* At least the scroll area's height, so the location card can take the room left above the bar. */
   .safe-area { display:flex; flex-direction:column; min-height:100%; width:100%; max-width:calc(var(--page-content-max) + 2 * var(--page-gutter)); margin:0 auto; padding:var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) var(--space-8) max(var(--page-gutter), var(--safe-area-left)); box-sizing:border-box; }
   .safe-area > * { flex:none; }
@@ -321,7 +322,7 @@
   /* Full width where Activity was; the shared report map sets its own 16:9 height and caption. */
   .location-panel { margin-bottom:var(--space-4) }
   /* At the top of the content, lined up with the cards, a little space above them. */
-  .report-meta { margin:0 0 var(--space-4); color:var(--color-text-secondary); font-size:var(--font-size-body-small); overflow-wrap:anywhere }
+  .report-meta { margin:var(--space-1) 0 0; color:var(--color-text-secondary); font-size:var(--font-size-body-small); overflow-wrap:anywhere }
 
   .location-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2) }
   .edit-location { min-height:var(--target-size-min); margin-block:calc(-1 * var(--space-3)); padding:0; border:0; background:none; font-size:var(--font-size-body-small); cursor:pointer }

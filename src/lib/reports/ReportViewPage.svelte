@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import PageHeader from '../components/PageHeader.svelte';
+  import LargeTitleHeader from '../components/LargeTitleHeader.svelte';
   import StatusBadge from './StatusBadge.svelte';
   import PhotoField from './PhotoField.svelte';
   import ReportedTable from './ReportedTable.svelte';
@@ -55,15 +55,15 @@
 
 <section class="page report-detail">
   {#snippet statusTag()}<StatusBadge status={report.status} />{/snippet}
-  <PageHeader {title} backLabel="Back to Reports" {onback} actions={statusTag} />
-
   <div class="scroll-area">
-    <div class="safe-area">
-      <!-- Who reported it and when, from the report itself: at the top of the content, above the cards. -->
+    <!-- The shared large-title header: "‹ Reports" and the tag in the bar, the title and who reported it below. -->
+    <LargeTitleHeader {title} backText="Reports" backLabel="Back to reports" {onback} actions={statusTag} wide>
       <p class="report-meta">
         Reported by {report.reportedByName}, {report.reportedByOrg}
         · Last edited <time datetime={report.updatedAt}>{lastEditedLabel(report.updatedAt)}</time>
       </p>
+    </LargeTitleHeader>
+    <div class="safe-area">
       <!-- Portrait: one column. Wider than 1200 px: these on the left, Location sticky on the right. -->
       <div class="report-detail-content">
         {#if record}
@@ -123,12 +123,12 @@
   .muted { color: var(--color-text-secondary); }
 
   /* The bar sits below the scroll area, never over it. */
-  .scroll-area { flex: 1; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: var(--space-6); }
+  .scroll-area { flex: 1; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: calc(var(--large-title-bar-height) + var(--space-6)) var(--space-6); /* clear of the sticky bar */ }
   .safe-area {
     width: 100%; max-width: calc(var(--page-content-max) + 2 * var(--page-gutter)); margin: 0 auto; box-sizing: border-box;
     padding: var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) var(--space-8) max(var(--page-gutter), var(--safe-area-left));
   }
-  .report-meta { margin: 0 0 var(--detail-card-gap); color: var(--color-text-secondary); overflow-wrap: anywhere; }
+  .report-meta { margin: var(--space-1) 0 0; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 
   .description { margin: 0; color: var(--color-text-primary); font-size: var(--detail-font-size-body); line-height: var(--line-height-body); white-space: pre-line; overflow-wrap: anywhere; }
   .empty { margin: 0; font-size: var(--detail-font-size-body); }

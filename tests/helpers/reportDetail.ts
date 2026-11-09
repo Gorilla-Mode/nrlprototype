@@ -20,7 +20,7 @@ export async function reportDetailSpecifiers(): Promise<Record<string, string>> 
   };
   return {
     ...modules,
-    '../components/PageHeader.svelte': await compileSvelteComponent('src/lib/components/PageHeader.svelte'),
+    '../components/LargeTitleHeader.svelte': await compileSvelteComponent('src/lib/components/LargeTitleHeader.svelte'),
     '../components/Dialog.svelte': stub('Dialog'),
     './StatusBadge.svelte': await compileStatusBadge(),
     './PhotoField.svelte': stub('PhotoField'),

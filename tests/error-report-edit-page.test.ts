@@ -74,7 +74,7 @@ test('what the edit page reports is what the sent page lists: type, height, ligh
 
 const stub = (name: string) => `data:text/javascript,export default function ${name}() {}`;
 const pageUrl = await compileSvelteComponent('src/lib/reports/ErrorReportEditPage.svelte', {
-  '../components/PageHeader.svelte': await compileSvelteComponent('src/lib/components/PageHeader.svelte'),
+  '../components/LargeTitleHeader.svelte': await compileSvelteComponent('src/lib/components/LargeTitleHeader.svelte'),
   './StatusBadge.svelte': await compileStatusBadge(),
   './Dropdown.svelte': await compileSvelteComponent('src/lib/reports/Dropdown.svelte'),
   '../map/MiniMap.svelte': stub('MiniMap'),
@@ -97,7 +97,9 @@ test('one "What is wrong?" card in the edit page layout; header, description, lo
   const html = page(stored);
   assert.match(html, /<h1[^>]*>Error report · Sandviken<\/h1>/);
   assert.match(html, /data-status="ready"/);
-  assert.match(html, /<p class="report-meta[^"]*">\s*Reported by [^<]+· Last edited <time/);
+  assert.match(html, /<\/h1>\s*<p class="report-meta[^"]*">\s*Reported by [^<]+· Last edited <time/);
+  // "‹ Report" goes back to the report's own page.
+  assert.match(html, /class="large-title-back[^"]*" aria-label="Back to report"><svg[\s\S]*?<\/svg>\s*Report<\/button>/);
   assert.match(html, />What is wrong\?<\/h2>\s*<p class="registered-line[^"]*">Registered in NRL: Building · 10 m · lit · ID DSB-201<\/p>/);
   assert.match(html, /What is wrong\?[\s\S]*Description and photo \(optional\)[\s\S]*>Location<\/h2>[\s\S]*>Save draft<\/button>[\s\S]*Send for Review/);
   assert.doesNotMatch(html, /Actual height|Registered obstacle<|class="fields-row/);
