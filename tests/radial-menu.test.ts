@@ -45,11 +45,11 @@ test('placed error and position circles share menu defaults and retain explicit 
         icon: createRawSnippet(() => ({ render: () => '<path d="M0 0L24 24" />' })),
         onmove: () => {}, handle, ...radii,
       } });
-      const inner = radii.innerRadius ?? 96;
-      const outer = (radii.outerRadius ?? 154) + (handle?.dragging ? 12 : 0);
+      const inner = radii.innerRadius ?? 64;
+      const outer = (radii.outerRadius ?? 128) + (handle?.dragging ? 12 : 0);
       assert.ok(body.includes(`A ${inner} ${inner}`));
       assert.ok(body.includes(`A ${outer} ${outer}`));
-      if (handle) assert.ok(body.includes(`calc(50% - ${(inner + (radii.outerRadius ?? 154)) / 2}px)`));
+      if (handle) assert.ok(body.includes(`calc(50% - ${(inner + (radii.outerRadius ?? 128)) / 2}px)`));
     }
   }
 });
@@ -69,9 +69,10 @@ for (const count of [1, 3, 6]) {
       assert.ok(body.includes(`fill="${item.color}"`));
       assert.ok(body.includes(`data-icon="${index}"`));
     }
-    assert.match(body, /width="334" height="334"/);
-    assert.match(body, /A 96 96/);
-    assert.match(body, /A 154 154/);
+    assert.match(body, /width="282" height="282"/);
+    assert.match(body, /viewBox="-141 -141 282 282"/);
+    assert.match(body, /A 64 64/);
+    assert.match(body, /A 128 128/);
     assert.match(body, /role="img" aria-label="Radial menu preview:/);
     assert.doesNotMatch(body, /<button|tabindex|role="menuitem"/);
     assert.doesNotMatch(body, /NaN|Infinity/);
@@ -151,20 +152,20 @@ for (const radii of radiusCases) {
 test('three item centers are evenly spaced with point above, line right, and polygon left', () => {
   const segments = createRadialSegments(3, defaultRadialMenuRadii.innerRadius, defaultRadialMenuRadii.outerRadius);
   assert.ok(Math.abs(segments[0].x) < 1e-10);
-  assert.equal(segments[0].y, -125);
+  assert.equal(segments[0].y, -96);
   assert.ok(segments[1].x > 0 && segments[1].y > 0);
   assert.ok(segments[2].x < 0 && segments[2].y > 0);
   for (const segment of segments) {
-    assert.ok(Math.abs(Math.hypot(segment.x, segment.y) - 125) < 1e-10);
-    assert.match(segment.path, /A 96 96/);
-    assert.match(segment.path, /A 154 154/);
+    assert.ok(Math.abs(Math.hypot(segment.x, segment.y) - 96) < 1e-10);
+    assert.match(segment.path, /A 64 64/);
+    assert.match(segment.path, /A 128 128/);
   }
 });
 
 test('one item uses full circles around the safe zone; invalid radii fail clearly', () => {
   const [segment] = createRadialSegments(1, defaultRadialMenuRadii.innerRadius, defaultRadialMenuRadii.outerRadius);
-  assert.equal((segment.path.match(/A 154 154/g) ?? []).length, 2);
-  assert.equal((segment.path.match(/A 96 96/g) ?? []).length, 2);
+  assert.equal((segment.path.match(/A 128 128/g) ?? []).length, 2);
+  assert.equal((segment.path.match(/A 64 64/g) ?? []).length, 2);
   for (const [inner, outer] of [[0, 112], [112, 46], [46, NaN]]) {
     assert.throws(() => createRadialSegments(3, inner, outer), RangeError);
   }
@@ -185,12 +186,14 @@ test('hover follows the displayed sectors for one, three, and six items', () => 
 });
 
 test('overshooting keeps targeting by angle, including direct jumps and switching beyond the visible ring', () => {
+  const { innerRadius, outerRadius } = defaultRadialMenuRadii;
   const hover = (x: number, y: number) => getHoveredRadialSegment({ x, y }, 3, defaultRadialMenuRadii.innerRadius);
   assert.equal(hover(0, 0), null);
-  assert.equal(hover(0, -96), null);
-  assert.equal(hover(0, -97), 0);
-  assert.equal(hover(0, -154), 0);
-  assert.equal(hover(0, -167), 0);
+  assert.equal(hover(0, -(innerRadius - 1)), null);
+  assert.equal(hover(0, -innerRadius), null);
+  assert.equal(hover(0, -(innerRadius + 1)), 0);
+  assert.equal(hover(0, -outerRadius), 0);
+  assert.equal(hover(0, -(outerRadius + 13)), 0);
   assert.equal(hover(0, -10000), 0, 'overshooting works without first passing through the visible segment');
   assert.equal(hover(10000, 6000), 1, 'a distant neighboring sector can be hovered immediately');
   assert.equal(hover(-10000, 6000), 2);

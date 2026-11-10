@@ -4,6 +4,7 @@ import type { Map as MapLibreMap, EaseToOptions } from 'maplibre-gl';
 import { createMapErrorReportController, type ErrorReportTarget } from '../src/lib/map/createMapErrorReportController.js';
 import type { RegisteredObstacle } from '../src/lib/obstacles/registeredObstacles.js';
 import type { GeographicVertex } from '../src/lib/reporting/obstacle.js';
+import { defaultRadialMenuRadii } from '../src/lib/radial-menu/radialMenu.js';
 
 const obstacle = (id: string, lng = 2, lat = 3): RegisteredObstacle =>
   ({ id, type: 'Mast', heightM: 40, lit: false, lng, lat });
@@ -108,7 +109,7 @@ test('circle input retains its wider radius; closing error reporting retains the
   h.controller.setHoldMode('error-report');
   h.controller.setRegisteredObstacles([obstacle('circle', 3)]);
   h.controller.placeCircle([2, 3]);
-  assert.equal(h.controller.sample().match?.id, 'circle', 'inside the 154 px circle radius');
+  assert.equal(h.controller.sample().match?.id, 'circle', 'inside the 128 px circle radius');
   h.controller.setCrosshairSize(64);
   h.controller.setCrosshairMode(true);
   assert.equal(h.controller.sample().match, null, 'outside the narrower crosshair radius');
@@ -127,13 +128,13 @@ test('circle input retains its wider radius; closing error reporting retains the
   assert.deepEqual(h.controller.sample().position, [6, 7], 'closing error reporting retains crosshair input');
 });
 
-test('circle matching includes the shared 154 px edge and excludes obstacles beyond it', (t) => {
+test('circle matching includes the shared 128 px edge and excludes obstacles beyond it', (t) => {
   const h = setup(t);
   h.controller.setHoldMode('error-report');
   h.controller.placeCircle([2, 3]);
-  h.controller.setRegisteredObstacles([obstacle('edge', 2, 4.54)]);
+  h.controller.setRegisteredObstacles([obstacle('edge', 2, 3 + defaultRadialMenuRadii.outerRadius / 100)]);
   assert.equal(h.controller.sample().match?.id, 'edge');
-  h.controller.setRegisteredObstacles([obstacle('outside', 2, 4.5401)]);
+  h.controller.setRegisteredObstacles([obstacle('outside', 2, 3 + (defaultRadialMenuRadii.outerRadius + 0.01) / 100)]);
   assert.equal(h.controller.sample().match, null);
 });
 
@@ -141,10 +142,10 @@ test('correction reveals a circle when its shared outer radius would overlap the
   const h = setup(t);
   h.controller.setHoldMode('error-report');
   h.controller.setBottomInset(100);
-  h.controller.startPositionCorrection([2, 3], [2, 3.6]);
-  assert.equal(h.cameraChanges(), 1, '360 + 154 extends below the panel at 500 px');
-  assert.deepEqual(h.controller.sample().position, [2, 3.6]);
-  assert.ok(h.controller.sample().center!.y + 154 <= 500);
+  h.controller.startPositionCorrection([2, 3], [2, 3.8]);
+  assert.equal(h.cameraChanges(), 1, '380 + 128 extends below the panel at 500 px');
+  assert.deepEqual(h.controller.sample().position, [2, 3.8]);
+  assert.ok(h.controller.sample().center!.y + defaultRadialMenuRadii.outerRadius <= 500);
 });
 
 test('disabling crosshair clears ordinary targeting until a new hold, including a previously placed circle', (t) => {
@@ -268,7 +269,7 @@ test('circle correction clamps dragging above the measured panel and abandons co
   h.controller.startPositionCorrection([2, 3], [2, 3]);
   h.controller.setBottomInset(100);
   h.controller.moveCircle(-100, 1000);
-  assert.deepEqual(h.controller.sample().center, { x: 56, y: 346 });
+  assert.deepEqual(h.controller.sample().center, { x: 56, y: 372 });
   h.controller.setHoldMode('obstacle');
   assert.equal(h.controller.getDragCenter(), null);
   assert.deepEqual(h.gestures.at(-1), { correcting: false, crosshair: false });
