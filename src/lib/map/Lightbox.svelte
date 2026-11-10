@@ -1,0 +1,94 @@
+<script lang="ts">
+  import { onMount, type Snippet } from 'svelte';
+
+  interface Props {
+    title: string;
+    /** Accessible name of the close button, e.g. "Close map". */
+    closeLabel: string;
+    /** The opener closes the dialog and returns focus to its own trigger. */
+    onclose: () => void;
+    children: Snippet;
+    /** Actions under the body, such as Cancel and a primary action. */
+    footer?: Snippet;
+    /** A line under the title, e.g. what the map shows. */
+    subtitle?: string;
+  }
+
+  let { title, closeLabel, onclose, children, footer, subtitle }: Props = $props();
+  const titleId = $props.id();
+  let dialog: HTMLDialogElement;
+  let closeButton: HTMLButtonElement;
+  let backdropPress = false;
+
+  // Runs before a parent's onMount, so content that measures itself (a map) sees the open dialog.
+  onMount(() => {
+    dialog.showModal();
+    closeButton.focus({ preventScroll: true });
+    return () => { if (dialog.open) dialog.close(); };
+  });
+
+  function isBackdrop(event: MouseEvent) {
+    const box = dialog.getBoundingClientRect();
+    return event.target === dialog && (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom);
+  }
+
+  function keydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape') return;
+    // Handled here so the Reports page's own Escape handler does not also close the page.
+    event.preventDefault();
+    event.stopPropagation();
+    onclose();
+  }
+</script>
+
+<dialog class="ds-dialog dialog-shell lightbox" bind:this={dialog} aria-labelledby={titleId}
+  oncancel={(event) => { event.preventDefault(); onclose(); }}
+  onkeydown={keydown}
+  onpointerdown={(event) => { backdropPress = isBackdrop(event); }}
+  onclick={(event) => { if (backdropPress && isBackdrop(event)) onclose(); backdropPress = false; }}>
+  <header class="lightbox-header">
+    {#if subtitle}
+      <div class="lightbox-titles"><h2 id={titleId}>{title}</h2><p class="lightbox-subtitle">{subtitle}</p></div>
+    {:else}
+      <h2 id={titleId}>{title}</h2>
+    {/if}
+    <button class="ds-button menu-close" data-variant="tertiary" data-color="neutral" data-icon="true" type="button" bind:this={closeButton} aria-label={closeLabel} onclick={onclose}>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
+    </button>
+  </header>
+  <div class="lightbox-body">
+    {@render children()}
+  </div>
+  {#if footer}<footer class="lightbox-footer">{@render footer()}</footer>{/if}
+</dialog>
+
+<style>
+  .lightbox {
+    width: min(64rem, calc(100dvw - var(--map-control-inset-left) - var(--map-control-inset-right)));
+    height: min(48rem, calc(100dvh - var(--map-control-inset-top) - var(--map-control-inset-bottom)));
+    max-width: none;
+    max-height: none;
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+  }
+  .lightbox[open] { display: flex; flex-direction: column; }
+  .lightbox::backdrop { background: var(--color-background-scrim); }
+
+  .lightbox-header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--dialog-padding-inline);
+    border-bottom: var(--border-default);
+  }
+  h2 { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: var(--font-size-heading-small); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); }
+  .lightbox-titles { min-width: 0; padding-block: var(--space-1); }
+  .lightbox-subtitle { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); overflow-wrap: anywhere; }
+  .lightbox-header svg { width: var(--icon-size-large); height: var(--icon-size-large); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; }
+
+  .lightbox-body { position: relative; flex: 1; min-height: 0; }
+  .lightbox-footer { flex: none; padding: var(--space-3) var(--dialog-padding-inline) max(var(--space-3), var(--safe-area-bottom)); border-top: var(--border-default); }
+</style>

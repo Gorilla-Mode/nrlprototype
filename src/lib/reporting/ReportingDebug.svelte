@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { placementEditingVariants, type PlacementEditingVariantId } from '../map/placementEditing';
   import type { ReportingVariant } from './reporting';
-  let { variants, selectedId, onchange }: {
+  let { variants, selectedId, onchange, placementEditing = 'default', onplacementchange }: {
+    placementEditing?: PlacementEditingVariantId;
+    onplacementchange?: (id: string) => void;
     variants: readonly ReportingVariant[];
     selectedId: string;
     onchange: (id: string) => void;
@@ -13,6 +16,11 @@
   <select id="reporting-variant" class="form-control" value={selectedId}
     aria-describedby="reporting-variant-help" onchange={(event) => onchange(event.currentTarget.value)}>
     {#each variants as variant (variant.id)}<option value={variant.id}>{variant.label}</option>{/each}
+  </select>
+  <label for="placement-editing">Placement editing</label>
+  <select id="placement-editing" class="form-control" value={placementEditing}
+    aria-describedby="reporting-variant-help" onchange={(event) => onplacementchange?.(event.currentTarget.value)}>
+    {#each placementEditingVariants as variant (variant.id)}<option value={variant.id}>{variant.label}</option>{/each}
   </select>
   <p id="reporting-variant-help">Switching reloads the page and clears the current drawing, draft and map view. The current URL can be shared.</p>
 </section>

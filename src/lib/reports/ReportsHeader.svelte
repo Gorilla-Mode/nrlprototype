@@ -1,20 +1,25 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, type Snippet } from 'svelte';
+  import LargeTitleHeader from '../components/LargeTitleHeader.svelte';
 
-  let { onback }: { onback: () => void } = $props();
-  let title: HTMLHeadingElement;
+  let { onback, announcement = '', children }: {
+    onback: () => void;
+    /** Spoken, not shown: the result count, announced when search, a tab or a filter changes it. */
+    announcement?: string;
+    /** Search, filters and tabs, shown under the title. */
+    children: Snippet;
+  } = $props();
+
+  let heading = $state<HTMLHeadingElement>();
 
   onMount(() => {
     // Browser Forward can close the modal drawer in this same update.
-    void tick().then(() => title.focus({ preventScroll: true }));
+    void tick().then(() => heading?.focus({ preventScroll: true }));
   });
 </script>
 
-<div class="reports-header-row reports-header-top">
-  <div class="reports-header-title">
-    <button class="reports-icon-button" type="button" aria-label="Back to map" onclick={onback}>
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
-    </button>
-    <h1 class="reports-title" bind:this={title} tabindex="-1">Reports</h1>
-  </div>
-</div>
+<!-- "‹ Map" says where it goes; the large title and the tools share the white header area. -->
+<LargeTitleHeader title="My reports" backText="Map" backLabel="Back to map" {onback} size="list" areaLabel="Find reports" bind:heading below={children}>
+  <!-- The count is in the tabs; screen readers hear it here when it changes. -->
+  <p class="sr-only" aria-live="polite">{announcement}</p>
+</LargeTitleHeader>

@@ -10,6 +10,8 @@ export interface ReportingVariant {
   readonly id: string;
   readonly label: string;
   readonly stepRoutes: readonly [string, ...string[]];
+  /** Height a new draft starts with; null leaves it unset until entered. Defaults to defaultObstacleHeightMeters. */
+  readonly initialHeightMeters?: number | null;
 }
 
 export function reportingSettings(search: string, variants: readonly ReportingVariant[]) {

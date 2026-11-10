@@ -11,12 +11,52 @@ backend, database, authentication or submission endpoint.
 - App owns hash navigation, page/drawer state and settings shared with the map. HomeMap
   stays mounted behind full-screen pages so its camera and transient work survive.
 - MapCanvas alone owns the MapLibre instance. UI controls send typed commands through
-  createMapController; map sources and layers belong in `mapConfig.ts`.
+  createMapController; map sources and layers belong in `mapConfig.ts`. The one
+  exception is report location maps, which never control the main map: MiniMap builds a
+  short-lived, non-interactive instance from `createPreviewStyle`, keeps a still image
+  and removes it; MapLightbox owns one interactive instance (zoom and pan, no rotation)
+  that exists only while its dialog is open. "Show on map" goes through App → HomeMap.
+  The reporting guide's GuideExampleMap also owns one interactive instance (Kartverket
+  topo from `createTopoStyle`, a fixed example Point, no wheel zoom, two-finger touch)
+  for the page's lifetime; it never controls the main map or creates reports.
 - Drawing and reporting controllers own geometry state, validation, Turf measurements
   and report assembly. Components present state and issue commands; display adapters
   translate state into MapLibre layers and CSS-derived paint values.
 - Live map settings follow the existing App → HomeMap → MapCanvas → controller path.
   Do not create a parallel store or let controls reach into MapLibre directly.
+
+The map error-report controller owns registered-obstacle targeting and position
+correction for circle and crosshair input. Crosshair matching uses the measured rendered
+width and canvas midpoint in CSS pixels, refreshing on movement and resize. Selection
+and position confirmation stop the camera and sample again; neither creates new obstacle
+geometry. Disabling crosshair clears ordinary targeting, including a previously placed
+circle, until a new hold places one. Active position correction preserves its geographic
+candidate and original registered position while switching input methods, but discards
+the saved ordinary target when crosshair is disabled. Starting correction in crosshair
+mode does not save its midpoint as an ordinary circle. Circle-only correction cancellation
+restores the prior circle.
+
+The error report button is never disabled.
+- When a new-obstacle report is in progress, the button shows it: its form through Resume
+  details, or the drawing still being placed.
+- While an error report waits on the map for a corrected position, the button returns to
+  its form.
+- Otherwise it toggles error reporting.
+
+Error reports follow the new-obstacle flow. HomeMap owns the error form and position
+correction and gives each report an id. Save draft and Finish report hand App an
+`ErrorReportRecord`, which holds the registered obstacle and the answers. App stores it
+with the report store as a Draft, or as a Ready report with `errorReport` set, using
+`errorReportRecords.ts`. Finish opens the shared `ReportSummaryDialog`, where any answer's
+pencil reopens the form. The same confirmations, failure alert and statuses follow. Edit in
+Reports also reopens the form on the map. The payload is still `buildErrorReport(obstacle,
+answers)`, logged by `deliverErrorReport` when the report is sent from any path.
+
+`radialMenu.ts` defines the shared 96 px inner and 154 px outer radii for geometry and
+error-report menus and placed circles. Hover and release exclude the inclusive inner
+boundary; circle matching and correction bottom clearance use the outer radius.
+Position correction retains a separate 56 px centre grab radius, leaving touches
+outside that target available for map navigation.
 
 ## Navigation and map lifecycle
 
@@ -24,6 +64,23 @@ Routing uses browser history and hashes without a routing dependency. A hidden H
 is inert but remains alive. When leaving it, stop active camera movement and prevent GPS
 callbacks from recentering an inert map; location observation itself may continue.
 Unsupported routes must fall back safely without inventing pages or persisted state.
+
+Report routes are lower case: `#/reports` for the list, `#/reports/{id}` for a Ready to send
+report's read-only page (`ReportViewPage`; for error reports with their record, whose Edit report and Edit
+location keep the error form's rules; Review and send opens it, Edit report opens the
+edit route over it, Send for Review returns to the list on Sent with the sent confirmation)
+and `#/reports/{id}/edit` for the edit page. Sent reports keep the in-page
+`ReportDetailPage`. They match in any case, and `syncRoute` rewrites another spelling (such as an
+older `#/Reports` link or bookmark) to the lower-case route in place.
+
+`#/reports/{id}/edit` opens the Reports page with the edit page (`DraftDetailPage`) for that
+draft, or for that Ready report opened as a draft with `reportToDraft`. Reloads, back and
+direct links work. An id that cannot be edited (sent, error report or unknown) falls back
+to the list. App guards unsaved edits on the back arrow, Escape and browser back/forward:
+it restores the edit route and asks "You have unsaved changes. Leave without saving?".
+`beforeunload` covers reloads. Saving uses the same store calls as before: complete →
+`markReady`, otherwise `saveDraft`; Send → `markReady` + `submitReport`.
+`missingDraftFields` decides Draft or Ready to send.
 
 ## Reporting variants
 
@@ -43,8 +100,19 @@ reporting parameter is missing or invalid. Explicit `reporting` overrides requir
 `debug=1`, which also exposes the menu selector. It offers `one-step-keypad`,
 `one-step` (“One step — scrolling”), `two-step` and `two-step-keypad`.
 Combine query parameters with `&` before any route hash.
-The map Help button appears only with both `debug=1` and `help=1`; enabling it does not
-open the tutorial automatically. Other `help` values leave the button hidden.
+The map's `?` user-test task button and dialog require both `debug=1` and `help=1`,
+as linked in the README (`?debug=1&help=1`). Each flag must have the exact value `1`;
+missing or other values disable the task guide.
+
+The `?` user-test help button and menu must always require both `debug=1` and `help=1`.
+This is a fixed compatibility contract: do not rename or replace either flag, change
+their required values, or bypass the requirement that both are enabled.
+
+How to Report an Obstacle is a public page at `#/Help/ReportObstacle`, reachable from
+Menu, FAQ drawing instructions and Settings support. It uses the normal history, page
+focus and inert-map lifecycle; back and close both return as Back does. Its content is
+the same for every placement variant. Legacy `help`
+parameters are ignored and do not affect map layout.
 Changing the debug selector replaces the current URL and reloads the application,
 clearing the drawing, draft, map view and other session state. Selecting the current
 variant does nothing. The URL keeps its deployment path, unrelated query parameters
@@ -64,18 +132,120 @@ App supplies session-only Save Draft and Finish handlers, awaiting optional exte
 `onSaveDraft(payload, reason)` and `onFinish(report, { variantId })` hooks. Existing
 one-argument Finish callbacks remain compatible. `onContinue` is an intermediate hook.
 All views use canonical metres, the same six obstacle types, and original photo files.
-Absent-obstacle results omit height and illumination; Other alone includes custom type.
+Other alone includes custom type.
 
-Close and successful Save Draft return to the map with Resume details. Delete discards
-the active draft. Finish clears the map selection and opens a shared, session-only result
-summary; closing it releases that result. Reload loses drafts and results. These actions
-do not write to the mock report lists or provide durable saving or submission. Browser
-history cannot restore a report route without its matching in-memory draft or result.
+Close returns to the map with Resume details. A successful Save Draft instead ends the
+drawing session, as Finish does: the selection and Resume details are cleared, and the
+draft shows as an ordinary report marker. It confirms with Draft saved: not sent, any
+`missingDetailsFields` (the same check as `completePayload`), and View drafts. View drafts
+opens Reports on Drafts with that draft first and marked by its id. A draft's type is null
+until the pilot chooses one; nothing defaults to Other. `draftType` also reads older
+drafts that stored Other with `typeMissing` as untyped. A missing type is a missing field,
+so the card reads Untitled obstacle and the edit page shows Select type. Delete discards
+the active draft. Save Draft stores a draft and Finish stores a Ready ("Ready to send") report
+in the report store; nothing is sent automatically. Finish clears the map selection and
+opens the shared result summary. Its edit actions reopen the step holding a value with
+the finished draft: Finish saves again and returns to the summary, while closing the form
+discards the edit and returns to it. Both summary actions return to the map and confirm there
+with the shared ConfirmationToast. Save and continue
+(primary) keeps the report saved and unsent: Report saved names its status with its
+StatusBadge. Send report submits it: Report sent adds a review note. View report opens that
+report's detail page by id, over its status tab. If sending fails, an alert says it stays
+Ready to send. These confirmations live only in App state and show once, right after the
+action. Closing the summary
+releases its result. Browser history cannot restore a report route without its matching
+in-memory draft or result.
+
+## Placement editing variants
+
+`src/lib/map/placementEditing.ts` resolves the independent `placementEditing` query
+parameter only with `debug=1`. Missing or invalid values use `default`. The debug menu
+selects `default`, `basic`, `persistent-donut`, or `two-finger`, preserving reporting,
+unrelated parameters, deployment paths and hashes. Changes replace the URL and reload;
+selecting the current choice does nothing. The value passes through App → HomeMap →
+MapCanvas → createMapController and remains fixed for that map instance.
+
+Default pointer placement retains hold/drag/release and immediate Point completion. All three
+editing variants allow placed vertices to move while drawing, including crosshair
+geometry. Only Basic defers Point completion: its single vertex cannot be appended;
+Complete opens the existing report form once. Completing locks every geometry. Editing
+does not create another reporting session or restart reporter GPS.
+
+The drawing controller replaces coordinates immutably, validates and measures during
+moves, and allows invalid intermediate geometry while disabling Complete. Each changed,
+committed move adds one Undo entry; additions and moves undo in chronological order.
+Cancelled or unchanged moves add none. Undo never removes the initial vertex.
+
+Crosshair editing is available in every placement variant while geometry is unfinished.
+`createMapDrawingInteraction` owns typed candidate/target/editing state and begin/place/cancel
+commands, forwarded through controller, canvas and toolbar. Nearest targeting compares projected
+CSS-pixel distances from the rendered canvas midpoint without a threshold; ties favour vertex
+order. Camera movement and resize refresh the candidate while an edit locks its target index.
+Begin and Place stop the camera and sample again. Begin opens a drawing move transaction;
+only Place updates its vertex and commits. Cancel, Escape, crosshair off, hidden maps, blur,
+Delete and teardown discard the transaction. Normal mode permits these controller transactions
+but keeps pointer vertex dragging disabled. Crosshair mode disables pointer and handle editing
+in every variant while preserving map navigation. Undo and Complete are unavailable during an
+edit, while invalid committed moves use ordinary validation. Basic Point uses the same workflow
+without Add point; other Point variants still complete immediately.
+
+`createDrawingDisplay` retains committed geometry in its original source and renders candidate
+points, dashed affected edges with white casing offset to each side of the path, target
+connector and ring in a separate source. Adding previews the last-to-candidate edge and
+polygon candidate-to-first
+closure once two vertices exist. Editing
+previews only adjacent vertices, deduplicating incomplete polygon neighbors. It adds no preview
+fill. During editing the locked-origin ring stays in place and a movement shaft and head
+replace the nearest connector. Projection/unprojection constructs the head in CSS pixels,
+ending at the candidate marker's outer edge and shrinking or hiding for short moves.
+Display move/resize listeners refresh this geometry even if candidate coordinates do not
+change, including camera zoom, rotation and pitch. Source/layer IDs live in `mapConfig.ts`,
+with paint and arrow dimensions resolved from semantic CSS tokens.
+Buffered geometry and previews retry on style data/render events until the style is ready;
+success stops retries so source updates cannot cause perpetual redraws. Style reloads restore
+both sources, and teardown removes layers, sources and listeners.
+
+`createVertexEditingInteraction` resolves nearest projected vertices within CSS-resolved
+semantic target diameters: 72 px for touch and 44 px for mouse/pen, with vertex-order ties.
+Basic and Persistent activate after 100 ms for touch or 200 ms for mouse/pen; movement
+beyond 8 px before activation remains navigation. Two-finger activates vertex editing
+immediately. Moves preserve grab offset, stop camera movement, suppress conflicting
+gestures and restore their original enabled states. Cancellation restores coordinates.
+Pointer cancellation, lost capture, second touch, blur, hidden maps, resize, mode changes,
+Delete and teardown cancel gestures. Typed projected handles expose keyboard editing.
+
+Persistent donut supports hover and angle-based geometry selection during its opening
+hold. Opening release within the shared 96 px center radius (boundary included) keeps it open.
+Subsequent presses beginning in the center pan the map after movement exceeds 8 px:
+the full accumulated displacement is applied at activation, then incremental deltas,
+including the final release position. The donut stays fixed and drag releases cannot
+select geometry. Later center taps cancel; sector and outside taps use angle selection.
+A focusable donut wrapper forwards `panPersistentMap(dx, dy)` for keyboard arrows to pan
+map content by 16 CSS px in the arrow direction, or 64 with Shift; 1/2/3 choose geometry
+at the updated coordinate, and Escape cancels. There are no separate geometry buttons,
+center button or tutorial panels.
+Two-finger placement keeps ordinary hold/release selection, but adding a second touch to
+an open donut pans the map using touch-centroid deltas and MapLibre `panBy` without
+animation. Zoom, bearing and pitch stay unchanged, and placement is sampled under the
+fixed donut center. Persistent center drags and keyboard pans share this nonanimated
+`panBy([-dx, -dy])` path and resample placement after each pan. Camera events bypass
+ordinary hold cancellation only during controller-owned panning.
+Two-finger selection is suspended until the second finger lifts. Lifting the original
+finger first cancels. Normal pinch and pan remain available outside this gesture. Error
+reporting and registered-obstacle position correction retain their existing gesture paths.
 
 ## External data and geolocation
 
 Raster tiles come from Kartverket, OpenStreetMap and Esri; search uses Geonorge address
-and place APIs. Retain search response validation, stale-request cancellation and
+and place APIs. Report cards name their place by reverse lookup with the same APIs.
+- Lookup: stedsnavn `/punkt` gives the nearest non-street name, and adresser `/punktsok`
+  gives the municipality (`placeName.ts`).
+- Storage: `startPlaceNames` (`placeNames.ts`) looks up each stored draft or report whose
+  location has no place yet, one at a time. It stores `{ name, at }` with
+  `reportStore.setPlace`, which leaves the edit time alone; saving keeps a place that
+  still matches.
+- Fallback: a lookup with no name stores null, and a failed lookup stores nothing until
+  the next start; the card shows coordinates meanwhile. Retain search response validation, stale-request cancellation and
 explicit loading/empty/error states. Render provider strings as text, never raw HTML.
 
 Preserve geolocation's secure-context, permission, cancellation, camera-following and

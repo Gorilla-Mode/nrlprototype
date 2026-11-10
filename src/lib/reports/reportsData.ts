@@ -1,66 +1,159 @@
-export type ReportStatus = 'ready' | 'pending' | 'approved' | 'declined';
+import { obstacleTypeLabel, type ObstacleType } from '../reporting/obstacle.js';
+import type { ReportGeometry } from './reportGeometry.js';
+import type { Lighting } from '../drafts/types.js';
+import type { ReportPhoto } from './photos.js';
+import { errorReportHeading, type ErrorReportRecord } from '../obstacles/errorReport.js';
+import type { StoredPlace } from './placeName.js';
+
+export type ReportStatus = 'ready' | 'pending' | 'approved' | 'declined' | 'withdrawn';
 
 export interface Report {
   readonly id: string;
+  /** Optional obstacle name; empty when none was given. */
   name: string;
-  obstacleType: string;
+  obstacleType: ObstacleType;
   heightFeet: number;
   heightMeters: number;
-  createdDate: string;
   status: ReportStatus;
-  /** Edited date (ready) or sent date (pending); unused for approved/declined. */
-  secondaryDate?: string;
+  /** ISO 8601 timestamps. sentAt is set once the report leaves Ready. */
+  createdAt: string;
+  updatedAt: string;
+  sentAt?: string;
   /** Reviewer name shown for approved/declined. */
   reviewer?: string;
-  /** Whether the obstacle is lit: 'Yes', 'No', or 'Not set'. */
-  lighting: string;
+  /** When the reviewer approved or declined it; ISO 8601. */
+  reviewedAt?: string;
+  /** The reviewer's optional comment on a declined report. */
+  reviewerComment?: string;
+  /** When the pilot withdrew it while under review; ISO 8601. */
+  withdrawnAt?: string;
+  /** Whether the obstacle is lit; null when the pilot did not answer. */
+  lighting: Lighting | null;
   pilotReportText: string;
   reportedByName: string;
   reportedByOrg: string;
-  coordinates: { lat: number; lng: number } | null;
-  vertexCount: number;
+  /** Drawn obstacle geometry; null until a location is set. */
+  geometry: ReportGeometry | null;
+  /** Optional photos, downscaled; at most maxPhotos. */
+  photos: ReportPhoto[];
+  /** Set for an error report on a registered obstacle; absent for a new obstacle. */
+  errorReport?: ErrorReportRecord;
+  /** Place name looked up for the location; absent until looked up. */
+  place?: StoredPlace;
 }
 
-export const reports: Report[] = [
-  { id: 'kraftlinje-sor', name: 'Kraftlinje Sør', obstacleType: 'Aerial span', heightFeet: 40, heightMeters: 12, createdDate: '12.10.2024', secondaryDate: '14.10.2024', status: 'ready',
-    lighting: 'No', pilotReportText: 'Power line crossing the valley between two masts. Cables are unlit and hard to see against the ridge.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten', coordinates: { lat: 60.3913, lng: 5.3221 }, vertexCount: 2 },
-  { id: 'gondolbane-voss', name: 'Gondolbane Voss', obstacleType: 'Cable', heightFeet: 90, heightMeters: 27, createdDate: '11.10.2024', secondaryDate: '11.10.2024', status: 'ready',
-    lighting: 'Yes', pilotReportText: 'Cable car line crossing the valley, marked with red lights along the span.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten', coordinates: { lat: 60.6295, lng: 6.4152 }, vertexCount: 2 },
-  { id: 'mast-fjellet', name: 'Mast Fjellet', obstacleType: 'Pole / tower', heightFeet: 120, heightMeters: 36, createdDate: '09.10.2024', secondaryDate: '10.10.2024', status: 'ready',
-    lighting: 'Yes', pilotReportText: 'Tall radio mast on the ridge line, lit with steady red lights.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten', coordinates: { lat: 61.0450, lng: 8.7850 }, vertexCount: 1 },
-  { id: 'taubane-lofoten', name: 'Taubane Lofoten', obstacleType: 'Cable', heightFeet: 65, heightMeters: 20, createdDate: '08.10.2024', secondaryDate: '14.10.2024', status: 'ready',
-    lighting: 'No', pilotReportText: 'Aerial tramway cable spotted low over the fjord, no lighting visible.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten', coordinates: { lat: 68.2080, lng: 13.6350 }, vertexCount: 2 },
-  { id: 'antenne-tromso', name: 'Antenne Tromsø', obstacleType: 'Pole / tower', heightFeet: 150, heightMeters: 45, createdDate: '13.10.2024', secondaryDate: '14.10.2024', status: 'pending',
-    lighting: 'Yes', pilotReportText: 'Antenna tower near the city center, flashing white light at the top.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten', coordinates: { lat: 69.6492, lng: 18.9553 }, vertexCount: 1 },
-  { id: 'lysmast-gardermoen', name: 'Lysmast Gardermoen', obstacleType: 'Building', heightFeet: 80, heightMeters: 24, createdDate: '12.10.2024', secondaryDate: '13.10.2024', status: 'pending',
-    lighting: 'Yes', pilotReportText: 'Floodlight mast near the airport perimeter, steady red light visible at dusk.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten', coordinates: { lat: 60.1939, lng: 11.1004 }, vertexCount: 1 },
-  { id: 'kabel-hardanger', name: 'Kabel Hardanger', obstacleType: 'Aerial span', heightFeet: 35, heightMeters: 10, createdDate: '11.10.2024', secondaryDate: '12.10.2024', status: 'pending',
-    lighting: 'No', pilotReportText: 'Power line spanning the fjord, unmarked and close to the usual low-altitude route.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten', coordinates: { lat: 60.4076, lng: 6.7996 }, vertexCount: 2 },
-  { id: 'vindturbin-smola', name: 'Vindturbin Smøla', obstacleType: 'Construction', heightFeet: 310, heightMeters: 94, createdDate: '02.10.2024', reviewer: 'K. Johansen', status: 'approved',
-    lighting: 'Yes', pilotReportText: 'Wind turbine under construction, aviation obstruction lighting already installed.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten', coordinates: { lat: 63.3860, lng: 8.0290 }, vertexCount: 1 },
-  { id: 'floibanen-bergen', name: 'Fløibanen Bergen', obstacleType: 'Cable', heightFeet: 75, heightMeters: 23, createdDate: '01.10.2024', reviewer: 'K. Johansen', status: 'approved',
-    lighting: 'No', pilotReportText: 'Funicular cable line up the mountainside, no lighting along the span.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten', coordinates: { lat: 60.3970, lng: 5.3300 }, vertexCount: 2 },
-  { id: 'kraftlinje-sogn', name: 'Kraftlinje Sogn', obstacleType: 'Aerial span', heightFeet: 50, heightMeters: 15, createdDate: '28.09.2024', reviewer: 'M. Nansen', status: 'declined',
-    lighting: 'No', pilotReportText: 'Suspected power line, later confirmed to already be on the current charts.',
-    reportedByName: 'Paul Atreides', reportedByOrg: 'Politihelikoptertjenesten', coordinates: { lat: 61.2295, lng: 6.9315 }, vertexCount: 2 },
-];
+/** Card heading, as the name is optional: "Aerial Span · 30 m", or just the type when no height is set. */
+export function obstacleHeading(type: ObstacleType, meters: number | null): string {
+  const label = obstacleTypeLabel(type);
+  // A no-break space keeps the number and unit together when the heading wraps.
+  return meters === null || meters <= 0 ? label : `${label} · ${meters}\u00a0m`;
+}
+
+export function reportHeading(report: Report): string {
+  if (report.errorReport) return errorReportHeading(report.errorReport);
+  return obstacleHeading(report.obstacleType, report.heightMeters);
+}
+
+/** Detail page title for a new obstacle: "New obstacle · Bridge · 7 m", beside "Error report · …". */
+export function newObstacleTitle(type: ObstacleType, meters: number | null): string {
+  return `New obstacle · ${obstacleHeading(type, meters)}`;
+}
+
+/** Detail page title; the list and its cards keep reportHeading. */
+export function reportPageTitle(report: Report): string {
+  if (report.errorReport) return errorReportHeading(report.errorReport);
+  return newObstacleTitle(report.obstacleType, report.heightMeters);
+}
 
 /** Second line of a report card, per status: edited/sent date, or the reviewer name. */
 export function reportSecondaryLine(report: Report): string {
   switch (report.status) {
-    case 'ready': return `Edited ${report.secondaryDate}`;
-    case 'pending': return `Sent ${report.secondaryDate}`;
+    case 'ready': return `Edited ${formatShortDate(report.updatedAt)}`;
+    case 'pending': return `Sent ${formatShortDate(report.sentAt)}`;
     case 'approved':
     case 'declined': return `Reviewer ${report.reviewer}`;
+    case 'withdrawn': return `Withdrawn ${formatShortDate(report.withdrawnAt)}`;
+  }
+}
+
+function parseTimestamp(timestamp: string | undefined): Date | undefined {
+  if (!timestamp) return undefined;
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+/** dd.mm.yyyy in local time for an ISO timestamp; the value itself if unreadable. */
+export function formatShortDate(timestamp: string | undefined): string {
+  const date = parseTimestamp(timestamp);
+  if (!date) return timestamp ?? '';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${day}.${month}.${date.getFullYear()}`;
+}
+
+const relativeTime = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+/** "today", "yesterday", "3 days ago", "2 months ago" or "2 years ago" for an ISO timestamp, by calendar day; the value itself if unreadable. */
+export function relativeDate(timestamp: string, now: Date = new Date()): string {
+  const date = parseTimestamp(timestamp);
+  if (!date) return timestamp;
+  const days = Math.round((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())) / 86_400_000);
+  if (days < 0) return formatShortDate(timestamp);
+  if (days < 7) return relativeTime.format(-days, 'day');
+  if (days < 30) return relativeTime.format(-Math.round(days / 7), 'week');
+  if (days < 365) return relativeTime.format(-Math.round(days / 30), 'month');
+  return relativeTime.format(-Math.round(days / 365), 'year');
+}
+
+const timeFormat = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+/** "today 18:10" when edited today, otherwise "07.11.2026": the report pages' "Last edited". */
+export function lastEditedLabel(timestamp: string, now: Date = new Date()): string {
+  const date = parseTimestamp(timestamp);
+  if (!date) return timestamp;
+  const today = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+  return today ? `today ${timeFormat.format(date)}` : formatShortDate(timestamp);
+}
+
+/** "Edited today 13:16" when edited today, otherwise "Edited 07.11.2026". */
+export function editedText(timestamp: string, now: Date = new Date()): string {
+  const date = parseTimestamp(timestamp);
+  if (!date) return `Edited ${timestamp}`;
+  const today = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+  return today ? `Edited today ${timeFormat.format(date)}` : `Edited ${formatShortDate(timestamp)}`;
+}
+
+/** The one activity line a report card shows: when it was last edited or sent, or who reviewed it. */
+export function reportActivity(report: Report, now: Date = new Date()): { text: string; date?: string } {
+  switch (report.status) {
+    case 'ready': return { text: editedText(report.updatedAt, now), date: report.updatedAt };
+    case 'pending': return { text: `Sent ${relativeDate(report.sentAt ?? '', now)}`, date: report.sentAt };
+    case 'approved':
+    case 'declined':
+    case 'withdrawn': return { text: reportSecondaryLine(report) };
+  }
+}
+
+/** "9 Oct 2026, 14:32" for the moment a report was sent. */
+export function formatSentAt(date: Date): string {
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+/** "14 October 2024" for an ISO timestamp; the value itself if unreadable. */
+export function formatLongDate(timestamp: string | undefined): string {
+  const date = parseTimestamp(timestamp);
+  if (!date) return timestamp ?? '';
+  return new Intl.DateTimeFormat('en-GB', { dateStyle: 'long' }).format(date);
+}
+
+/** Third card line, matching a draft's "Step X of 2" line, so every card has the same rows. */
+export function reportProgressLine(report: Report): string {
+  switch (report.status) {
+    case 'ready': return 'All steps complete';
+    case 'pending': return 'Awaiting review by Kartverket';
+    case 'approved': return 'Added to the register';
+    case 'declined': return 'Not added to the register';
+    case 'withdrawn': return 'Will not be reviewed';
   }
 }
 
@@ -71,17 +164,22 @@ export function reportActionLabel(report: Report): string {
 
 export const statusTabs = [
   { key: 'all', label: 'All' },
-  { key: 'draft', label: 'Draft' },
+  { key: 'draft', label: 'Drafts' },
   { key: 'ready', label: 'Ready to send' },
-  { key: 'pending', label: 'Awaiting review' },
-  { key: 'reviewed', label: 'Reviewed' },
+  { key: 'sent', label: 'Sent' },
 ] as const;
 
 export type StatusTabKey = typeof statusTabs[number]['key'];
 
-/** Counts a status tab from the data; "Reviewed" combines approved and declined. */
+/** Everything already sent to Kartverket: awaiting review, reviewed or withdrawn. */
+export function isSent(report: Report): boolean {
+  return report.status !== 'ready';
+}
+
+/** Counts reports for a tab from the data; drafts are counted separately by the page. */
 export function countForStatusTab(reports: readonly Report[], key: StatusTabKey): number {
   if (key === 'all') return reports.length;
-  if (key === 'reviewed') return reports.filter((report) => report.status === 'approved' || report.status === 'declined').length;
+  if (key === 'draft') return 0;
+  if (key === 'sent') return reports.filter(isSent).length;
   return reports.filter((report) => report.status === key).length;
 }

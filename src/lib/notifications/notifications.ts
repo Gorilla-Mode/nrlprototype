@@ -1,4 +1,4 @@
-/** Hash route for the notification list. Page routes stay capitalised, like #/FAQ and #/Reports. */
+/** Hash route for the notification list. Page routes stay capitalised, like #/FAQ; the report routes are lower case. */
 export const notificationsRoute = '#/Notifications';
 
 export function isNotificationsHash(hash: string): boolean {

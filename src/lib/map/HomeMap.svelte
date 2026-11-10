@@ -1,24 +1,43 @@
 <script lang="ts">
-  import { tick, type Snippet } from 'svelte';
+  import { onMount, tick, untrack, type Snippet } from 'svelte';
   import type { SettingsSection } from '../settings/settings';
   import MenuDrawer from './MenuDrawer.svelte';
+  import UserTestTasks from '../usertest/UserTestTasks.svelte';
   import GeometryIcon from './GeometryIcon.svelte';
   import MapCanvas from './MapCanvas.svelte';
+  import type { CameraTarget } from './createMapController';
   import MapToolbar from './MapToolbar.svelte';
-  import TutorialDialog from './TutorialDialog.svelte';
   import RightMapControls from './RightMapControls.svelte';
+  import ErrorReportCircle from './ErrorReportCircle.svelte';
+  import ErrorReportToolbar from './ErrorReportToolbar.svelte';
+  import PositionCorrectionToolbar from './PositionCorrectionToolbar.svelte';
+  import ErrorReportPanel from '../obstacles/ErrorReportPanel.svelte';
+  import { reportDebug } from '../debug/reportDebug'; // TEMPORARY [REPORT-DEBUG]
+  import { emptyErrorReportAnswers, type ErrorReportAnswers, type ErrorReportRecord, type PositionChoice } from '../obstacles/errorReport';
+  import { distanceM, minimumMoveM, moveParts, type GeoPosition } from '../obstacles/position';
   import type { GeolocationState } from './createGeolocationController';
   import type { HoldOrigin } from './createMapHoldController';
   import RadialMenu from '../radial-menu/RadialMenu.svelte';
   import { idleDrawingState, type DrawingState } from '../reporting/createDrawingController';
-  import { obstacleGeometryChoices, type Obstacle } from '../reporting/obstacle';
-  import { obstacleMenuInnerRadius } from './createMapDrawingInteraction';
+  import { obstacleGeometryChoices, type GeographicVertex, type Obstacle, type ObstacleGeometryType } from '../reporting/obstacle';
+  import { idleCrosshairDrawingState, type CrosshairDrawingState } from './createMapDrawingInteraction';
+  import { loadRegisteredObstacles, type RegisteredObstacle, type ScreenPoint } from '../obstacles/registeredObstacles';
+  import { reportStore } from '../reports/reportStore';
+  import type { ReportGeometry } from '../reports/reportGeometry';
 
-  let { oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, showHelp = false, onfaq, onnotifications, onreports, onsettings,
+  import type { PlacementEditingVariantId } from './placementEditing';
+  import type { EditableVertexHandle } from './createVertexEditingInteraction';
+
+  let { placementEditing = 'default', userTest = false, oncomplete, onreportstart, onresumedetails, onselectiondelete, debugContent, menuOpen = $bindable(false), visible = true, onguide, onfaq, onnotifications, onreports, onsettings,
     opacity = $bindable(0), isGrayscale = $bindable(false),
     geolocationState = $bindable<GeolocationState>('unavailable'), locationMessage = $bindable(''),
     accuracy = $bindable<number | null>(null),
+    selectedObstacle = $bindable<RegisteredObstacle | null>(null),
+    onerrorsave, onerrorfinish, reportsHighlight = false,
   }: {
+    placementEditing?: PlacementEditingVariantId;
+    /** Shows the task button for user-test participants. */
+    userTest?: boolean;
     oncomplete?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
     onreportstart?: () => void;
     debugContent?: Snippet;
@@ -26,7 +45,7 @@
     onselectiondelete?: () => void;
     menuOpen?: boolean;
     visible?: boolean;
-    showHelp?: boolean;
+    onguide: () => void;
     onfaq: () => void;
     onnotifications: () => void;
     onreports: () => void;
@@ -36,25 +55,163 @@
     geolocationState?: GeolocationState;
     locationMessage?: string;
     accuracy?: number | null;
+    /** The registered obstacle chosen for an error report; read by the report form. */
+    selectedObstacle?: RegisteredObstacle | null;
+    /** Error report Save draft; the same id across saves of one report. */
+    onerrorsave?: (id: string, record: ErrorReportRecord) => void;
+    /** Error report Finish report; the same id across saves of one report. */
+    onerrorfinish?: (id: string, record: ErrorReportRecord) => void;
+    /** Briefly marks the Reports button, where a just-saved draft went. */
+    reportsHighlight?: boolean;
   } = $props();
   let mapWrapper: HTMLElement;
 
   let isLayerFadeOpen = $state(false);
-  let helpOpen = $state(false);
-  $effect(() => {
-    if (!visible || !showHelp) helpOpen = false;
+  let userTasksOpen = $state(false);
+  let crosshairMode = $state(false);
+  let crosshairState = $state.raw<CrosshairDrawingState>(idleCrosshairDrawingState);
+  let crosshairSize = $state(0);
+  let geometryType = $state<ObstacleGeometryType>('Point');
+  let errorReportMode = $state(false);
+  let registeredObstacles = $state.raw<RegisteredObstacle[]>([]);
+  // The user's own unsent reports: drafts and Ready reports that have a location.
+  // Error reports are about obstacles already on the map, so they draw no geometry of their own.
+  let reportGeometries = $derived<ReportGeometry[]>([...$reportStore.drafts, ...$reportStore.reports.filter((report) => report.status === 'ready')]
+    .flatMap(({ geometry, errorReport }) => (geometry && !errorReport ? [geometry] : [])));
+  let errorCircle = $state<ScreenPoint | null>(null);
+  let errorMatch = $state.raw<RegisteredObstacle | null>(null);
+  let errorCirclePosition = $state.raw<GeographicVertex | null>(null);
+  // Set while the report form is hidden and the circle picks the obstacle's correct position.
+  let positionPick = $state<{ editing: boolean } | null>(null);
+  let positionDragging = $state(false);
+  let positionPanelHeight = $state(0);
+  let errorPanel = $state<ErrorReportPanel>();
+  let pickedPosition = $derived<GeoPosition | null>(
+    positionPick && errorCirclePosition ? { lng: errorCirclePosition[0], lat: errorCirclePosition[1] } : null);
+  let pickedDistanceM = $derived(selectedObstacle && pickedPosition ? distanceM(selectedObstacle, pickedPosition) : 0);
+  // The error report being filled in: its id and the answers the form opens with.
+  let errorSession = $state.raw<{ id: string; initial: ErrorReportAnswers } | null>(null);
+  onMount(() => {
+    let cancelled = false;
+    void loadRegisteredObstacles().then((obstacles) => { if (!cancelled) registeredObstacles = obstacles; });
+    return () => { cancelled = true; };
   });
 
-  async function dismissHelp() {
-    helpOpen = false;
+  function endErrorReport() {
+    errorReportMode = false;
+    mapCanvas?.focus();
+  }
+
+  // The mode stays active behind the form, so Cancel returns to the placed circle.
+  function selectErrorObstacle() {
+    const target = mapCanvas?.sampleErrorReportTarget();
+    reportDebug('error form: select obstacle', { matched: !!target?.match, obstacle: target?.match?.id ?? null }); // TEMPORARY
+    if (!target?.match) return;
+    errorSession = { id: crypto.randomUUID(), initial: emptyErrorReportAnswers };
+    selectedObstacle = target.match;
+    reportDebug('error form OPEN', { cause: 'Report error on the error toolbar', obstacle: target.match.id }); // TEMPORARY
+  }
+
+  /** Reopens a saved error report (draft or Ready) in the form, from the summary or Reports. */
+  export function openErrorReport(id: string, record: ErrorReportRecord) {
+    reportDebug('error form OPEN', { cause: 'reopen saved error report (summary pencil or Reports)', id }); // TEMPORARY
+    errorReportMode = true;
+    errorSession = { id, initial: record.answers };
+    selectedObstacle = record.obstacle;
+  }
+
+  // The toggle stays reachable while picking; turning the mode off abandons the whole report.
+  $effect(() => {
+    reportDebug('error report mode', { on: errorReportMode }); // TEMPORARY
+    if (errorReportMode) return;
+    if (untrack(() => selectedObstacle || errorSession)) reportDebug('error form CLOSED', { cause: 'error report mode turned off' }); // TEMPORARY
+    positionPick = null;
+    selectedObstacle = null;
+    errorSession = null;
+  });
+
+  /**
+   * The error report button never does nothing and never throws away work in progress:
+   * - a new-obstacle report in progress is shown (its form, or the drawing still being placed);
+   * - an error report waiting on the map for its corrected position goes back to its form;
+   * - otherwise it turns error reporting on or off.
+   */
+  function pressErrorReport() {
+    reportDebug('error report button pressed', { // TEMPORARY
+      drawing: drawing.status, errorReportMode, positionPick: !!positionPick, errorForm: !!(selectedObstacle && errorSession),
+      canResume: !!onresumedetails, branch: drawing.status !== 'idle' ? (onresumedetails ? 'resume details' : 'focus drawing') : positionPick ? 'back to error form' : 'toggle mode',
+    });
+    if (drawing.status !== 'idle') {
+      if (onresumedetails) onresumedetails();
+      else mapCanvas?.focus();
+      return;
+    }
+    if (positionPick) {
+      finishPositionPick({ kind: 'cancel' });
+      return;
+    }
+    errorReportMode = !errorReportMode;
+  }
+
+  async function pickPosition({ selected, position }: { selected: boolean; position: GeoPosition | null }) {
+    if (!selectedObstacle) return;
+    const origin: GeographicVertex = [selectedObstacle.lng, selectedObstacle.lat];
+    positionPick = { editing: selected };
+    mapCanvas?.startPositionCorrection(origin, position ? [position.lng, position.lat] : origin);
     await tick();
-    if (visible && showHelp) mapWrapper.querySelector<HTMLButtonElement>('.map-help')?.focus({ preventScroll: true });
+    focusPositionInput();
+  }
+
+  function focusPositionInput() {
+    if (crosshairMode) mapCanvas?.focus();
+    else mapWrapper.querySelector<HTMLElement>('.error-report-circle')?.focus({ preventScroll: true });
+  }
+
+  async function toggleCrosshairMode() {
+    crosshairMode = !crosshairMode;
+    await tick();
+    if (positionPick) focusPositionInput();
+  }
+
+  function confirmPositionPick() {
+    const position = mapCanvas?.sampleErrorReportTarget()?.position;
+    if (!position || !selectedObstacle) return;
+    const candidate = { lng: position[0], lat: position[1] };
+    if (distanceM(selectedObstacle, candidate) >= minimumMoveM) finishPositionPick({ kind: 'set', position: candidate });
+  }
+
+  async function dismissErrorForm() {
+    reportDebug('error form CLOSED', { cause: 'dismiss (X, Escape or backdrop)' }); // TEMPORARY
+    selectedObstacle = null;
+    errorSession = null;
+    await tick();
+    mapWrapper.querySelector<HTMLElement>('[data-report-error]')?.focus({ preventScroll: true });
+  }
+
+  function finishPositionPick(choice: PositionChoice) {
+    mapCanvas?.endPositionCorrection();
+    positionPick = null;
+    errorPanel?.applyPosition(choice);
+  }
+
+  // Save draft and Finish report both leave the form and the mode; App stores and confirms.
+  function leaveErrorReport(answers: ErrorReportAnswers, done: ((id: string, record: ErrorReportRecord) => void) | undefined) {
+    reportDebug('error form CLOSED', { cause: done === onerrorsave ? 'Save draft' : 'Finish report', hadForm: !!(selectedObstacle && errorSession) }); // TEMPORARY
+    if (!selectedObstacle || !errorSession) return;
+    const { id } = errorSession;
+    const record: ErrorReportRecord = { obstacle: selectedObstacle, answers };
+    selectedObstacle = null;
+    errorSession = null;
+    endErrorReport();
+    done?.(id, record);
   }
   let mapCanvas: MapCanvas;
+  let vertexHandles = $state.raw<readonly EditableVertexHandle[]>([]);
   let holdOrigin = $state<HoldOrigin | null>(null);
   let holdPointer = $state<{ x: number; y: number } | null>(null);
   export function toggleGeolocation() { mapCanvas?.toggleGeolocation(); }
   export function clearSelection() { mapCanvas?.deleteDrawing(); }
+  export function flyToLocation(target: CameraTarget) { mapCanvas?.flyToLocation(target); }
   export function focusDetails() {
     const resume = mapWrapper.querySelector<HTMLButtonElement>('[data-resume-details]');
     if (resume) resume.focus({ preventScroll: true });
@@ -70,11 +227,44 @@
 
   let drawing = $state.raw<DrawingState>(idleDrawingState);
   function handleDrawingChange(state: DrawingState) {
+    if (state.status !== drawing.status) reportDebug('drawing state', { from: drawing.status, to: state.status }); // TEMPORARY
     if (drawing.status === 'idle' && state.status === 'drawing') onreportstart?.();
     drawing = state;
   }
 
+  function handlePersistentKeyDown(event: KeyboardEvent) {
+    if (!holdOrigin || placementEditing !== 'persistent-donut' || errorReportMode) return;
+    const choice = obstacleGeometryChoices[Number(event.key) - 1];
+    if (choice && ['1', '2', '3'].includes(event.key)) {
+      event.preventDefault();
+      mapCanvas?.selectPersistentGeometry(choice.type);
+      void tick().then(() => focusDetails());
+      return;
+    }
+    if (event.key === 'Escape') { event.preventDefault(); mapCanvas?.cancelPlacement(); return; }
+    const step = event.shiftKey ? 64 : 16;
+    const offsets: Record<string, [number, number]> = {
+      ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0],
+    };
+    const offset = offsets[event.key];
+    if (!offset) return;
+    event.preventDefault();
+    mapCanvas?.panPersistentMap(offset[0], offset[1]);
+  }
+
+  function handleHoldChange(origin: HoldOrigin | null) {
+    reportDebug(origin ? 'hold/drag gesture START (radial menu)' : 'hold/drag gesture END', origin ? { x: Math.round(origin.x), y: Math.round(origin.y), errorReportMode } : { lastPointer: holdPointer }); // TEMPORARY
+    const restoreFocus = !origin && mapWrapper?.contains(document.activeElement) &&
+      document.activeElement?.classList.contains('hold-menu');
+    holdOrigin = origin;
+    holdPointer = null;
+    if (restoreFocus) void tick().then(() => {
+      if (visible && !menuOpen && !mapWrapper.closest('[inert]')) focusDetails();
+    });
+  }
+
   function handleMapClick() {
+    reportDebug('map click handler (HomeMap: closes layer panel, clears location message)', { layerPanelOpen: isLayerFadeOpen }); // TEMPORARY
     isLayerFadeOpen = false;
     locationMessage = '';
   }
@@ -91,61 +281,164 @@
 
 {#snippet polygonIcon()}<GeometryIcon type="Polygon" />{/snippet}
 
+{#snippet errorReportIcon()}
+  <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+  <path d="M12 6.5v4M12 13.5h.01" />
+{/snippet}
+
 <main bind:this={mapWrapper} class="map-wrapper" aria-label="Home map">
+  <!-- Before the controls: same overlay layer, so map controls stay on top of the circle. -->
+  {#if errorReportMode && !crosshairMode && errorCircle && !holdOrigin}
+    <ErrorReportCircle
+      center={errorCircle}
+      icon={errorReportIcon}
+      handle={positionPick ? { dragging: positionDragging } : null}
+      onmove={(x, y) => mapCanvas?.moveErrorCircle(x, y)}
+    />
+  {/if}
   <RightMapControls
     bind:opacity
     bind:open={isLayerFadeOpen}
     bind:grayscale={isGrayscale}
+    bind:errorReportMode
+    onerrorreport={pressErrorReport}
+    zoomControls={!!positionPick}
+    onzoomin={() => mapCanvas?.zoomIn()}
+    onzoomout={() => mapCanvas?.zoomOut()}
     {geolocationState}
+    {crosshairMode}
+    oncrosshairtoggle={toggleCrosshairMode}
     ongeolocationclick={() => mapCanvas?.toggleGeolocation()}
+    onusertasks={userTest ? () => { userTasksOpen = true; } : undefined}
+    {userTasksOpen}
   />
   <MapCanvas
-    {visible}
+    visible={visible && !menuOpen && (!selectedObstacle || !!positionPick)}
+    {placementEditing}
+    oncrosshairchange={(state) => { crosshairState = state; }}
+    onvertexhandleschange={(handles) => { vertexHandles = handles; }}
+    {crosshairMode}
+    {crosshairSize}
     bind:this={mapCanvas}
     {opacity}
     grayscale={isGrayscale}
+    holdMode={errorReportMode ? 'error-report' : 'obstacle'}
+    {registeredObstacles}
+    reports={reportGeometries}
+    bottomInset={positionPick ? positionPanelHeight : 0}
+    onerrorcirclechange={(center, match, position) => { errorCircle = center; errorMatch = match; errorCirclePosition = position; }}
+    onpositiondragchange={(dragging) => { positionDragging = dragging; }}
     onmapclick={handleMapClick}
     ongeolocationstatechange={handleGeolocationStateChange}
     onaccuracychange={(value) => { accuracy = value; }}
-    onholdchange={(origin) => { holdOrigin = origin; holdPointer = null; }}
+    onholdchange={handleHoldChange}
     onholdmove={(x, y) => { holdPointer = { x, y }; }}
     ondrawingchange={handleDrawingChange}
-    onobstacleregistered={oncomplete}
+    onobstacleregistered={(obstacle, positionReady) => { reportDebug('obstacle registered → opening form', { id: obstacle.id, geometry: obstacle.obstacle_position.type }); oncomplete?.(obstacle, positionReady); }}
   />
+  {#each vertexHandles as handle (handle.index)}
+    <button type="button" class="vertex-handle" style:--hold-x={`${handle.x}px`} style:--hold-y={`${handle.y}px`}
+      aria-label={`Move point ${handle.index + 1}. Use arrow keys; Shift moves faster; Escape cancels`}
+      onkeydown={(event) => mapCanvas?.vertexKeyDown(handle.index, event)}
+      onkeyup={(event) => mapCanvas?.vertexKeyUp(event)} onblur={() => mapCanvas?.finishKeyboardMove()}>
+      <span aria-hidden="true">{handle.index + 1}</span>
+    </button>
+  {/each}
+  {#if crosshairMode}
+  <div class="map-center-crosshair" bind:clientWidth={crosshairSize} aria-hidden="true">
+    <svg viewBox="0 0 24 24">
+      <g class="halo">
+        <path d="M12 1V23M1 12H23" />
+      </g>
+      <g class="mark">
+        <path d="M12 1V23M1 12H23" />
+      </g>
+    </svg>
+  </div>
+  {/if}
   <MapToolbar
     {menuOpen}
-    {showHelp}
-    {helpOpen}
-    onhelp={() => { isLayerFadeOpen = false; helpOpen = true; }}
     onmenu={() => { isLayerFadeOpen = false; menuOpen = true; }}
     {drawing}
+    {crosshairState}
+    onedit={() => mapCanvas?.beginCrosshairEdit()}
+    onplace={() => mapCanvas?.placeCrosshairEdit()}
+    oncanceledit={() => mapCanvas?.cancelCrosshairEdit()}
+    {crosshairMode}
+    bind:geometryType
+    showSelectionControls={!errorReportMode}
+    selectionControlsCovered={isLayerFadeOpen}
+    onstart={(type) => { reportDebug('Report obstacle (crosshair) pressed', { geometry: type, drawing: drawing.status }); mapCanvas?.startAtCrosshair(type); }}
+    onaddpoint={() => mapCanvas?.appendAtCrosshair()}
     onsearchselect={(suggestion) => mapCanvas?.flyToLocation(suggestion)}
     onundo={() => mapCanvas?.undoDrawing()}
     ondelete={deleteSelection}
     oncomplete={() => mapCanvas?.completeDrawing()}
     {onresumedetails}
     onreports={() => { isLayerFadeOpen = false; onreports(); }}
+    {reportsHighlight}
   />
 
-  {#if helpOpen && visible && showHelp}
-    <TutorialDialog ondismiss={dismissHelp} />
+  <div class:covered={isLayerFadeOpen} inert={isLayerFadeOpen}>
+  {#if errorReportMode && positionPick && selectedObstacle}
+    <PositionCorrectionToolbar
+      bind:height={positionPanelHeight}
+      {crosshairMode}
+      newPosition={pickedPosition}
+      registered={selectedObstacle}
+      move={pickedPosition ? moveParts(selectedObstacle, pickedPosition) : null}
+      canConfirm={pickedDistanceM >= minimumMoveM}
+      editing={positionPick.editing}
+      oncancel={() => finishPositionPick({ kind: 'cancel' })}
+      onconfirm={confirmPositionPick}
+      onunknown={() => finishPositionPick({ kind: 'unknown' })}
+      onremove={() => finishPositionPick({ kind: 'remove' })}
+    />
+  {:else if errorReportMode}
+    <ErrorReportToolbar {crosshairMode} placed={!!errorCircle} match={errorMatch} oncancel={endErrorReport} onselect={selectErrorObstacle} />
   {/if}
 
-  <MenuDrawer bind:open={menuOpen} {onfaq} {onnotifications} {onsettings} {debugContent}
+  </div>
+
+  {#if selectedObstacle && errorSession}
+    {#key errorSession.id}
+      <ErrorReportPanel bind:this={errorPanel} obstacle={selectedObstacle} initial={errorSession.initial} hidden={!!positionPick}
+        ondismiss={dismissErrorForm} onsave={(answers) => leaveErrorReport(answers, onerrorsave)}
+        onfinish={(answers) => leaveErrorReport(answers, onerrorfinish)} onpickposition={pickPosition} />
+    {/key}
+  {/if}
+
+  <MenuDrawer bind:open={menuOpen} {onguide} {onfaq} {onnotifications} {onsettings} {debugContent}
     ondismiss={() => mapWrapper.querySelector<HTMLButtonElement>('[aria-label="Menu"]')?.focus({ preventScroll: true })} />
+
+  {#if userTest}<UserTestTasks bind:open={userTasksOpen} />{/if}
 
   {#if holdOrigin}
     {@const geometryIcons = { point: pointIcon, line: lineIcon, polygon: polygonIcon }}
-    <div class="hold-menu" style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}>
-      <RadialMenu
-        pointer={holdPointer}
-        innerRadius={obstacleMenuInnerRadius}
-        label="Choose obstacle geometry"
-        items={obstacleGeometryChoices.map((choice) => ({
-          id: choice.id, label: choice.label, color: `var(${choice.colorToken})`,
-          icon: geometryIcons[choice.id],
-        }))}
-      />
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div class="hold-menu" role="group"
+      tabindex={!errorReportMode && placementEditing === 'persistent-donut' ? 0 : undefined}
+      aria-label={!errorReportMode && placementEditing === 'persistent-donut'
+        ? 'Obstacle placement. Release the opening hold in a sector to choose geometry, or in the center to keep open. Drag the center or use arrow keys to pan the map beneath the fixed donut; Shift pans faster. Tap the center or press Escape to cancel; 1 Point, 2 Line, 3 Polygon'
+        : 'Obstacle placement'}
+      onkeydown={handlePersistentKeyDown} style:--hold-x={`${holdOrigin.x}px`} style:--hold-y={`${holdOrigin.y}px`}>
+      {#if errorReportMode}
+        <RadialMenu
+          pointer={holdPointer}
+          label="Choose obstacle to report"
+          items={[{ id: 'error-report', label: 'Report an error', color: 'var(--color-map-error-report)', icon: errorReportIcon }]}
+        />
+      {:else}
+        <RadialMenu
+          pointer={holdPointer}
+          label="Choose obstacle geometry"
+          items={obstacleGeometryChoices.map((choice) => ({
+            id: choice.id, label: choice.label, color: `var(${choice.colorToken})`,
+            icon: geometryIcons[choice.id],
+          }))}
+        />
+      {/if}
     </div>
   {/if}
 
@@ -158,6 +451,32 @@
 </main>
 
 <style>
+  .vertex-handle {
+    position: absolute;
+    z-index: var(--layer-map-overlay);
+    left: var(--hold-x);
+    top: var(--hold-y);
+    transform: translate(-50%, -50%);
+    width: var(--map-vertex-target-size);
+    height: var(--map-vertex-target-size);
+    padding: 0;
+    border: var(--border-strong);
+    border-radius: var(--radius-round);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-body-small);
+    box-shadow: var(--shadow-control);
+    pointer-events: none;
+  }
+  .vertex-handle { background: transparent; border-color: transparent; box-shadow: none; }
+  .vertex-handle span { visibility: hidden; }
+  .vertex-handle:focus-visible { background: var(--color-background-raised); border: var(--border-strong); }
+  .vertex-handle:focus-visible span { visibility: visible; }
+  @media (pointer: coarse) {
+    .vertex-handle { width: var(--map-vertex-touch-target-size); height: var(--map-vertex-touch-target-size); }
+  }
+  .covered { visibility: hidden; }
+
   .map-wrapper {
     position: relative;
     width: 100%;
@@ -199,5 +518,21 @@
     transform: translate(-50%, -50%);
     pointer-events: none;
   }
+
+  .hold-menu:focus-visible { border-radius: var(--radius-round); }
+
+  .map-center-crosshair {
+    position: absolute;
+    z-index: var(--layer-map-overlay);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: var(--map-crosshair-size);
+    height: var(--map-crosshair-size);
+    pointer-events: none;
+  }
+  .map-center-crosshair svg { display: block; width: 100%; height: 100%; fill: none; stroke-linecap: round; }
+  .map-center-crosshair .halo { stroke: var(--color-map-crosshair-halo); stroke-width: var(--map-crosshair-halo-stroke-width); }
+  .map-center-crosshair .mark { stroke: var(--color-map-crosshair-mark); stroke-width: var(--map-crosshair-mark-stroke-width); }
 
 </style>

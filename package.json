@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js",
+    "data:brannstasjoner": "node scripts/fetch-brannstasjoner.mjs",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.test.json --noEmit"
   },
   "devDependencies": {
@@ -20,6 +21,8 @@
     "vite": "^8.2.2"
   },
   "dependencies": {
+    "@digdir/designsystemet-css": "^1.23.0",
+    "@digdir/designsystemet-theme": "^1.11.0",
     "@turf/area": "^7.4.0",
     "@turf/kinks": "^7.4.0",
     "@turf/length": "^7.4.0",

@@ -1,5 +1,6 @@
 import { mount } from 'svelte'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import './styles/designsystemet.css'
 import './styles/stylesheet.css'
 import App from './App.svelte'
 

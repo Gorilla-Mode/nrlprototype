@@ -4,15 +4,26 @@
   import SearchBar from './SearchBar.svelte';
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { LocationSuggestion } from './locationSearch';
+  import type { ObstacleGeometryType } from '../reporting/obstacle';
+  import type { CrosshairDrawingState } from './createMapDrawingInteraction';
 
-  let { drawing, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, onhelp, helpOpen, showHelp = false, menuOpen }: {
+  let { drawing, crosshairState, onedit, onplace, oncanceledit, crosshairMode, geometryType = $bindable<ObstacleGeometryType>('Point'), selectionControlsCovered = false, showSelectionControls = true, onstart, onaddpoint, onundo, ondelete, oncomplete, onresumedetails, onsearchselect, onmenu, onreports, menuOpen, reportsHighlight = false }: {
     onmenu: () => void;
     onreports: () => void;
-    onhelp: () => void;
-    helpOpen: boolean;
-    showHelp?: boolean;
+    /** A short ring on Reports, where a just-saved draft went; static under reduced motion. */
+    reportsHighlight?: boolean;
     menuOpen: boolean;
     drawing: DrawingState;
+    crosshairState?: CrosshairDrawingState;
+    onedit?: () => void;
+    onplace?: () => void;
+    oncanceledit?: () => void;
+    crosshairMode: boolean;
+    geometryType?: ObstacleGeometryType;
+    selectionControlsCovered?: boolean;
+    showSelectionControls?: boolean;
+    onstart: (type: ObstacleGeometryType) => void;
+    onaddpoint: () => void;
     onundo: () => void;
     ondelete: () => void;
     oncomplete: () => void;
@@ -25,7 +36,7 @@
 <div class="map-toolbar" role="group" aria-label="Map tools">
   <SearchBar onselect={onsearchselect} />
 
-  <MapButton type="button" aria-label="Reports" onclick={onreports}>
+  <MapButton type="button" aria-label="Reports" class={reportsHighlight ? 'reports-highlight' : undefined} onclick={onreports}>
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M13 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9l-6-6Z" />
       <path d="M13 3v6h6M8.5 13h7M8.5 16.5h7M8.5 9h1" />
@@ -39,18 +50,31 @@
   </MapButton>
 </div>
 
-{#if showHelp}
-  <button class="map-help" type="button" aria-haspopup="dialog" aria-expanded={helpOpen} aria-controls="map-tutorial" onclick={onhelp}>
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M8 8a4 4 0 0 1 8 0c0 3-4 3-4 6M12 18v1" />
-    </svg>
-    <span>Help</span>
-  </button>
+{#if showSelectionControls}
+<div class:covered={selectionControlsCovered} inert={selectionControlsCovered}>
+  <DrawingToolbar state={drawing} {crosshairState} {onedit} {onplace} {oncanceledit} {crosshairMode} bind:geometryType {onstart} {onaddpoint}
+    {onundo} {ondelete} {oncomplete} {onresumedetails} />
+</div>
 {/if}
 
-<DrawingToolbar state={drawing} {onundo} {ondelete} {oncomplete} {onresumedetails} helpVisible={showHelp} />
-
 <style>
+  .covered { visibility: hidden; }
+  /* A blue ring, not a status: it only points at where the draft went. Layout never changes. */
+  .map-toolbar :global(.reports-highlight) {
+    animation: reports-highlight var(--reports-highlight-duration) var(--ease-standard) 1;
+  }
+  @keyframes reports-highlight {
+    0%, 100% { box-shadow: 0 0 0 0 transparent, var(--shadow-control); }
+    30%, 60% { box-shadow: 0 0 0 var(--reports-highlight-ring) var(--color-action-secondary), var(--shadow-control); }
+  }
+  /* Without motion, the ring stays while the draft confirmation is shown. */
+  @media (prefers-reduced-motion: reduce) {
+    .map-toolbar :global(.reports-highlight) {
+      animation: none;
+      box-shadow: 0 0 0 var(--reports-highlight-ring) var(--color-action-secondary), var(--shadow-control);
+    }
+  }
+
   .map-toolbar {
     position: absolute;
     /* Search results must stay above lower map actions on short viewports. */
@@ -64,36 +88,4 @@
     pointer-events: none;
   }
 
-  .map-help {
-    position: absolute;
-    z-index: var(--layer-map-overlay);
-    right: var(--map-control-inset-right);
-    bottom: var(--map-help-inset-bottom);
-    width: var(--map-help-size);
-    height: var(--map-help-size);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
-    padding: var(--space-2);
-    border: var(--border-width-default) solid var(--color-action-secondary);
-    border-radius: var(--radius-round);
-    background: var(--color-action-secondary);
-    color: var(--color-text-inverse);
-    box-shadow: var(--shadow-control);
-    font-size: var(--font-size-body);
-    font-weight: var(--font-weight-semibold);
-    cursor: pointer;
-  }
-  .map-help:hover { background: var(--color-action-secondary-hover); }
-  .map-help:active { background: var(--color-action-secondary-hover); transform: scale(var(--scale-control-active)); }
-  .map-help svg {
-    width: var(--icon-size-large);
-    height: var(--icon-size-large);
-    stroke: currentColor;
-    stroke-width: var(--icon-stroke-width);
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
 </style>

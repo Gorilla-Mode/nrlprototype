@@ -14,11 +14,12 @@ export interface DrawingState {
   readonly draft: GeometryDraft | null;
   readonly measurement: { readonly value: number; readonly unit: 'm' | 'm²' } | null;
   readonly canComplete: boolean;
+  readonly canUndo: boolean;
   readonly message: string;
 }
 
 export const idleDrawingState: DrawingState = {
-  status: 'idle', draft: null, measurement: null, canComplete: false, message: '',
+  status: 'idle', draft: null, measurement: null, canComplete: false, canUndo: false, message: '',
 };
 
 /** Close the derived ring without adding a duplicate editable vertex. */
@@ -73,26 +74,42 @@ function validVertex([lng, lat]: GeographicVertex) {
   return Number.isFinite(lng) && Number.isFinite(lat) && lat >= -90 && lat <= 90;
 }
 
-export function createDrawingController({ onChange, onComplete }: {
+export function createDrawingController({ onChange, onComplete, vertexEditing = false, deferPointCompletion = false }: {
+  vertexEditing?: boolean;
+  deferPointCompletion?: boolean;
   onChange: (state: DrawingState) => void;
   onComplete: (geometry: ObstacleGeometry) => void;
 }) {
   let state = idleDrawingState;
+  const history: GeometryDraft[] = [];
+  let move: { index: number; original: GeometryDraft } | undefined;
+
+  function remember() {
+    if (state.draft) history.push(state.draft);
+  }
+
+  function cancelVertexMove() {
+    if (!move) return;
+    const { original } = move;
+    move = undefined;
+    update(original);
+  }
 
   function update(draft: GeometryDraft) {
-    state = { status: 'drawing', draft, ...inspect(draft) };
+    state = { status: 'drawing', draft, ...inspect(draft), canUndo: history.length > 0 };
+    if (move) state = { ...state, canComplete: false };
     onChange(state);
   }
 
   function complete() {
-    if (state.status !== 'drawing' || !state.draft || !state.canComplete) return;
+    if (state.status !== 'drawing' || !state.draft || !state.canComplete || move) return;
     const { type, vertices } = state.draft;
     const geometry: ObstacleGeometry = type === 'Point'
       ? { type, coordinates: [...vertices[0]] }
       : type === 'LineString'
         ? { type, coordinates: vertices.map((vertex) => [...vertex]) }
         : polygonGeometry(vertices);
-    state = { ...state, status: 'completed', canComplete: false, message: '' };
+    state = { ...state, status: 'completed', canComplete: false, canUndo: false, message: '' };
     onChange(state);
     onComplete(geometry);
   }
@@ -102,21 +119,49 @@ export function createDrawingController({ onChange, onComplete }: {
     start(type: ObstacleGeometryType, vertex: GeographicVertex) {
       if (state.status !== 'idle' || !validVertex(vertex)) return;
       update({ type, vertices: [[...vertex]] });
-      if (type === 'Point') complete();
+      if (type === 'Point' && !deferPointCompletion) complete();
     },
     append(vertex: GeographicVertex) {
-      if (state.status !== 'drawing' || !state.draft || !validVertex(vertex)) return;
+      if (state.status !== 'drawing' || !state.draft || state.draft.type === 'Point' || move || !validVertex(vertex)) return;
+      remember();
       update({ ...state.draft, vertices: [...state.draft.vertices, [...vertex]] });
     },
     undo() {
-      if (state.status !== 'drawing' || !state.draft || state.draft.vertices.length <= 1) return;
-      update({ ...state.draft, vertices: state.draft.vertices.slice(0, -1) });
+      if (state.status !== 'drawing') return;
+      cancelVertexMove();
+      const previous = history.pop();
+      if (previous) update(previous);
     },
     delete() {
       if (state.status === 'idle') return;
+      move = undefined;
+      history.length = 0;
       state = idleDrawingState;
       onChange(state);
     },
+    beginVertexMove(index: number): boolean {
+      if (!vertexEditing || move || state.status !== 'drawing' || !state.draft ||
+        !Number.isInteger(index) || index < 0 || index >= state.draft.vertices.length) return false;
+      move = { index, original: state.draft };
+      update(state.draft);
+      return true;
+    },
+    updateVertexMove(vertex: GeographicVertex) {
+      if (!move || !state.draft || !validVertex(vertex)) return;
+      const movingIndex = move.index;
+      update({ ...state.draft, vertices: state.draft.vertices.map((value, index) =>
+        index === movingIndex ? [...vertex] : value) });
+    },
+    commitVertexMove() {
+      if (!move || !state.draft) return;
+      const { index, original } = move;
+      move = undefined;
+      const current = state.draft.vertices[index];
+      const before = original.vertices[index];
+      if (current[0] !== before[0] || current[1] !== before[1]) history.push(original);
+      update(state.draft);
+    },
+    cancelVertexMove,
     complete,
   };
 }

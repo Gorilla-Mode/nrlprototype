@@ -14,16 +14,28 @@ import {
 import { createGeolocationController, type GeolocationState } from './createGeolocationController';
 import { createGeolocationDisplay } from './createGeolocationDisplay';
 import type { HoldOrigin } from './createMapHoldController';
-import { createMapDrawingInteraction } from './createMapDrawingInteraction';
+import { createMapDrawingInteraction, type HoldMode, type CrosshairDrawingState } from './createMapDrawingInteraction';
 import { createDrawingController, type DrawingState } from '../reporting/createDrawingController';
-import type { Obstacle } from '../reporting/obstacle';
+import type { GeographicVertex, Obstacle, ObstacleGeometryType } from '../reporting/obstacle';
 import { createReportController } from '../reporting/createReportController';
 import { createDrawingDisplay } from './createDrawingDisplay';
+import { createObstacleDisplay } from './createObstacleDisplay';
+import { createReportDisplay } from './createReportDisplay';
+import type { ReportGeometry } from '../reports/reportGeometry';
+import { createPositionCorrectionDisplay } from './createPositionCorrectionDisplay';
+import { createPositionDragInteraction } from './createPositionDragInteraction';
+import type { RegisteredObstacle, ScreenPoint } from '../obstacles/registeredObstacles';
+import { createMapErrorReportController, type ErrorReportTarget } from './createMapErrorReportController';
+import type { PlacementEditingVariantId } from './placementEditing';
+import { createVertexEditingInteraction, type EditableVertexHandle } from './createVertexEditingInteraction';
 import { MetricScaleControl } from './MetricScaleControl';
 
 setWorkerUrl(mapWorkerUrl);
 
 interface MapControllerOptions {
+  placementEditing?: PlacementEditingVariantId;
+  onCrosshairChange?: (state: CrosshairDrawingState) => void;
+  onVertexHandlesChange?: (handles: readonly EditableVertexHandle[]) => void;
   initialOpacity: number;
   initialGrayscale: boolean;
   onGeolocationAccuracyChange: (accuracy: number | null) => void;
@@ -33,6 +45,12 @@ interface MapControllerOptions {
   onHoldMove: (x: number, y: number) => void;
   onDrawingChange: (state: DrawingState) => void;
   onObstacleRegistered?: (obstacle: Obstacle, positionReady?: Promise<Obstacle['gps_position']>) => void;
+  /**
+   * Circle centre in container pixels and on the map (null when hidden), and the obstacle
+   * it currently selects; never a match while correcting a position.
+   */
+  onErrorCircleChange?: (center: ScreenPoint | null, match: RegisteredObstacle | null, position: GeographicVertex | null) => void;
+  onPositionDragChange?: (dragging: boolean) => void;
 }
 
 export interface CameraTarget {
@@ -42,14 +60,41 @@ export interface CameraTarget {
 }
 
 export interface MapController {
+  setVisible: (visible: boolean) => void;
+  vertexKeyDown: (index: number, event: KeyboardEvent) => void;
+  vertexKeyUp: (event: KeyboardEvent) => void;
+  finishKeyboardMove: () => void;
+  panPersistentMap: (dx: number, dy: number) => void;
+  selectPersistentGeometry: (type: ObstacleGeometryType) => void;
+  cancelPlacement: () => void;
   setSatelliteOpacity: (opacity: number) => void;
   setGrayscale: (grayscale: boolean) => void;
+  setHoldMode: (mode: HoldMode) => void;
+  setRegisteredObstacles: (obstacles: readonly RegisteredObstacle[]) => void;
+  /** The user's own Draft and Ready report locations. */
+  setReports: (geometries: readonly ReportGeometry[]) => void;
+  moveErrorCircle: (x: number, y: number) => void;
+  /** Reuses the error circle to pick a corrected position, starting at `start`. */
+  startPositionCorrection: (origin: GeographicVertex, start: GeographicVertex) => void;
+  endPositionCorrection: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  /** Height of a panel covering the bottom of the map; the position circle stays above it. */
+  setBottomInset: (pixels: number) => void;
   stopCamera: () => void;
   toggleGeolocation: () => void;
   flyToLocation: (target: CameraTarget) => void;
   undoDrawing: () => void;
   deleteDrawing: () => void;
   completeDrawing: () => void;
+  setCrosshairMode: (enabled: boolean) => void;
+  setCrosshairSize: (pixels: number) => void;
+  sampleErrorReportTarget: () => ErrorReportTarget;
+  startAtCrosshair: (type: ObstacleGeometryType) => void;
+  appendAtCrosshair: () => void;
+  beginCrosshairEdit: () => void;
+  placeCrosshairEdit: () => void;
+  cancelCrosshairEdit: () => void;
   focus: () => void;
   destroy: () => void;
 }
@@ -61,6 +106,9 @@ export function createMapController(
   let satelliteOpacity = options.initialOpacity;
   let grayscale = options.initialGrayscale;
   let destroyed = false;
+  let holdMode: HoldMode = 'obstacle';
+  let crosshairMode = false;
+  let visible = true;
   const map = new Map({
     ...mapDefaults,
     container,
@@ -88,18 +136,89 @@ export function createMapController(
   });
   const drawingDisplay = createDrawingDisplay(map);
   let drawingStatus: DrawingState['status'] = 'idle';
+  const variant = options.placementEditing ?? 'default';
   const drawing = createDrawingController({
+    vertexEditing: true,
+    deferPointCompletion: variant === 'basic',
     onChange: (state) => {
       if (drawingStatus === 'idle' && state.status === 'drawing') reporting.start();
       if (state.status === 'idle') reporting.cancel();
       drawingStatus = state.status;
       drawingDisplay.show(state.draft);
       drawingInteraction.sync(state);
+      vertexEditing.sync(state);
       options.onDrawingChange(state);
     },
     onComplete: reporting.complete,
   });
-  const drawingInteraction = createMapDrawingInteraction(map, drawing, options);
+  // Resolve semantic lengths through CSS so rem/calc aliases become CSS pixels.
+  const targetProbe = container.ownerDocument.createElement('span');
+  targetProbe.hidden = true;
+  container.append(targetProbe);
+  const targetSize = (token: string) => {
+    targetProbe.style.width = `var(${token})`;
+    const pixels = Number.parseFloat(getComputedStyle(targetProbe).width);
+    if (!Number.isFinite(pixels) || pixels <= 0) throw new Error(`Missing target size: ${token}`);
+    return pixels;
+  };
+  let vertexTargetSize: number;
+  let vertexTouchTargetSize: number;
+  try {
+    vertexTargetSize = targetSize('--map-vertex-target-size');
+    vertexTouchTargetSize = targetSize('--map-vertex-touch-target-size');
+  } finally { targetProbe.remove(); }
+  const vertexEditing = createVertexEditingInteraction(map, drawing, {
+    targetSize: vertexTargetSize, touchTargetSize: vertexTouchTargetSize,
+    variant, onHandlesChange: (handles) => options.onVertexHandlesChange?.(handles),
+  });
+  const drawingInteraction = createMapDrawingInteraction(map, drawing, {
+    variant,
+    onCrosshairChange: (state) => {
+      drawingDisplay.showPreview(state);
+      options.onCrosshairChange?.(state);
+    },
+    onHoldChange: options.onHoldChange,
+    onHoldMove: options.onHoldMove,
+    onErrorReportPlace: (center) => errorReporting.placeCircle(center),
+    // Marker radius 7 px plus a generous 24 px touch margin.
+    isOnObstacle: (origin) => errorReporting.isOnObstacle(origin, 7 + 24),
+  });
+  const reportDisplay = createReportDisplay(map);
+  const obstacleDisplay = createObstacleDisplay(map);
+  const correctionDisplay = createPositionCorrectionDisplay(map);
+  const positionDrag = createPositionDragInteraction(map, {
+    getCenter: () => errorReporting.getDragCenter(),
+    onMove: (x, y) => errorReporting.moveCircle(x, y),
+    onDragChange: (dragging) => options.onPositionDragChange?.(dragging),
+  });
+  const errorReporting = createMapErrorReportController(map, {
+    onChange: ({ center, match, position }) => options.onErrorCircleChange?.(center, match, position),
+    onObstaclesChange: (obstacles, selectedId) => obstacleDisplay.show(obstacles, selectedId),
+    onCorrectionChange: (origin, target) => correctionDisplay.show(origin, target),
+    onGesturesChange: (correcting, crosshair) => {
+      drawingInteraction.setHoldSuspended(correcting);
+      positionDrag.setEnabled(correcting && !crosshair);
+    },
+    onCameraChange: () => geolocation.stopFollowing(),
+  });
+
+  function setHoldMode(mode: HoldMode) {
+    if (destroyed || mode === holdMode || (mode === 'error-report' && drawing.getState().status !== 'idle')) return;
+    holdMode = mode;
+    vertexEditing.cancel();
+    vertexEditing.setEnabled(visible && mode === 'obstacle' && !crosshairMode);
+    drawingInteraction.setHoldMode(mode);
+    errorReporting.setHoldMode(mode);
+  }
+
+  function setCrosshairMode(enabled: boolean) {
+    if (destroyed || crosshairMode === enabled) return;
+    crosshairMode = enabled;
+    vertexEditing.cancel();
+    vertexEditing.setEnabled(visible && holdMode === 'obstacle' && !enabled);
+    drawingInteraction.setCrosshairMode(enabled);
+    errorReporting.setCrosshairMode(enabled);
+  }
 
   function setSatelliteOpacity(opacity: number) {
     if (destroyed) return;
@@ -133,8 +252,12 @@ export function createMapController(
   }
 
   function handleResize() {
-    drawingInteraction.cancel();
+    vertexEditing.cancel();
     map.resize();
+  }
+
+  function handleVisibility() {
+    if (document.hidden) { drawingInteraction.cancel(); vertexEditing.cancel(); }
   }
 
   function handleLoad() {
@@ -162,27 +285,64 @@ export function createMapController(
   map.on('style.load', handleStyleLoad);
   map.on('error', handleMapError);
   window.addEventListener('resize', handleResize);
+  document.addEventListener('visibilitychange', handleVisibility);
 
   return {
+    setVisible: (value) => {
+      if (destroyed || visible === value) return;
+      visible = value;
+      drawingInteraction.setVisible(value);
+      vertexEditing.setEnabled(value && holdMode === 'obstacle' && !crosshairMode);
+    },
+    vertexKeyDown: vertexEditing.keyDown,
+    vertexKeyUp: vertexEditing.keyUp,
+    finishKeyboardMove: vertexEditing.finishKeyboardMove,
+    panPersistentMap: drawingInteraction.panPersistentMap,
+    selectPersistentGeometry: drawingInteraction.selectPersistentGeometry,
+    cancelPlacement: () => { drawingInteraction.cancel(); vertexEditing.cancel(); },
     focus: () => map.getCanvas().focus({ preventScroll: true }),
     stopCamera: () => { if (!destroyed) map.stop(); },
     setSatelliteOpacity,
     setGrayscale,
+    setHoldMode,
+    setRegisteredObstacles: errorReporting.setRegisteredObstacles,
+    setReports: reportDisplay.show,
+    moveErrorCircle: errorReporting.moveCircle,
+    startPositionCorrection: errorReporting.startPositionCorrection,
+    endPositionCorrection: errorReporting.endPositionCorrection,
+    setBottomInset: errorReporting.setBottomInset,
+    sampleErrorReportTarget: errorReporting.sample,
+    setCrosshairSize: errorReporting.setCrosshairSize,
+    zoomIn: () => { if (!destroyed) map.zoomIn(); },
+    zoomOut: () => { if (!destroyed) map.zoomOut(); },
     toggleGeolocation: geolocation.toggle,
     flyToLocation,
-    undoDrawing: () => { if (!destroyed) drawing.undo(); },
-    deleteDrawing: () => { if (!destroyed) drawing.delete(); },
+    undoDrawing: () => { if (!destroyed && !drawingInteraction.getCrosshairState().editing) { vertexEditing.cancel(); drawing.undo(); } },
+    deleteDrawing: () => { if (!destroyed) { drawingInteraction.cancel(); vertexEditing.cancel(); drawing.delete(); } },
     completeDrawing: () => { if (!destroyed) drawing.complete(); },
+    setCrosshairMode,
+    startAtCrosshair: drawingInteraction.startAtCrosshair,
+    appendAtCrosshair: drawingInteraction.appendAtCrosshair,
+    beginCrosshairEdit: drawingInteraction.beginCrosshairEdit,
+    placeCrosshairEdit: drawingInteraction.placeCrosshairEdit,
+    cancelCrosshairEdit: drawingInteraction.cancelCrosshairEdit,
     destroy() {
       if (destroyed) return;
       destroyed = true;
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
       map.off('click', handleMapClick);
       map.off('load', handleLoad);
       map.off('style.load', handleStyleLoad);
       map.off('error', handleMapError);
+      errorReporting.destroy();
+      positionDrag.destroy();
+      vertexEditing.destroy();
       drawingInteraction.destroy();
       drawingDisplay.destroy();
+      obstacleDisplay.destroy();
+      reportDisplay.destroy();
+      correctionDisplay.destroy();
       reporting.destroy();
       geolocation.destroy();
       locationDisplay.destroy();
