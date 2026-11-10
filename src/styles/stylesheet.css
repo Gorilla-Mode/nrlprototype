@@ -1057,7 +1057,6 @@ button {
   --large-title-size-list: 1.875rem;                         /* 30 px */
   --large-title-size-page: 1.625rem;                         /* 26 px */
 }
-.reports-subtitle { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-body); }
 
 /* Search and Select share one control height so they line up. Select is secondary:
    raised surface, thin border, smaller text. */
@@ -1411,7 +1410,10 @@ button {
   padding: var(--space-3) var(--map-control-inset-right) max(var(--space-3), var(--safe-area-bottom)) var(--map-control-inset-left);
 }
 .reports-select-count { color: var(--color-text-secondary); font-size: var(--font-size-body); }
-.reports-select-send { min-width: 9rem; }
+/* The height of Send for Review in a report page's bottom bar (44 px), not Designsystemet's 48 px default. */
+.reports-select-send { min-width: 9rem; min-height: var(--target-size-min); }
+/* The paper plane before "Send for Review" (report pages style their own copy of this rule). */
+.paper-plane { display: inline-block; transform: rotate(45deg); }
 /* Room for the bar, so the last cards can scroll clear of it. */
 .reports-select-active .reports-content { padding-bottom: calc(var(--control-height-default) + 2 * var(--space-3) + max(var(--faq-content-bottom), var(--safe-area-bottom))); }
 /* Not selectable in select mode: drafts and anything already sent. */

@@ -77,8 +77,9 @@
 
   /* The bar continues into the title area: one white header, closed by a line. */
   .large-title-area { padding-bottom: var(--space-5); border-bottom: var(--border-default); background: var(--color-background-raised); }
+  /* flow-root: a margin at the end of the row stays inside it, not merged with the tools' margin below. */
   .large-title-row {
-    max-width: calc(var(--page-content-max) + 2 * var(--page-gutter)); margin-inline: auto; box-sizing: border-box;
+    display: flow-root; max-width: calc(var(--page-content-max) + 2 * var(--page-gutter)); margin-inline: auto; box-sizing: border-box;
     padding-inline: max(var(--page-gutter), var(--safe-area-left)) max(var(--page-gutter), var(--safe-area-right));
   }
   @media (min-width: 75.0625rem) { .large-title-row.wide { max-width: var(--detail-wide-max); } }
@@ -87,7 +88,8 @@
     margin: 0; color: var(--color-text-primary); overflow-wrap: anywhere;
     font-size: var(--large-title-size-page); font-weight: var(--font-weight-bold); line-height: var(--line-height-tight);
   }
-  .large-title.list { font-size: var(--large-title-size-list); }
+  /* The list's title keeps the room the removed sort line took (its 4 px margin and one body line) above the search. */
+  .large-title.list { margin-bottom: calc(var(--space-1) + var(--font-size-body) * var(--line-height-body)); font-size: var(--large-title-size-list); }
   .large-title.muted { color: var(--color-text-secondary); }
   .large-title:focus:not(:focus-visible) { outline: none; }
 </style>

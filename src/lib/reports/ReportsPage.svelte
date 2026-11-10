@@ -297,8 +297,7 @@
     appliedHeightFilter = 'any';
   }
   let noun = $derived(statusFilter === 'draft' ? 'drafts' : statusFilter === 'all' ? 'items' : 'reports');
-  // The counts are in the tabs, so the line only says how the list is sorted; the count is still announced.
-  const subtitle = 'Sorted by last edited';
+  // The counts are in the tabs; the count is still announced.
   let announcement = $derived.by(() => {
     const kind = statusFilter === 'draft' ? 'draft' : 'report';
     return `${items.length} ${items.length === 1 ? kind : kind + 's'}`;
@@ -330,7 +329,7 @@
 {:else}
   <main class="reports-page" class:reports-select-active={selectMode} aria-label="Reports">
     {#snippet filters()}<ReportFilters bind:geometries={appliedGeometries} bind:heightFilter={appliedHeightFilter} />{/snippet}
-    <ReportsHeader {onback} {subtitle} {announcement}>
+    <ReportsHeader {onback} {announcement}>
       <ReportsToolbar bind:query {selectMode} ontoggleselect={toggleSelectMode} {filters} />
       {#if filterActive}
         <div class="reports-header-row reports-filter-clear-row">
@@ -367,8 +366,9 @@
       <div class="reports-select-bar" role="region" aria-label="Selection">
         <div class="reports-select-bar-content">
           <span class="reports-select-count" aria-live="polite">{readySelectedCount} selected</span>
-          <button type="button" class="ds-button reports-select-send" data-variant="primary" disabled={readySelectedCount === 0} onclick={sendSelected}>
-            Send ({readySelectedCount})
+          <!-- The same button as Send for Review on a report's page: blue primary, paper plane, disabled with none selected. -->
+          <button type="button" class="ds-button reports-select-send" data-variant="primary" data-color="brand1" disabled={readySelectedCount === 0} onclick={sendSelected}>
+            <span class="paper-plane" aria-hidden="true">➤</span> Send for Review ({readySelectedCount})
           </button>
         </div>
       </div>
