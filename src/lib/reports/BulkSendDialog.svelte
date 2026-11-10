@@ -1,7 +1,8 @@
 <script lang="ts">
   import Dialog from '../components/Dialog.svelte';
   import { obstacleTypeLabel } from '../reporting/obstacle';
-  import { formatSentAt, type Report } from './reportsData';
+  import { formatSentAt, reportHeading, type Report } from './reportsData';
+  import { formatHeightFromMeters } from '../drafts/types';
   import { bulkSendAnnouncement, bulkSendTitle, mergeRetry, reportCount, sendReports, type BulkSendResult, type ReportSender } from './bulkSend';
 
   interface Props {
@@ -38,26 +39,26 @@
 </script>
 
 {#snippet details(report: Report)}
-  <span class="report-sent-item-name">{report.name}</span>
-  <span class="report-sent-item-meta">{obstacleTypeLabel(report.obstacleType)} · {report.heightFeet} ft ({report.heightMeters} m)</span>
+  <span class="report-sent-item-name">{report.name || reportHeading(report)}</span>
+  <span class="report-sent-item-meta">{obstacleTypeLabel(report.obstacleType)} · {formatHeightFromMeters(report.heightMeters)}</span>
 {/snippet}
 
 {#snippet confirmSubtitle()}<p>Sent reports can't be edited.</p>{/snippet}
 {#snippet receiptSubtitle()}<p>{sentAt ? formatSentAt(sentAt) : ''}</p>{/snippet}
 
 {#snippet cancel()}
-  <button type="button" class="button dialog-action-secondary" disabled={sending} onclick={close}>Cancel</button>
+  <button type="button" class="ds-button dialog-action-secondary" data-variant="tertiary" data-color="brand1" disabled={sending} onclick={close}>Cancel</button>
 {/snippet}
 {#snippet sendAction()}
-  <button type="button" class="button dialog-action-primary" disabled={sending} onclick={() => attempt(reports)}>
+  <button type="button" class="ds-button dialog-action-primary" data-variant="primary" disabled={sending} onclick={() => attempt(reports)}>
     {sending ? 'Sending…' : `Send ${count}`}
   </button>
 {/snippet}
 {#snippet viewSent()}
-  <button type="button" class="button dialog-action-secondary" disabled={sending} onclick={onviewsent}>View sent</button>
+  <button type="button" class="ds-button dialog-action-secondary" data-variant="tertiary" data-color="brand1" disabled={sending} onclick={onviewsent}>View sent</button>
 {/snippet}
 {#snippet done()}
-  <button type="button" class="button dialog-action-primary" disabled={sending} onclick={close}>Done</button>
+  <button type="button" class="ds-button dialog-action-primary" data-variant="primary" disabled={sending} onclick={close}>Done</button>
 {/snippet}
 
 <Dialog bind:this={dialog} onclose={close} busy={sending}
@@ -86,7 +87,7 @@
             </li>
           {/each}
         </ul>
-        <button type="button" class="button report-sent-retry" disabled={sending}
+        <button type="button" class="ds-button report-sent-retry" data-variant="secondary" data-color="neutral" disabled={sending}
           onclick={() => attempt(result!.failed.map(({ report }) => report))}>
           {sending ? 'Sending…' : 'Try again'}
         </button>

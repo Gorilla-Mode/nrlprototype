@@ -1,4 +1,4 @@
-export type GeometryKey = 'Point' | 'Line';
+export type GeometryKey = 'Point' | 'Line' | 'Polygon';
 export type HeightFilterKey = 'any' | 'under30' | '30to60' | 'over60';
 
 /** Items without geometry yet only show when no geometry filter is applied. */

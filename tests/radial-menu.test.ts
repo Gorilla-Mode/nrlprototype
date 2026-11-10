@@ -88,6 +88,16 @@ test('empty items render nothing and radii are configurable', () => {
   assert.match(body, /A 140 140/);
 });
 
+test('the menu renders only its SVG: no stray text above the ring shifts it off the press point', () => {
+  const strip = (html: string) => html.replace(/<!--[\s\S]*?-->/g, '').trim();
+  assert.equal(strip(render(RadialMenu, { props: { items: [] } }).body), '');
+  const item = { id: 'one', label: 'One', color: 'var(--color-radial-polygon)', icon: createRawSnippet(() => ({ render: () => '<path d="M0 0L24 24" />' })) };
+  const body = strip(render(RadialMenu, { props: { items: [item] } }).body);
+  assert.match(body, /^<svg[\s\S]*<\/svg>$/);
+  const visibleText = [...body.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((match) => match[1]);
+  assert.deepEqual(visibleText, ['One']);
+});
+
 test('code luma variable darkens the item color with the configured 40% black mix', () => {
   const item = {
     id: 'one', label: 'One', color: 'var(--color-radial-polygon)',

@@ -4,6 +4,7 @@
   import AccountSettings from './AccountSettings.svelte';
   import MapSettings from './MapSettings.svelte';
   import LanguageSettings from './LanguageSettings.svelte';
+  import PageHeader from '../components/PageHeader.svelte';
   import { settingsSections, type SettingsSection, type LanguagePreference } from './settings';
   import type { GeolocationState } from '../map/createGeolocationController';
 
@@ -21,12 +22,12 @@
     accuracy: number | null;
     onlocation: () => void;
   } = $props();
-  let heading: HTMLHeadingElement;
+  let heading = $state<HTMLHeadingElement>();
   let content: HTMLElement;
   let title = $derived(settingsSections.find(item => item.id === section)!.label);
   $effect(() => {
     void section;
-    void tick().then(() => { content.scrollTop = 0; heading.focus({ preventScroll: true }); });
+    void tick().then(() => { content.scrollTop = 0; heading?.focus({ preventScroll: true }); });
   });
   function closeOnEscape(event: KeyboardEvent) {
     // Native select popups own Escape while choosing an option.
@@ -38,8 +39,9 @@
 
 <svelte:window onkeydown={closeOnEscape} />
 <main class="settings-page" aria-label="Settings">
+  <!-- The open section names the page, as its h1; the sidebar lists the others. -->
+  <PageHeader {title} backLabel="Back to map" onback={onclose} bind:heading />
   <div class="settings-shell">
-    <header class="settings-header"><h2>Settings</h2><button class="menu-close" type="button" aria-label="Close Settings" onclick={onclose}><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
     <aside class="settings-sidebar">
       <nav aria-label="Settings sections">
         {#each ['ACCOUNT', 'NOTIFICATIONS', 'MAP & DATA', 'SUPPORT', 'ACCESSIBILITY'] as group}
@@ -64,9 +66,8 @@
         <option disabled>Log Out — unavailable</option>
       </select>
     </label>
-    <section class="settings-content" bind:this={content} aria-labelledby="settings-title">
+    <section class="settings-content" bind:this={content} aria-label={title}>
       <div class="settings-content-column">
-        <h1 id="settings-title" bind:this={heading} tabindex="-1">{title}</h1>
         {#if section === 'profile'}<ProfileSettings />
         {:else if section === 'security' || section === 'notifications'}<AccountSettings {section} />
         {:else if section === 'language'}<LanguageSettings bind:language />

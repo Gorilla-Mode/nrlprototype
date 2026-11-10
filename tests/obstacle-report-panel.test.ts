@@ -9,7 +9,6 @@ import type { ReportingVariantProps } from '../src/lib/reporting/reportingVarian
 import { draft as makeDraft, viewProps } from './helpers/reporting.js';
 const emptyDetailsDraft = makeDraft();
 const setObstacleType = (draft: DetailsDraft, type: ObstacleType): DetailsDraft => ({ ...draft, type });
-const toggleNotPresent = (draft: DetailsDraft): DetailsDraft => ({ ...draft, notPresent: !draft.notPresent });
 
 const obstacleModuleUrl = new URL('../src/lib/reporting/obstacle.js', import.meta.url).href;
 const draftModuleUrl = new URL('../src/lib/reporting/obstacleReportDraft.js', import.meta.url).href;
@@ -48,11 +47,9 @@ test('one-step keypad shows canonical height and units without a scrolling selec
   }
 });
 
-test('one-step keypad disables height while busy or Not present', () => {
-  for (const props of [viewProps(makeDraft(), { busy: true }), viewProps(makeDraft({ notPresent: true }))]) {
-    const html = render(KeypadPanel, { props }).body;
-    assert.match(html, /class="button height-button[^>]*disabled/);
-  }
+test('one-step keypad disables height while busy', () => {
+  const html = render(KeypadPanel, { props: viewProps(makeDraft(), { busy: true }) }).body;
+  assert.match(html, /class="button height-button[^>]*disabled/);
 });
 
 test('original one-step presentation still defaults to the scrolling selector', () => {
@@ -121,14 +118,19 @@ test('Save draft is never disabled, even on an empty draft', () => {
   assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /disabled[^>]*>Save draft/);
 });
 
-test('Not present relabels required height as disabled, greys out the picker, and shows the warning note', () => {
-  const draft = toggleNotPresent(emptyDetailsDraft);
-  const html = body(pointObstacle, draft);
-  assert.match(html, /Obstacle Height - Disabled/);
-  assert.match(html, /aria-disabled="true"/);
-  assert.match(html, /This obstacle no longer exists in reality\./);
-  assert.match(body(pointObstacle, emptyDetailsDraft), /Obstacle Height - Required/);
-  assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /This obstacle no longer exists in reality\./);
+test('the form offers no Not present control and height stays required', () => {
+  for (const html of [body(pointObstacle, emptyDetailsDraft), render(KeypadPanel, { props: viewProps(emptyDetailsDraft) }).body]) {
+    assert.doesNotMatch(html, /Not present|no longer exists in reality/);
+    assert.match(html, /Obstacle Height - Required/);
+  }
+});
+
+test('one-step keypad shows an unset height as Not set and blocks Finish until one is entered', () => {
+  const unset = render(KeypadPanel, { props: viewProps(makeDraft({ type: ObstacleType.Pole, height: null })) }).body;
+  assert.match(unset, />Not set<\/button>/);
+  assert.equal(finishReportDisabled(unset), true);
+  const set = render(KeypadPanel, { props: viewProps(makeDraft({ type: ObstacleType.Pole, height: 0 })) }).body;
+  assert.equal(finishReportDisabled(set), false);
 });
 
 test('lighting label and state follow the three-stage cycle', () => {
@@ -139,6 +141,17 @@ test('lighting label and state follow the three-stage cycle', () => {
 
 test('the numeric height keypad is not rendered until requested', () => {
   assert.doesNotMatch(body(pointObstacle, emptyDetailsDraft), /height-keypad/);
+});
+
+test('height keypad ends with clear, zero and backspace, and blocks an empty height', async () => {
+  const { default: HeightKeypad } = await import(keypad) as {
+    default: Component<{ value: number; max: number; onconfirm: (value: number) => void; oncancel: () => void }>;
+  };
+  // Server rendering skips onMount, so the entry starts empty.
+  const html = render(HeightKeypad, { props: { value: 12, max: 999, onconfirm: () => {}, oncancel: () => {} } }).body;
+  assert.match(html, />9<\/button>(?:<!--\]-->)?\s*<button[^>]*aria-label="Clear"[^>]*>C<\/button>\s*<button[^>]*>0<\/button>\s*<button[^>]*aria-label="Backspace, hold to clear"/);
+  assert.doesNotMatch(html, /Confirm height|aria-label="Clear height"/);
+  assert.match(html, /<button[^>]*disabled[^>]*>Set height<\/button>/);
 });
 
 test('description textarea only renders once its toggle is enabled, carrying the current text', () => {
@@ -158,10 +171,9 @@ test('photo attachment and camera controls are connected, files can be removed, 
   assert.match(html, /role="alert"[^>]*>Choose up to 2 more photos/);
 });
 
-test('busy state blocks Finish and Save; not-present blocks height and illumination', () => {
+test('busy state blocks Finish, Save and illumination', () => {
   const html = render(ObstacleReportPanel, { props: viewProps(makeDraft({ type: ObstacleType.Pole }), { busy: true }) }).body;
   assert.equal(finishReportDisabled(html), true);
   assert.match(html, /disabled[^>]*>Save draft/);
-  const absent = body(pointObstacle, makeDraft({ notPresent: true }));
-  assert.match(absent, /data-state="unknown" disabled/);
+  assert.match(html, /data-state="unknown" disabled/);
 });

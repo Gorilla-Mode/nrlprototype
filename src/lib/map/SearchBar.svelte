@@ -80,6 +80,7 @@
 
 <div class="search-bar" bind:this={field}>
   <SearchField
+    raised
     bind:input
     placeholder="Search place or address"
     aria-label="Search place or address"

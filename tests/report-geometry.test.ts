@@ -5,9 +5,8 @@ import { createPreviewStyle, createRasterStyle, PREVIEW_GEOMETRY_SOURCE_ID, PREV
 import { previewCamera } from '../src/lib/map/previewMap.js';
 import { matchesGeometryFilter } from '../src/lib/reports/filtering.js';
 import { coordinateLabel, geometryBounds, geometryCameraTarget, geometryKind, locationCaption, vertexCount } from '../src/lib/reports/reportGeometry.js';
-import { reports } from '../src/lib/reports/reportsData.js';
+import { drafts, reports } from './helpers/reportFixtures.js';
 import { ObstacleType } from '../src/lib/reporting/obstacle.js';
-import { drafts } from '../src/lib/drafts/mockData.js';
 
 const point: Point = { type: 'Point', coordinates: [8.785, 61.045] };
 const line: LineString = { type: 'LineString', coordinates: [[5.3221, 60.3913], [5.3405, 60.3982]] };
@@ -59,7 +58,7 @@ test('mock data covers a point, a line and a draft without position', () => {
 });
 
 test('the preview uses the main map Kartverket tiles and draws only the matching geometry layer', () => {
-  const visuals = { point: 'rgb(1, 2, 3)', line: 'rgb(4, 5, 6)', casing: 'rgb(255, 255, 255)', lineWidth: 3, casingThickness: 1, radius: 6, strokeWidth: 2 };
+  const visuals = { point: 'rgb(1, 2, 3)', line: 'rgb(4, 5, 6)', area: 'rgb(7, 8, 9)', casing: 'rgb(255, 255, 255)', fillOpacity: 0.35, dashLength: 2, lineWidth: 3, casingThickness: 1, radius: 6, strokeWidth: 2 };
   const style = createPreviewStyle(line, visuals);
   assert.deepEqual(style.sources.n100, createRasterStyle().sources.n100);
   assert.deepEqual(Object.keys(style.sources).sort(), ['n100', PREVIEW_GEOMETRY_SOURCE_ID].sort());
@@ -69,12 +68,16 @@ test('the preview uses the main map Kartverket tiles and draws only the matching
   const lineLayer = byId['preview-line'];
   const casing = byId['preview-line-casing'];
   const pointLayer = byId['preview-point'];
-  assert.ok(lineLayer.type === 'line' && casing.type === 'line' && pointLayer.type === 'circle');
-  assert.equal(lineLayer.paint?.['line-color'], visuals.line);
+  const areaLayer = byId['preview-area-fill'];
+  assert.ok(lineLayer.type === 'line' && casing.type === 'line' && pointLayer.type === 'circle' && areaLayer.type === 'fill');
+  // Lines in the line colour; a polygon's outline in the area colour, like the main map.
+  assert.deepEqual(lineLayer.paint?.['line-color'], ['match', ['geometry-type'], 'Polygon', visuals.area, visuals.line]);
   assert.equal(casing.paint?.['line-width'], 5);
   assert.equal(pointLayer.paint?.['circle-color'], visuals.point);
-  assert.deepEqual(lineLayer.filter, ['==', ['geometry-type'], 'LineString']);
+  assert.equal(areaLayer.paint?.['fill-color'], visuals.area);
+  assert.deepEqual(lineLayer.filter, ['in', ['geometry-type'], ['literal', ['LineString', 'Polygon']]]);
   assert.deepEqual(pointLayer.filter, ['==', ['geometry-type'], 'Point']);
+  assert.deepEqual(areaLayer.filter, ['==', ['geometry-type'], 'Polygon']);
 });
 
 test('mini map and enlarged map share one initial camera: fixed zoom for a point, fitted bounds for a line', () => {

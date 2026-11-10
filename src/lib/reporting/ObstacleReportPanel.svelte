@@ -2,16 +2,20 @@
   import { onMount, tick, untrack } from 'svelte';
   import { obstacleTypeChoices, obstacleGeometryChoices, ObstacleType } from './obstacle';
   import { displayUnitToMeters, formatHeightLabel, metersToDisplayUnit, type HeightUnit } from './obstacleReportDraft';
-  import { maxPhotos, type Illumination } from './createDetailsController';
-  import { minObstacleHeightMeters, maxObstacleHeightMeters } from './reporting';
+  import { detailsComplete, maxPhotos, type Illumination } from './createDetailsController';
+  import { defaultObstacleHeightMeters, minObstacleHeightMeters, maxObstacleHeightMeters } from './reporting';
   import type { ReportingVariantProps } from './reportingVariantProps';
   import HeightKeypad from './HeightKeypad.svelte';
   import ObstacleTypeIcon from './ObstacleTypeIcon.svelte';
   import { createHeightPickerController } from './createHeightPickerController';
 
-  let { heightControl = 'scrolling', draft, open, busy, error, ontype, onheight, onillumination, onabsence, oncustomtype, ondescription, onphotos, onremovephoto, ondismiss, onsave, onfinish }: ReportingVariantProps & { heightControl?: 'scrolling' | 'keypad' } = $props();
+  let { heightControl = 'scrolling', draft, open, busy, error, ontype, onheight, onillumination, oncustomtype, ondescription, onphotos, onremovephoto, ondismiss, onsave, onfinish }: ReportingVariantProps & { heightControl?: 'scrolling' | 'keypad' } = $props();
   let obstacle = $derived(draft.report);
+  // The scrolling picker always has a value; only the keypad flows start without one.
+  let wheelHeight = $derived(draft.height ?? defaultObstacleHeightMeters);
+  let complete = $derived(detailsComplete(draft));
   let heightUnit = $state<HeightUnit>('m');
+  let heightText = $derived(draft.height === null ? 'Not set' : formatHeightLabel(draft.height, heightUnit));
   let descriptionEnabled = $state(false);
   let showDescription = $derived(descriptionEnabled || draft.description.length > 0);
   let attachmentInput: HTMLInputElement;
@@ -34,7 +38,6 @@
     description: 'M12 5v14M5 12h14',
     attachPhoto: 'M4 5h16v14H4ZM8 13l3-3 3 3 3-4M9 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z',
     takePhoto: 'M4 8h3l2-2h6l2 2h3v11H4ZM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
-    notPresent: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM5 5l14 14',
     pin: 'M12 21s-7-4.35-7-10a7 7 0 0 1 14 0c0 5.65-7 10-7 10Z',
   };
 
@@ -104,8 +107,8 @@
 
   $effect(() => {
     const picker = heightPicker;
-    const value = draft.height;
-    if (!open || busy || draft.notPresent || heightInputOpen) {
+    const value = wheelHeight;
+    if (!open || busy || heightInputOpen) {
       untrack(() => picker?.stop());
       return;
     }
@@ -120,7 +123,7 @@
 
   function closeHeightInput() {
     heightInputOpen = false;
-    void tick().then(() => { if (open) (heightItems.get(draft.height) ?? heightTrigger)?.focus({ preventScroll: true }); });
+    void tick().then(() => { if (open) (heightItems.get(wheelHeight) ?? heightTrigger)?.focus({ preventScroll: true }); });
   }
 
   function confirmHeightInput(value: number) {
@@ -136,16 +139,16 @@
   }
 
   function handleHeightWheel(event: WheelEvent) {
-    if (draft.notPresent || busy) return;
+    if (busy) return;
     event.preventDefault();
     const delta = event.deltaY || event.deltaX;
-    if (delta) heightPicker?.select(draft.height + Math.sign(delta));
+    if (delta) heightPicker?.select(wheelHeight + Math.sign(delta));
   }
 
   function handleHeightKeydown(event: KeyboardEvent) {
-    if (draft.notPresent || busy) return;
+    if (busy) return;
     const values: Record<string, number> = {
-      ArrowLeft: draft.height - 1, ArrowRight: draft.height + 1,
+      ArrowLeft: wheelHeight - 1, ArrowRight: wheelHeight + 1,
       Home: minObstacleHeightMeters, End: maxObstacleHeightMeters,
     };
     if (!(event.key in values)) return;
@@ -157,8 +160,8 @@
 
   function setupHeightPicker(track: HTMLDivElement) {
     const picker = createHeightPickerController({
-      track, items: heightItems, getValue: () => draft.height,
-      enabled: () => open && !busy && !draft.notPresent,
+      track, items: heightItems, getValue: () => wheelHeight,
+      enabled: () => open && !busy,
       onchange: (value) => onheight(value),
       reducedMotion: () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       requestFrame: (callback) => requestAnimationFrame(callback),
@@ -173,7 +176,7 @@
         const width = heightSizer.getBoundingClientRect().width;
         if (!open || !width) return;
         track.parentElement?.style.setProperty('--height-item-width', `${width}px`);
-        picker.sync(draft.height, true);
+        picker.sync(wheelHeight, true);
       });
     });
     observer.observe(track);
@@ -243,17 +246,17 @@
 
     <section>
       <div class="section-label-row">
-        <h3 class="section-label">Obstacle Height - {draft.notPresent ? 'Disabled' : 'Required'}</h3>
+        <h3 class="section-label">Obstacle Height - Required</h3>
         <button type="button" class="unit-toggle" aria-label="Toggle height unit" disabled={busy} onclick={() => { heightUnit = heightUnit === 'm' ? 'ft' : 'm'; }}>
           {heightUnit}
         </button>
       </div>
       {#if heightControl === 'keypad'}
         <button type="button" class="button height-button"
-          aria-label={`Obstacle height: ${formatHeightLabel(draft.height, heightUnit)}. Edit height`} aria-haspopup="dialog"
-          disabled={draft.notPresent || busy} onclick={(event) => openHeightInput(event.currentTarget)}>{formatHeightLabel(draft.height, heightUnit)}</button>
+          aria-label={`Obstacle height: ${heightText}. Edit height`} aria-haspopup="dialog"
+          disabled={busy} onclick={(event) => openHeightInput(event.currentTarget)}>{heightText}</button>
       {:else}
-      <div class="height-picker" aria-disabled={draft.notPresent || busy}>
+      <div class="height-picker" aria-disabled={busy}>
         <span bind:this={heightSizer} class="height-item selected height-sizer" aria-hidden="true">{formatHeightLabel(maxObstacleHeightMeters, heightUnit)}</span>
         <div class="height-selection" aria-hidden="true"></div>
         <div
@@ -261,7 +264,7 @@
           role="listbox"
           tabindex="-1"
           aria-label="Obstacle height"
-          aria-disabled={draft.notPresent || busy}
+          aria-disabled={busy}
           use:setupHeightPicker
           onwheel={handleHeightWheel}
           onscroll={() => heightPicker?.scroll()}
@@ -275,7 +278,7 @@
               aria-selected={draft.height === meters}
               class="height-item"
               class:selected={draft.height === meters}
-              disabled={draft.notPresent || busy}
+              disabled={busy}
               tabindex={draft.height === meters ? 0 : -1}
               onclick={(event) => { if (draft.height === meters) openHeightInput(event.currentTarget); else heightPicker?.select(meters); }}
               use:registerHeightItem={meters}
@@ -289,7 +292,7 @@
     </section>
 
     <div class="optional-row" role="group" aria-label="Additional details">
-      <button type="button" class="optional-button" data-state={draft.illumination} disabled={draft.notPresent || busy} onclick={onillumination}>
+      <button type="button" class="optional-button" data-state={draft.illumination} disabled={busy} onclick={onillumination}>
         <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d={draft.illumination === 'illuminated' ? actionIcons.lightingLit : actionIcons.lightingCrossed} />
         </svg>
@@ -312,16 +315,6 @@
       <button type="button" class="optional-button" disabled={busy} aria-describedby="one-step-photo-limit" onclick={() => cameraInput.click()}>
         <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.takePhoto} /></svg>
         <span>Take photo</span>
-      </button>
-      <button
-        type="button"
-        class="optional-button not-present"
-        class:active={draft.notPresent}
-        aria-pressed={draft.notPresent}
-        disabled={busy} onclick={() => onabsence(!draft.notPresent)}
-      >
-        <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.notPresent} /></svg>
-        <span>Not present</span>
       </button>
     </div>
 
@@ -349,9 +342,6 @@
       ></textarea>
     {/if}
 
-    {#if draft.notPresent}
-      <p class="not-present-note">This obstacle no longer exists in reality.</p>
-    {/if}
   </div>
 
   <div class="report-feedback">
@@ -359,15 +349,15 @@
   </div>
   <footer class="dialog-footer report-footer" aria-busy={busy}>
     <button type="button" class="button" disabled={busy} onclick={onsave}>Save draft</button>
-    <button type="button" class="button button--primary" disabled={!draft.type || busy} onclick={onfinish}>
+    <button type="button" class="button button--primary" disabled={!complete || busy} onclick={onfinish}>
       <svg class="geometry-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={actionIcons.pin} /><circle cx="12" cy="11" r="2.25" /></svg>
       Finish report
     </button>
   </footer>
   </div>
 
-  {#if heightInputOpen && open && !busy && !draft.notPresent}
-    <HeightKeypad value={metersToDisplayUnit(draft.height, heightUnit)} unit={heightUnit}
+  {#if heightInputOpen && open && !busy}
+    <HeightKeypad value={draft.height === null ? null : metersToDisplayUnit(draft.height, heightUnit)} unit={heightUnit}
       max={metersToDisplayUnit(maxObstacleHeightMeters, heightUnit)}
       onconfirm={confirmHeightInput} oncancel={closeHeightInput} />
   {/if}
@@ -453,7 +443,7 @@
   }
   .height-sizer { position: absolute; width: max-content; visibility: hidden; pointer-events: none; }
 
-  .optional-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-2); }
+  .optional-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }
   .optional-button {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1);
     min-height: var(--target-size-min); padding: var(--space-2);
@@ -465,14 +455,10 @@
   .optional-button:not(:disabled):hover { background: var(--color-map-control-hover); }
   .optional-button[data-state='illuminated'] { border-color: var(--color-status-warning); color: var(--color-status-warning); }
   .optional-button[data-state='not-illuminated'] { border-color: var(--color-status-error); color: var(--color-status-error); }
-  .optional-button.active { border-color: var(--color-status-success); color: var(--color-status-success); }
-  .optional-button.not-present.active { border-color: var(--color-status-warning); color: var(--color-status-warning); }
+  /* Selected, not a status: the selected blue. */
+  .optional-button.active { border-color: var(--color-action-secondary); color: var(--color-action-secondary); }
 
   .description-field { min-height: 4rem; padding-block: var(--space-3); resize: none; overflow: hidden; }
-  .not-present-note {
-    margin: 0; padding: var(--space-3); border-radius: var(--radius-control);
-    background: var(--color-status-warning-surface); color: var(--color-status-warning); font-size: var(--font-size-body-small);
-  }
 
   .report-photos p, .report-feedback p { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
   .report-photo-list { list-style: none; margin: 0; padding: 0; }
@@ -498,6 +484,6 @@
 
   @media (max-width: 26rem) {
     .type-grid { grid-template-columns: 1fr 1fr; }
-    .optional-row { grid-template-columns: repeat(3, 1fr); }
+    .optional-row { grid-template-columns: repeat(2, 1fr); }
   }
 </style>

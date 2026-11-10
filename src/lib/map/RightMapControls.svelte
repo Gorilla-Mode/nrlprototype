@@ -11,6 +11,8 @@
     grayscale?: boolean;
     errorReportMode?: boolean;
     errorReportDisabled?: boolean;
+    /** Decides what the error report button does; without it the button toggles the mode. */
+    onerrorreport?: () => void;
     /** +/− zoom, shown while the map is used to correct a position. */
     zoomControls?: boolean;
     onzoomin?: () => void;
@@ -30,6 +32,7 @@
     grayscale = $bindable(false),
     errorReportMode = $bindable(false),
     errorReportDisabled = false,
+    onerrorreport,
     zoomControls = false,
     onzoomin,
     onzoomout,
@@ -50,7 +53,7 @@
     aria-label="Rapporter feil på hinder"
     aria-pressed={errorReportMode}
     title="Rapporter feil på hinder"
-    onclick={() => { errorReportMode = !errorReportMode; }}
+    onclick={() => { if (onerrorreport) onerrorreport(); else errorReportMode = !errorReportMode; }}
   >
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />

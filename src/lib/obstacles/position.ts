@@ -47,3 +47,19 @@ export function describeMove(from: GeoPosition, to: GeoPosition): string {
   const parts = moveParts(from, to);
   return parts ? `Moved ${parts.distance} ${parts.direction}` : 'Not moved';
 }
+
+const compassWords: Record<CompassPoint, string> = {
+  N: 'north', NE: 'northeast', E: 'east', SE: 'southeast', S: 'south', SW: 'southwest', W: 'west', NW: 'northwest',
+};
+
+/** "Moved 280 m northeast of the registered position", or "Not moved". */
+export function describeMoveFromRegistered(from: GeoPosition, to: GeoPosition): string {
+  const parts = moveParts(from, to);
+  return parts ? `Moved ${parts.distance} ${compassWords[parts.direction]} of the registered position` : 'Not moved';
+}
+
+/** "353 m east of registered", or "Same as registered" when not moved. */
+export function describeOffsetFromRegistered(from: GeoPosition, to: GeoPosition): string {
+  const parts = moveParts(from, to);
+  return parts ? `${parts.distance} ${compassWords[parts.direction]} of registered` : 'Same as registered';
+}

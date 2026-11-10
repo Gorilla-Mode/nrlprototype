@@ -34,8 +34,23 @@ circle, until a new hold places one. Active position correction preserves its ge
 candidate and original registered position while switching input methods, but discards
 the saved ordinary target when crosshair is disabled. Starting correction in crosshair
 mode does not save its midpoint as an ordinary circle. Circle-only correction cancellation
-restores the prior circle. The error-report form keeps its own answers and the existing
-prototype completion handler.
+restores the prior circle.
+
+The error report button is never disabled.
+- When a new-obstacle report is in progress, the button shows it: its form through Resume
+  details, or the drawing still being placed.
+- While an error report waits on the map for a corrected position, the button returns to
+  its form.
+- Otherwise it toggles error reporting.
+
+Error reports follow the new-obstacle flow. HomeMap owns the error form and position
+correction and gives each report an id. Save draft and Finish report hand App an
+`ErrorReportRecord`, which holds the registered obstacle and the answers. App stores it
+with the report store as a Draft, or as a Ready report with `errorReport` set, using
+`errorReportRecords.ts`. Finish opens the shared `ReportSummaryDialog`, where any answer's
+pencil reopens the form. The same confirmations, failure alert and statuses follow. Edit in
+Reports also reopens the form on the map. The payload is still `buildErrorReport(obstacle,
+answers)`, logged by `deliverErrorReport` when the report is sent from any path.
 
 `radialMenu.ts` defines the shared 96 px inner and 154 px outer radii for geometry and
 error-report menus and placed circles. Hover and release exclude the inclusive inner
@@ -49,6 +64,23 @@ Routing uses browser history and hashes without a routing dependency. A hidden H
 is inert but remains alive. When leaving it, stop active camera movement and prevent GPS
 callbacks from recentering an inert map; location observation itself may continue.
 Unsupported routes must fall back safely without inventing pages or persisted state.
+
+Report routes are lower case: `#/reports` for the list, `#/reports/{id}` for a Ready to send
+report's read-only page (`ReportViewPage`; for error reports with their record, whose Edit report and Edit
+location keep the error form's rules; Review and send opens it, Edit report opens the
+edit route over it, Send for Review returns to the list on Sent with the sent confirmation)
+and `#/reports/{id}/edit` for the edit page. Sent reports keep the in-page
+`ReportDetailPage`. They match in any case, and `syncRoute` rewrites another spelling (such as an
+older `#/Reports` link or bookmark) to the lower-case route in place.
+
+`#/reports/{id}/edit` opens the Reports page with the edit page (`DraftDetailPage`) for that
+draft, or for that Ready report opened as a draft with `reportToDraft`. Reloads, back and
+direct links work. An id that cannot be edited (sent, error report or unknown) falls back
+to the list. App guards unsaved edits on the back arrow, Escape and browser back/forward:
+it restores the edit route and asks "You have unsaved changes. Leave without saving?".
+`beforeunload` covers reloads. Saving uses the same store calls as before: complete →
+`markReady`, otherwise `saveDraft`; Send → `markReady` + `submitReport`.
+`missingDraftFields` decides Draft or Ready to send.
 
 ## Reporting variants
 
@@ -100,13 +132,29 @@ App supplies session-only Save Draft and Finish handlers, awaiting optional exte
 `onSaveDraft(payload, reason)` and `onFinish(report, { variantId })` hooks. Existing
 one-argument Finish callbacks remain compatible. `onContinue` is an intermediate hook.
 All views use canonical metres, the same six obstacle types, and original photo files.
-Absent-obstacle results omit height and illumination; Other alone includes custom type.
+Other alone includes custom type.
 
-Close and successful Save Draft return to the map with Resume details. Delete discards
-the active draft. Finish clears the map selection and opens a shared, session-only result
-summary; closing it releases that result. Reload loses drafts and results. These actions
-do not write to the mock report lists or provide durable saving or submission. Browser
-history cannot restore a report route without its matching in-memory draft or result.
+Close returns to the map with Resume details. A successful Save Draft instead ends the
+drawing session, as Finish does: the selection and Resume details are cleared, and the
+draft shows as an ordinary report marker. It confirms with Draft saved: not sent, any
+`missingDetailsFields` (the same check as `completePayload`), and View drafts. View drafts
+opens Reports on Drafts with that draft first and marked by its id. A draft's type is null
+until the pilot chooses one; nothing defaults to Other. `draftType` also reads older
+drafts that stored Other with `typeMissing` as untyped. A missing type is a missing field,
+so the card reads Untitled obstacle and the edit page shows Select type. Delete discards
+the active draft. Save Draft stores a draft and Finish stores a Ready ("Ready to send") report
+in the report store; nothing is sent automatically. Finish clears the map selection and
+opens the shared result summary. Its edit actions reopen the step holding a value with
+the finished draft: Finish saves again and returns to the summary, while closing the form
+discards the edit and returns to it. Both summary actions return to the map and confirm there
+with the shared ConfirmationToast. Save and continue
+(primary) keeps the report saved and unsent: Report saved names its status with its
+StatusBadge. Send report submits it: Report sent adds a review note. View report opens that
+report's detail page by id, over its status tab. If sending fails, an alert says it stays
+Ready to send. These confirmations live only in App state and show once, right after the
+action. Closing the summary
+releases its result. Browser history cannot restore a report route without its matching
+in-memory draft or result.
 
 ## Placement editing variants
 
@@ -189,7 +237,15 @@ reporting and registered-obstacle position correction retain their existing gest
 ## External data and geolocation
 
 Raster tiles come from Kartverket, OpenStreetMap and Esri; search uses Geonorge address
-and place APIs. Retain search response validation, stale-request cancellation and
+and place APIs. Report cards name their place by reverse lookup with the same APIs.
+- Lookup: stedsnavn `/punkt` gives the nearest non-street name, and adresser `/punktsok`
+  gives the municipality (`placeName.ts`).
+- Storage: `startPlaceNames` (`placeNames.ts`) looks up each stored draft or report whose
+  location has no place yet, one at a time. It stores `{ name, at }` with
+  `reportStore.setPlace`, which leaves the edit time alone; saving keeps a place that
+  still matches.
+- Fallback: a lookup with no name stores null, and a failed lookup stores nothing until
+  the next start; the card shows coordinates meanwhile. Retain search response validation, stale-request cancellation and
 explicit loading/empty/error states. Render provider strings as text, never raw HTML.
 
 Preserve geolocation's secure-context, permission, cancellation, camera-following and

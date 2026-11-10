@@ -7,6 +7,7 @@
   import type { DrawingState } from '../reporting/createDrawingController';
   import type { GeographicVertex, Obstacle, ObstacleGeometryType } from '../reporting/obstacle';
   import type { RegisteredObstacle, ScreenPoint } from '../obstacles/registeredObstacles';
+  import type { ReportGeometry } from '../reports/reportGeometry';
 
   import type { PlacementEditingVariantId } from './placementEditing';
   import type { EditableVertexHandle } from './createVertexEditingInteraction';
@@ -23,6 +24,8 @@
     grayscale: boolean;
     holdMode?: HoldMode;
     registeredObstacles?: readonly RegisteredObstacle[];
+    /** The user's own report locations, drawn under the registered obstacles. */
+    reports?: readonly ReportGeometry[];
     /** Pixels at the bottom covered by a panel. */
     bottomInset?: number;
     onmapclick: () => void;
@@ -36,7 +39,7 @@
     onpositiondragchange?: (dragging: boolean) => void;
   }
 
-  let { oncrosshairchange, placementEditing = 'default', onvertexhandleschange, visible = true, crosshairMode = false, crosshairSize = 0, opacity, grayscale, holdMode = 'obstacle', registeredObstacles = [], bottomInset = 0, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered, onerrorcirclechange, onpositiondragchange }: Props = $props();
+  let { oncrosshairchange, placementEditing = 'default', onvertexhandleschange, visible = true, crosshairMode = false, crosshairSize = 0, opacity, grayscale, holdMode = 'obstacle', registeredObstacles = [], reports = [], bottomInset = 0, onmapclick, onaccuracychange, ongeolocationstatechange, onholdchange, onholdmove, ondrawingchange, onobstacleregistered, onerrorcirclechange, onpositiondragchange }: Props = $props();
   let mapContainer: HTMLDivElement;
   let controller = $state.raw<MapController | null>(null);
 
@@ -111,6 +114,10 @@
 
   $effect(() => {
     controller?.setRegisteredObstacles(registeredObstacles);
+  });
+
+  $effect(() => {
+    controller?.setReports(reports);
   });
 
   $effect(() => {

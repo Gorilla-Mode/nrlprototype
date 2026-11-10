@@ -1,68 +1,33 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import SearchField from '../components/SearchField.svelte';
-  import FilterPanel from './FilterPanel.svelte';
-  import type { GeometryKey, HeightFilterKey } from './filtering';
 
-  let {
-    query = $bindable(''),
-    selectMode, ontoggleselect,
-    filterOpen, filterActive, pendingGeometries = $bindable(), pendingHeightFilter = $bindable(), pendingResultCount,
-    onopenfilter, onresetfilter, onapplyfilter, ondismissfilter,
-  }: {
+  let { query = $bindable(''), selectMode, ontoggleselect, filters }: {
     query?: string;
     selectMode: boolean;
     ontoggleselect: () => void;
-    filterOpen: boolean;
-    filterActive: boolean;
-    pendingGeometries: Set<GeometryKey>;
-    pendingHeightFilter: HeightFilterKey;
-    pendingResultCount: number;
-    onopenfilter: () => void;
-    onresetfilter: () => void;
-    onapplyfilter: () => void;
-    ondismissfilter: () => void;
+    /** Geometry and Height, between the search and Select. */
+    filters?: Snippet;
   } = $props();
 </script>
 
+<!-- One row: search takes the rest; Geometry, Height and Select fit their content. -->
 <div class="reports-header-row reports-toolbar">
   <div class="reports-search">
     <SearchField placeholder="Search obstacle name or type" aria-label="Search obstacle name or type" bind:value={query} />
   </div>
 
-  <div class="reports-filter-wrap">
-    <button type="button" class="button reports-tool-button" class:reports-filter-active={filterActive} onclick={onopenfilter}>
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
-      Filter
-      {#if filterActive}<span class="reports-filter-dot" aria-hidden="true"></span>{/if}
-    </button>
-
-    {#if filterOpen}
-      <FilterPanel
-        bind:geometries={pendingGeometries}
-        bind:heightFilter={pendingHeightFilter}
-        resultCount={pendingResultCount}
-        onreset={onresetfilter}
-        onapply={onapplyfilter}
-        ondismiss={ondismissfilter}
-      />
-    {/if}
-  </div>
+  {@render filters?.()}
 
   {#if selectMode}
     <!-- Sending lives in the page's fixed select bar. -->
-    <button type="button" class="button reports-tool-button" onclick={ontoggleselect}>
+    <button type="button" class="ds-button reports-tool-button" data-variant="secondary" data-color="neutral" onclick={ontoggleselect}>
       Cancel
     </button>
   {:else}
-    <button type="button" class="button reports-tool-button" onclick={ontoggleselect}>
+    <button type="button" class="ds-button reports-tool-button" data-variant="secondary" data-color="neutral" onclick={ontoggleselect}>
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5" /></svg>
       Select
     </button>
   {/if}
 </div>
-
-<style>
-  .reports-filter-wrap { position: relative; flex: none; }
-  .reports-filter-active { border-color: var(--color-action-secondary); color: var(--color-action-secondary); }
-  .reports-filter-dot { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--color-action-secondary); }
-</style>

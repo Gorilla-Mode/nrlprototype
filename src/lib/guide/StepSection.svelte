@@ -14,7 +14,8 @@
 </script>
 
 <section {id} class="step-section" data-guide-step aria-labelledby={`${id}-title`}>
-  <h2 id={`${id}-title`}>
+  <!-- Focus target when the guide's ← steps back to this step. -->
+  <h2 id={`${id}-title`} tabindex="-1">
     <span class="step-section-eyebrow">STEP {step}</span>
     <span class="step-section-title">{title}</span>
   </h2>

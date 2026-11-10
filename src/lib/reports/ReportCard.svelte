@@ -1,9 +1,12 @@
 <script lang="ts">
   import StatusBadge from './StatusBadge.svelte';
-  import { isoDate, reportActionLabel, reportActivity, reportProgressLine, type Report } from './reportsData';
-  import { obstacleTypeLabel } from '../reporting/obstacle';
+  import { errorKindsLabel } from '../obstacles/errorReport';
+  import { formatShortDate, reportActionLabel, reportActivity, reportHeading, type Report } from './reportsData';
+  import { geometryKind } from './reportGeometry';
+  import { placeLabel } from './placeName';
+  import PinIcon from '../icons/PinIcon.svelte';
 
-  let { report, onopen, selectMode = false, selected = false, ontoggleselect, justSent = false, unavailableHint }: {
+  let { report, onopen, selectMode = false, selected = false, ontoggleselect, justSent = false, justSaved = false, unavailableHint }: {
     report: Report;
     onopen: (report: Report) => void;
     selectMode?: boolean;
@@ -11,6 +14,8 @@
     ontoggleselect?: (report: Report) => void;
     /** Briefly tints the card after it was sent from select mode. */
     justSent?: boolean;
+    /** Briefly tints the card after the reporting flow saved it. */
+    justSaved?: boolean;
     /** Id of the page's text explaining why a card cannot be selected. */
     unavailableHint?: string;
   } = $props();
@@ -18,6 +23,10 @@
   // Only ready reports can be sent to the registrar, so only those are selectable.
   let selectable = $derived(report.status === 'ready');
   let activity = $derived(reportActivity(report));
+  // The stored place name for this location, or its coordinates.
+  let place = $derived(placeLabel(report.place, report.geometry) ?? 'Location not set');
+  // Ready and sent: just the geometry; an error report also says what is wrong.
+  let detail = $derived([geometryKind(report.geometry), report.errorReport ? errorKindsLabel(report.errorReport.answers.errorKinds) : null].filter(Boolean).join(' · '));
 
   // In select mode a card only selects; cards that cannot be selected do nothing.
   function handleClick() {
@@ -28,10 +37,11 @@
 
 <button
   type="button"
-  class="reports-card"
+  class="ds-card reports-card"
   class:reports-card-selected={selectMode && selectable && selected}
   class:reports-card-dimmed={selectMode && !selectable}
   class:reports-card-just-sent={justSent}
+  class:reports-card-just-saved={justSaved}
   aria-pressed={selectMode && selectable ? selected : undefined}
   aria-disabled={selectMode && !selectable ? true : undefined}
   aria-describedby={selectMode && !selectable ? unavailableHint : undefined}
@@ -46,21 +56,17 @@
           {/if}
         </span>
       {/if}
-      <span class="reports-card-name">{report.name}</span>
+      <span class="reports-card-name">{reportHeading(report)}</span>
       <StatusBadge status={report.status} />
     </div>
 
-    <div class="reports-card-info">
-      <span>{obstacleTypeLabel(report.obstacleType)}</span>
-      <span class="reports-card-dot" aria-hidden="true">·</span>
-      <span>{report.heightFeet} ft ({report.heightMeters} m)</span>
-    </div>
-    <div class="reports-card-step">{reportProgressLine(report)}</div>
+    <div class="reports-card-place"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><PinIcon /></svg><span>{place}</span></div>
+    {#if detail}<div class="reports-card-step">{detail}</div>{/if}
   </div>
 
   <div class="reports-card-bottom">
     <span class="reports-card-meta">
-      {#if activity.date}<time datetime={isoDate(activity.date)} title={activity.date}>{activity.text}</time>{:else}{activity.text}{/if}
+      {#if activity.date}<time datetime={activity.date} title={formatShortDate(activity.date)}>{activity.text}</time>{:else}{activity.text}{/if}
     </span>
     {#if !selectMode}
       <span class="reports-card-cta card-cta-link">

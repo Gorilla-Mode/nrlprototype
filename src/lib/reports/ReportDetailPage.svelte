@@ -1,270 +1,137 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import StatusBadge from './StatusBadge.svelte';
-  import ReportSentDialog from './ReportSentDialog.svelte';
-  import { formatLongDate, type Report } from './reportsData';
-  import { lightingOptions, lightingSummary, lightingValueLabel, formatToday } from '../drafts/types';
-  import MiniMap from '../map/MiniMap.svelte';
+  import { tick } from 'svelte';
+  import LargeTitleHeader from '../components/LargeTitleHeader.svelte';
+  import Dialog from '../components/Dialog.svelte';
   import PhotoField from './PhotoField.svelte';
-  import Dropdown from './Dropdown.svelte';
-  import { obstacleTypeChoices, obstacleTypeLabel } from '../reporting/obstacle';
-  import { geometryCameraTarget, geometryKind, locationCaption as captionFor, type GeometryCameraTarget } from './reportGeometry';
+  import ReportedTable from './ReportedTable.svelte';
+  import ReportLocationCard from './ReportLocationCard.svelte';
+  import { formatShortDate, type Report } from './reportsData';
+  import { reportStore } from './reportStore';
+  import { reportedChanges, reportedChangesHeading, reportedObstacleRows, sentStatusView } from './sentReport';
+  import { reportDetailTitle, reportPlaceName } from './reportDetail';
 
-  const typeOptions = obstacleTypeChoices.map(({ type, label }) => ({ value: type, label }));
+  /**
+   * The report detail page for a sent report: under review, approved, not approved or withdrawn.
+   * The Ready to send state is ReportViewPage. Both report types share the status block,
+   * description and location; only the title and the table differ. Sized for iPad by .report-detail.
+   */
+  let { report, onback }: {
+    /** The stored report, kept current, so withdrawing shows the new status at once. */
+    report: Report;
+    onback: () => void;
+  } = $props();
 
-  export let report: Report;
-  export let onback: () => void = () => {};
-  export let onshowonmap: ((target: GeometryCameraTarget) => void) | undefined = undefined;
+  let record = $derived(report.errorReport);
+  let title = $derived(reportDetailTitle(report));
+  let status = $derived(sentStatusView(report));
+  let changes = $derived(record ? reportedChanges(record) : []);
+  let obstacleRows = $derived(record ? [] : reportedObstacleRows(report, reportPlaceName(report)));
+  let description = $derived(report.pilotReportText.trim());
 
-  let editing = false;
+  // Withdraw: under review only, after confirming; the status block then says Withdrawn.
+  let confirmingWithdraw = $state(false);
+  let statusTitle = $state<HTMLHeadingElement>();
 
-  const toggleEditing = () => {
-    editing = !editing;
-  };
-
-  function updateHeight(raw: string) {
-    const meters = Number(raw);
-    if (raw.trim() === '' || Number.isNaN(meters)) {
-      report.heightMeters = 0;
-      report.heightFeet = 0;
-      return;
-    }
-    report.heightMeters = meters;
-    report.heightFeet = Math.round(meters * 3.28084);
+  async function withdraw() {
+    confirmingWithdraw = false;
+    if (!reportStore.withdrawReport(report.id)) return;
+    await tick();
+    statusTitle?.focus({ preventScroll: true });
   }
 
-  function sendForReview() {
-    report.status = 'pending';
-    report.secondaryDate = formatToday();
-    editing = false;
-    // Confirmation only; the moment is read here because reports store no time of day.
-    sentAt = new Date();
-  }
-
-  let scrollArea: HTMLDivElement;
-  let sentAt: Date | null = null;
-
-  // The page always opens at its top, and returns there to show the "sent" banner.
-  onMount(() => { scrollArea.scrollTop = 0; });
-
-  function closeSentDialog() {
-    sentAt = null;
-    scrollArea.scrollTop = 0;
-  }
-
-  $: geometryType = geometryKind(report.geometry);
-
-  function showOnMap() {
-    if (report.geometry) onshowonmap?.(geometryCameraTarget(report.geometry));
-  }
-  $: typeLabel = obstacleTypeLabel(report.obstacleType);
-  $: heightDisplay = `${report.heightFeet} ft (${report.heightMeters} m)`;
-
-  $: locationCaption = captionFor(report.geometry);
-
-  $: descriptionStatus = report.pilotReportText.trim() ? 'Added' : 'Not added';
-
-  $: isReady = report.status === 'ready';
-  $: isPending = report.status === 'pending';
-  $: isApproved = report.status === 'approved';
-  $: isDeclined = report.status === 'declined';
+  // Decorative: the title names the status.
+  const icons = {
+    info: '<circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />',
+    success: '<path d="M6.5 12.5 10.5 16.5 17.5 8" />',
+    warning: '<path d="m7 7 10 10M7 17 17 7" />',
+    neutral: '<path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />',
+  } as const;
+  const stateText = { done: 'done', current: 'current step', upcoming: 'not yet' } as const;
 </script>
 
-<section class="page">
-  <header class="top-bar reports-topbar">
-    <div class="reports-header-row reports-topbar-content">
-      <button class="reports-back" type="button" aria-label="Back to Reports" on:click={onback}>
-        <svg viewBox="0 0 8 14" fill="none" aria-hidden="true"><path d="M7 1 1 7l6 6" /></svg>
-        <span>Reports</span>
-      </button>
-      <StatusBadge status={report.status} />
-    </div>
-  </header>
-
-  <div class="scroll-area" bind:this={scrollArea}>
+<section class="page report-detail">
+  {#snippet statusChip()}
+    {#if status}<span class="ds-tag reports-status-badge sent-chip" data-size="sm" data-tone={status.tone}>{#if status.key === 'under_review'}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">{@html icons.info}</svg>{/if}{status.chipLabel}</span>{/if}
+  {/snippet}
+  <div class="scroll-area">
+    <!-- The shared large-title header: "‹ Reports" and the status chip in the bar, the title and who sent it below. -->
+    <LargeTitleHeader {title} backText="Reports" backLabel="Back to reports" {onback} actions={statusChip} wide>
+      <p class="report-meta">
+        Reported by {report.reportedByName}, {report.reportedByOrg}
+        · Sent <time datetime={report.sentAt}>{formatShortDate(report.sentAt)}</time>
+      </p>
+    </LargeTitleHeader>
     <div class="safe-area">
-      {#if isPending}
-        <div class="sent-banner" role="status">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12 21 4l-6 17-3-7-9-2ZM12 14l3-3" /></svg>
-          <p><strong>Sent for review on {formatLongDate(report.secondaryDate)}.</strong> This report can no longer be edited.</p>
-        </div>
+
+      <!-- Portrait: one column. Wider than 1200 px: these on the left, Location sticky on the right. -->
+      <div class="report-detail-content">
+
+      {#if status}
+        <section class="report-detail-card status-block" data-tone={status.tone} aria-label="Status">
+          <div class="status-summary">
+            <span class="status-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none">{@html icons[status.tone]}</svg></span>
+            <div class="status-text">
+              <h2 class="status-title" tabindex="-1" bind:this={statusTitle}>{status.title}</h2>
+              <p>{status.text}</p>
+            </div>
+            {#if status.canWithdraw}
+              <button type="button" class="ds-button status-action" data-variant="secondary" data-color="neutral" onclick={() => { confirmingWithdraw = true; }}>Withdraw report</button>
+            {/if}
+          </div>
+          {#if status.comment}
+            <div class="reviewer-comment">
+              <h3>Comment from reviewer</h3>
+              <p>{status.comment}</p>
+            </div>
+          {/if}
+          <ol class="timeline" data-steps={status.steps.length}>
+            {#each status.steps as step (step.label)}
+              <li class="timeline-step" data-state={step.state} aria-current={step.state === 'current' ? 'step' : undefined}>
+                <span class="timeline-dot" aria-hidden="true">
+                  {#if step.state === 'done'}<svg viewBox="0 0 24 24" fill="none"><path d="M6.5 12.5 10.5 16.5 17.5 8" /></svg>{/if}
+                </span>
+                <span class="timeline-label">{step.label}<span class="sr-only">, {stateText[step.state]}</span></span>
+                <span class="timeline-detail">{step.detail}</span>
+              </li>
+            {/each}
+          </ol>
+        </section>
       {/if}
-      <div class="title-block">
-        <h1>{report.name}</h1>
-        <div class="subtitle">{#if geometryType}{geometryType} ·{' '}{/if}<strong class="type-highlight">{typeLabel}</strong> · {heightDisplay}</div>
-      </div>
-      <div class="fields-row">
-        <div class="field-box">
-          {#if editing}
-            <div class="field-label" id="report-type-label">TYPE</div>
-            <div class="field-value">
-              <Dropdown id="report-type" labelledby="report-type-label" options={typeOptions} bind:value={report.obstacleType} />
-            </div>
+
+      {#if record}
+        {#if changes.length}<ReportedTable id="sent-changes-heading" heading={reportedChangesHeading(changes.length)} rows={changes} withCurrent={true} />{/if}
+      {:else}
+        <ReportedTable id="sent-obstacle-heading" heading="Reported obstacle" rows={obstacleRows} withCurrent={false} />
+      {/if}
+
+      <!-- Read-only, always shown: what the pilot wrote and the photos, or that there are none. -->
+      <section class="report-detail-card" aria-labelledby="sent-description-heading">
+        <h2 class="report-detail-card-heading" id="sent-description-heading">Description and photos</h2>
+        {#if description}<p class="description">{description}</p>{:else}<p class="description muted">No description added</p>{/if}
+        <div class="photo-row">
+          {#if report.photos.length}
+            <PhotoField photos={report.photos} editable={false} label={title} thumbSize="large" />
           {:else}
-            <div class="field-label">TYPE</div>
-            <div class="field-value">{typeLabel}</div>
+            <p class="muted">No photos added</p>
           {/if}
-          <div class="field-caption muted">{geometryType ?? 'No'} geometry</div>
         </div>
+      </section>
 
-        <div class="field-box">
-          <div class="field-label">HEIGHT ABOVE GROUND</div>
-          {#if editing}
-            <div class="field-value height-input-wrap">
-              <input
-                type="number"
-                min="0"
-                inputmode="decimal"
-                placeholder="Enter height"
-                value={report.heightMeters}
-                on:input={(e) => updateHeight(e.currentTarget.value)}
-              />
-              <span class="unit">m</span>
-            </div>
-          {:else}
-            <div class="field-value">{heightDisplay}</div>
-          {/if}
-          <div class="field-caption muted">Highest point reported</div>
-        </div>
-
-        <div class="field-box">
-          <div class="field-label" id="report-lighting-label">LIGHTING</div>
-          {#if editing}
-            <div class="lighting-toggle" role="group" aria-labelledby="report-lighting-label">
-              {#each lightingOptions as option (option.value)}
-                <!-- Pressing the chosen answer again clears it: lighting is optional. -->
-                <button type="button" aria-pressed={report.lighting === option.value} class:active={report.lighting === option.value}
-                  on:click={() => report.lighting = report.lighting === option.value ? null : option.value}>{option.label}</button>
-              {/each}
-            </div>
-          {:else}
-            <div class="field-value">{lightingValueLabel(report.lighting)}</div>
-          {/if}
-          <div class="field-caption muted">Marking on the obstacle</div>
-        </div>
-
-        <div class="field-box">
-          <div class="field-label">PHOTO</div>
-          <PhotoField bind:photos={report.photos} editable={editing} label={report.name} />
-        </div>
-      </div>
-
-      <div class="ready-card" class:declined={isDeclined}>
-        {#if isReady}
-          <div class="ready-title">Ready to send for review</div>
-          <div class="ready-desc muted">Everything the reviewer needs is filled in.</div>
-        {:else if isPending}
-          <div class="ready-title">Sent for review</div>
-          <div class="ready-desc muted">Sent to the NRL reviewer. You'll be notified about the outcome.</div>
-        {:else if isApproved}
-          <div class="ready-title">Approved</div>
-          <div class="ready-desc muted">Reviewed by {report.reviewer}. This obstacle has been added to the register.</div>
-        {:else}
-          <div class="ready-title">Declined</div>
-          <div class="ready-desc muted">Reviewed by {report.reviewer}. This report was not added to the register.</div>
-        {/if}
-
-        <div class="summary-grid">
-          <div class="summary-item">
-            <div class="summary-label">Geometry drawn on map</div>
-            <div class="summary-value muted">{locationCaption}</div>
-          </div>
-          <div class="summary-item">
-            <div class="summary-label">Height above ground</div>
-            <div class="summary-value muted">{heightDisplay}</div>
-          </div>
-          <div class="summary-item">
-            <div class="summary-label">Lighting</div>
-            <div class="summary-value muted">{lightingSummary(report.lighting)}</div>
-          </div>
-          <div class="summary-item">
-            <div class="summary-label">Description</div>
-            <div class="summary-value muted">{descriptionStatus}</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="info-card">
-        <div class="section-label">DESCRIPTION AND REPORTER</div>
-        <hr class="divider" />
-
-        {#if editing}
-          <label class="pilot-label" for="pilot-report">What the pilot reported</label>
-          <textarea id="pilot-report" class="pilot-report-input" bind:value={report.pilotReportText}></textarea>
-        {:else}
-          <div class="pilot-label">What the pilot reported</div>
-          <p class="pilot-report">{report.pilotReportText}</p>
-        {/if}
-
-        <div class="reporter-row">
-          <span class="muted">Reported by</span>
-          <span class="reporter-name">{report.reportedByName} · {report.reportedByOrg}</span>
-        </div>
-      </div>
-
-      <div class="two-col">
-        <div class="panel">
-          <div class="field-label">LOCATION</div>
-          <MiniMap geometry={report.geometry} label={report.name}
-            onshowonmap={onshowonmap ? showOnMap : undefined} />
-          {#if report.geometry}<div class="map-caption muted">{locationCaption}</div>{/if}
-        </div>
-
-        <div class="panel">
-          <div class="field-label">ACTIVITY</div>
-          <ul class="activity-list">
-            <li>
-              <span class="dot"></span>
-              <div>
-                <div class="activity-title">Report created</div>
-                <div class="activity-date muted">{report.createdDate}</div>
-              </div>
-            </li>
-            <li>
-              <span class="dot"></span>
-              <div>
-                {#if isReady}
-                  <div class="activity-title">Last edited</div>
-                  <div class="activity-date muted">{report.secondaryDate}</div>
-                {:else if isPending}
-                  <div class="activity-title">Sent for review</div>
-                  <div class="activity-date muted">{report.secondaryDate}</div>
-                {:else}
-                  <div class="activity-title">Reviewed by {report.reviewer}</div>
-                {/if}
-              </div>
-            </li>
-          </ul>
-        </div>
+      <ReportLocationCard {report} label={title} />
       </div>
     </div>
   </div>
 
-  <!-- Sent reports explain their state in the banner at the top instead. -->
-  {#if !isPending}
-    <footer class="bottom-bar">
-      <div class="actions">
-        {#if isReady}
-          <button class="button" on:click={toggleEditing}>{editing ? 'Done editing' : 'Edit report'}</button>
-          <button class="button button--primary" on:click={sendForReview}>
-            <span class="paper-plane">➤</span> Send for Review
-          </button>
-          <div class="primary-note">
-            <div class="note-strong">Goes straight to the NRL reviewer</div>
-            <div class="muted">You cannot edit the report after sending</div>
-          </div>
-        {:else}
-          <div class="pending-note">
-            <div class="note-strong">{isApproved ? 'Approved' : 'Declined'} by {report.reviewer}</div>
-            <div class="muted">This report has been reviewed and closed</div>
-          </div>
-        {/if}
-      </div>
-    </footer>
-  {/if}
-
-  {#if sentAt}
-    <ReportSentDialog {report} {sentAt} onbacktoreports={onback} onclose={closeSentDialog} />
+  {#if confirmingWithdraw}
+    <Dialog title="Withdraw this report?" role="alertdialog" onclose={() => { confirmingWithdraw = false; }}>
+      <p>It will not be reviewed and can't be undone.</p>
+      {#snippet primary()}
+        <button type="button" class="ds-button dialog-action-primary" data-variant="primary" onclick={withdraw}>Withdraw</button>
+      {/snippet}
+      {#snippet secondary()}
+        <button type="button" class="ds-button dialog-action-secondary" data-variant="tertiary" data-color="brand1" onclick={() => { confirmingWithdraw = false; }}>Cancel</button>
+      {/snippet}
+    </Dialog>
   {/if}
 </section>
 
@@ -274,96 +141,73 @@
     display: flex; flex-direction: column;
     background: var(--color-background-page);
   }
-
-  .top-bar { flex-shrink: 0; background: var(--color-background-raised); padding-top: var(--safe-area-top); }
-
-  .sent-banner { display:flex; align-items:flex-start; gap:var(--space-3); margin-bottom:var(--space-5); padding:var(--space-3) var(--space-4); border:var(--border-default); border-left:var(--border-width-emphasis) solid var(--color-status-info); border-radius:var(--radius-control); background:var(--color-status-info-surface); color:var(--color-text-primary) }
-  .sent-banner svg { flex:none; width:var(--icon-size-default); height:var(--icon-size-default); margin-top:var(--space-1); color:var(--color-status-info); stroke:currentColor; stroke-width:var(--icon-stroke-width); stroke-linecap:round; stroke-linejoin:round }
-  .sent-banner p { margin:0; font-size:var(--font-size-body); line-height:var(--line-height-body) }
-  .sent-banner strong { font-weight:var(--font-weight-semibold) }
-  .title-block { margin-bottom: var(--space-6) }
-  h1 { margin:0 0 var(--space-1); font-size:var(--reports-title-size); font-weight:var(--font-weight-semibold); letter-spacing:var(--faq-title-tracking); line-height:var(--line-height-tight); color:var(--color-text-primary) }
-  .subtitle { color:var(--color-text-secondary); font-size:var(--font-size-body-small) }
-  .type-highlight { font-weight:700; color:var(--color-text-primary) }
-  .muted { color:var(--color-text-secondary) }
-
-  .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; }
-  .safe-area { width:100%; max-width:var(--layout-content-max); margin:0 auto; padding:var(--space-6) var(--map-control-inset-right) var(--space-8) var(--map-control-inset-left); box-sizing:border-box; }
-
-  /* Four cards in a row on large screens, 2 × 2 on iPad and phones. */
-  .fields-row { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:14px; margin-bottom:16px }
-  @media (min-width:68.75rem) { .fields-row { grid-template-columns: repeat(4, minmax(0,1fr)) } }
-  /* Phone-width cards are too narrow for three answers side by side. */
-  @media (max-width:37.499rem) { .lighting-toggle { flex-direction:column } }
-  .field-box { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
-  .field-label { font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-bottom:6px }
-  .field-value { font-size:17px; font-weight:700; color:var(--color-text-primary) }
-  .field-caption { font-size:12px; margin-top:4px }
-
-  .height-input-wrap { display:flex; align-items:baseline; gap:6px }
-  .height-input-wrap input {
-    width:100%; border:0; background:transparent; padding:0; margin:0;
-    font:inherit; font-size:17px; font-weight:700; color:var(--color-text-primary);
-    -moz-appearance:textfield; appearance:textfield;
+  .scroll-area { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+  /* The draft and Ready pages' content width. */
+  .safe-area {
+    width: 100%; max-width: calc(var(--page-content-max) + 2 * var(--page-gutter)); margin: 0 auto; box-sizing: border-box;
+    padding: var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) var(--space-8) max(var(--page-gutter), var(--safe-area-left));
   }
-  .height-input-wrap input::-webkit-outer-spin-button,
-  .height-input-wrap input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0 }
-  .height-input-wrap input:focus { outline:none }
-  .height-input-wrap .unit { color:var(--color-text-secondary); font-weight:600; font-size:14px }
+  .report-meta { margin: var(--space-1) 0 0; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 
+  /* One colour per status, from the status roles; the chip and the block agree. */
+  [data-tone='info'] { --tone-surface: var(--color-status-info-surface); --tone-color: var(--color-status-info); }
+  [data-tone='success'] { --tone-surface: var(--color-status-success-surface); --tone-color: var(--color-status-success); }
+  [data-tone='warning'] { --tone-surface: var(--color-status-warning-surface); --tone-color: var(--color-status-warning); }
+  [data-tone='neutral'] { --tone-surface: var(--color-status-draft-surface); --tone-color: var(--color-status-draft); }
+  .sent-chip { --dsc-tag-background: var(--tone-surface); --dsc-tag-color: var(--tone-color); }
+  .sent-chip svg { width: var(--sent-chip-icon-size); height: var(--sent-chip-icon-size); }
 
-  .lighting-toggle { display:flex; gap:var(--space-1) }
-  .lighting-toggle button {
-    flex:1; min-width:0; min-height:var(--target-size-min); padding:0; border-radius:10px; border:var(--border-default);
-    background:var(--color-background-raised); font-weight:700; font-size:var(--font-size-body-small);
-    color:var(--color-text-primary); cursor:pointer;
+  /* Cards, headings, the table and the two-column layout come from .report-detail in stylesheet.css. */
+
+  /* Status block: a neutral card like the others; colour only in the icon circle and the timeline. */
+  .status-summary { display: flex; align-items: flex-start; flex-wrap: wrap; gap: var(--space-3) var(--space-4); }
+  .status-icon {
+    flex: none; display: grid; place-items: center;
+    width: var(--sent-status-icon-size); height: var(--sent-status-icon-size);
+    border-radius: var(--radius-round); background: var(--tone-surface); color: var(--tone-color);
   }
-  .lighting-toggle button.active {
-    background:var(--color-action-selected); border-color:var(--color-action-secondary); color:var(--color-action-secondary);
+  .status-icon svg, .timeline-dot svg { width: var(--icon-size-default); height: var(--icon-size-default); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+  .status-text { flex: 1 1 14rem; min-width: 0; }
+  .status-title { margin: 0; color: var(--color-text-primary); font-size: var(--detail-font-size-card-heading); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); }
+  .status-title:focus:not(:focus-visible) { outline: none; }
+  .status-text p { margin: var(--space-1) 0 0; color: var(--color-text-primary); font-size: var(--detail-font-size-body); line-height: var(--line-height-body); }
+  .status-action { flex: none; min-height: var(--target-size-min); margin-left: auto; background: var(--color-background-raised); }
+
+  .reviewer-comment { margin-top: var(--space-4); padding: var(--space-3) var(--space-4); border-radius: var(--radius-control); background: var(--color-background-subtle); }
+  .reviewer-comment h3 { margin: 0; color: var(--color-text-secondary); font-size: var(--detail-font-size-helper); font-weight: var(--font-weight-semibold); }
+  .reviewer-comment p { margin: var(--space-1) 0 0; color: var(--color-text-primary); font-size: var(--detail-font-size-body); line-height: var(--line-height-body); white-space: pre-line; overflow-wrap: anywhere; }
+
+  /* Dots at the start of each column, label and date under them; lines run from dot to dot,
+     coloured up to the current step, grey after it. */
+  /* Four steps, or three for a withdrawn report. */
+  .timeline { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: var(--space-5) 0 0; padding: 0; list-style: none; }
+  .timeline[data-steps='3'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .timeline-step { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); min-width: 0; padding-inline-end: var(--space-2); text-align: left; }
+  .timeline-step + .timeline-step::before {
+    content: ''; position: absolute; top: calc(var(--icon-size-large) / 2 - var(--border-width-emphasis) / 2);
+    right: 100%; width: calc(100% - var(--icon-size-large));
+    height: var(--border-width-emphasis); background: var(--tone-color);
   }
-
-  .ready-card { border:var(--border-default); border-radius:12px; padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
-  .ready-card.declined { border-color: var(--color-status-error) }
-  .ready-title { font-weight:700; font-size:17px; color:var(--color-text-primary) }
-  .ready-desc { font-size:14px; margin-top:2px }
-
-  .summary-grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px 24px; margin-top:16px }
-  .summary-label { font-weight:700; font-size:14px; color:var(--color-text-primary) }
-  .summary-value { font-size:13px; margin-top:2px }
-
-  .info-card { border:var(--border-default); border-radius:12px; padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
-
-  .section-label { font-size:12px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-top:8px }
-  .divider { border:0; height:1px; background:var(--color-border-default); margin:8px 0 16px }
-
-  .pilot-label { display:block; font-size:14px; color:var(--color-text-primary); margin-bottom:8px }
-  .pilot-report { margin:0; font-size:15px; line-height:1.5; color:var(--color-text-primary) }
-  .pilot-report-input { width:100%; min-height:70px; resize:vertical; background:var(--color-background-subtle); border:1px solid transparent; border-radius:10px; padding:12px; font:inherit; font-size:15px; box-sizing:border-box }
-
-  .reporter-row { display:flex; justify-content:space-between; align-items:center; font-size:14px; margin:14px 0 0; padding-top:14px; border-top:var(--border-default) }
-  .reporter-name { font-weight:700; color:var(--color-text-primary) }
-
-  .two-col { display:grid; grid-template-columns: 1fr 1fr; gap:16px }
-  .panel { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
-
-  .map-caption { font-size:12px; margin-top:8px }
-
-  .activity-list { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:14px }
-  .activity-list li { display:flex; align-items:flex-start; gap:10px }
-  .dot { width:8px; height:8px; border-radius:50%; background:var(--color-border-strong); margin-top:6px; flex-shrink:0 }
-  .activity-title { font-weight:700; font-size:14px; color:var(--color-text-primary) }
-  .activity-date { font-size:12px; margin-top:2px }
-
-  .bottom-bar { flex-shrink:0; background:var(--color-background-raised); border-top:var(--border-default); }
-  .actions { width:100%; max-width:var(--layout-content-max); margin:0 auto; padding:var(--space-4) var(--map-control-inset-right) max(var(--space-4), var(--safe-area-bottom)) var(--map-control-inset-left); box-sizing:border-box; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-3) var(--space-4) }
-  .paper-plane { transform:rotate(45deg); display:inline-block }
-  /* Full-width row under both buttons, so the note never shifts them. */
-  .primary-note { flex-basis:100%; text-align:center; font-size:12px }
-  .pending-note { font-size:12px }
-  .note-strong { font-weight:700; color:var(--color-text-primary) }
-
-  @media (max-width:800px) {
-    .two-col { grid-template-columns: 1fr }
-    .summary-grid { grid-template-columns: 1fr }
+  .timeline-step[data-state='upcoming']::before { background: var(--color-border-strong); }
+  .timeline-dot {
+    display: grid; place-items: center; box-sizing: border-box;
+    width: var(--icon-size-large); height: var(--icon-size-large); margin-bottom: var(--space-1);
+    border: var(--border-width-emphasis) solid var(--tone-color); border-radius: var(--radius-round);
+    background: var(--color-background-raised);
   }
+  .timeline-dot svg { width: var(--icon-size-small); height: var(--icon-size-small); }
+  .timeline-step[data-state='done'] .timeline-dot { background: var(--tone-color); color: var(--color-text-inverse); }
+  .timeline-step[data-state='current'] .timeline-dot::after { content: ''; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-round); background: var(--tone-color); }
+  .timeline-step[data-state='upcoming'] .timeline-dot { border-color: var(--color-border-strong); }
+  .timeline-label { color: var(--color-text-primary); font-size: var(--detail-font-size-label); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+  .timeline-detail { color: var(--color-text-secondary); font-size: var(--detail-font-size-helper); overflow-wrap: anywhere; }
+
+  /* The reported table (.reported-table) is styled in stylesheet.css, shared with the error report edit page. */
+
+  .description { margin: 0; color: var(--color-text-primary); font-size: var(--detail-font-size-body); line-height: var(--line-height-body); white-space: pre-line; overflow-wrap: anywhere; }
+  .photo-row { margin-top: var(--space-4); }
+  .photo-row p { margin: 0; font-size: var(--detail-font-size-body); }
+  .muted { color: var(--color-text-secondary); }
+  .photo-row :global(button) { min-height: var(--target-size-min); }
+
 </style>

@@ -1,20 +1,41 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type { Draft } from './types';
-  import { heightInMeters, formatHeightFromMeters, formatToday, lightingOptions, missingDraftFields } from './types';
+  import { draftType, heightInMeters, formatHeightFromMeters, missingDraftFields, type Lighting } from './types';
+  import type { ObstacleType } from '../reporting/obstacle';
   import MiniMap from '../map/MiniMap.svelte';
+  import LargeTitleHeader from '../components/LargeTitleHeader.svelte';
+  import StatusBadge from '../reports/StatusBadge.svelte';
+  import LocationEditor from '../map/LocationEditor.svelte';
   import PhotoField from '../reports/PhotoField.svelte';
   import Dropdown from '../reports/Dropdown.svelte';
-  import { obstacleTypeChoices, obstacleTypeLabel } from '../reporting/obstacle';
-  import { geometryCameraTarget, geometryKind, locationCaption as captionFor, type GeometryCameraTarget } from '../reports/reportGeometry';
-  import { drafts } from './mockData';
-  import { reports } from '../reports/reportsData';
+  import { obstacleTypeChoices } from '../reporting/obstacle';
+  import type { ReportGeometry } from '../reports/reportGeometry';
+  import { draftToReport, reportStore } from '../reports/reportStore';
+  import { lastEditedLabel, newObstacleTitle, type Report } from '../reports/reportsData';
 
   const typeOptions = obstacleTypeChoices.map(({ type, label }) => ({ value: type, label }));
+  // Same stored values as before; only the labels say what each answer means.
+  const lightingChoices: readonly { value: Lighting; label: string }[] = [
+    { value: 'yes', label: 'Yes, lit' },
+    { value: 'no', label: 'No, not lit' },
+    { value: 'unknown', label: 'Unknown' },
+  ];
 
+  /** A working copy; edits reach the report store only through Save draft or Send. */
   export let draft: Draft;
+  /** The tag in the header: a draft, or a Ready to send report opened for editing. */
+  export let status: 'draft' | 'ready' = 'draft';
+  /** Back arrow: may ask about unsaved changes first. */
   export let onBack: () => void = () => {};
-  export let onSend: () => void = () => {};
-  export let onShowOnMap: ((target: GeometryCameraTarget) => void) | undefined = undefined;
+  /** After Save draft: leaves without asking, as nothing is unsaved. */
+  export let onDone: () => void = () => {};
+  export let onSend: (report: Report) => void = () => {};
+  /** Whether the form differs from what was opened; App asks before leaving unsaved edits. */
+  export let ondirtychange: (dirty: boolean) => void = () => {};
+
+  const openedAs = JSON.stringify(draft);
+  $: ondirtychange(JSON.stringify(draft) !== openedAs);
 
   function updateHeight(raw: string) {
     if (raw.trim() === '') {
@@ -25,172 +46,208 @@
     draft.heightAboveGround = formatHeightFromMeters(Number.isNaN(meters) ? null : meters);
   }
 
+  // A draft with every required field filled in is complete, so saving makes it Ready to send.
   function saveDraft() {
-    draft.editedDate = formatToday();
-    onBack();
+    if (canSend) reportStore.markReady(draftToReport(draft));
+    else reportStore.saveDraft(draft);
+    onDone();
   }
 
+  // aria-disabled, not disabled: the button stays focusable and its note explains why; it never sends while fields are missing.
   function sendReport() {
     if (!canSend) return;
-    const index = drafts.findIndex(d => d.id === draft.id);
-    if (index !== -1) drafts.splice(index, 1);
-    const meters = heightInMeters(draft.heightAboveGround) ?? 0;
-    reports.push({
-      id: draft.id,
-      name: draft.title,
-      obstacleType: draft.category,
-      heightFeet: Math.round(meters * 3.28084),
-      heightMeters: meters,
-      status: 'pending',
-      createdDate: draft.createdDate,
-      secondaryDate: formatToday(),
-      lighting: draft.lighting,
-      pilotReportText: draft.pilotReportText,
-      reportedByName: draft.reportedByName,
-      reportedByOrg: draft.reportedByOrg,
-      geometry: draft.geometry,
-      photos: draft.photos
-    });
-    onSend();
+    const ready = reportStore.markReady(draftToReport(draft));
+    const sent = ready && reportStore.submitReport(ready.id);
+    if (sent) onSend(sent);
   }
 
-  $: geometryType = geometryKind(draft.geometry);
-  $: typeLabel = obstacleTypeLabel(draft.category);
+  // Not answered stays null; the list shows a placeholder until one is chosen.
+  let lightingChoice: Lighting | '' = draft.lighting ?? '';
+  $: draft.lighting = lightingChoice === '' ? null : lightingChoice;
 
-  function showOnMap() {
-    if (draft.geometry) onShowOnMap?.(geometryCameraTarget(draft.geometry));
+  // About three lines to start, growing with what is typed.
+  function autosize(field: HTMLTextAreaElement) {
+    const fit = () => {
+      field.style.height = 'auto';
+      field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
+    };
+    fit();
+    field.addEventListener('input', fit);
+    return { destroy: () => field.removeEventListener('input', fit) };
+  }
+
+
+  // No type stays empty ("Select type") until one is chosen; nothing defaults to Other.
+  let typeChoice: ObstacleType | '' = draftType(draft) ?? '';
+  $: if (typeChoice !== '') {
+    draft.category = typeChoice;
+    if (draft.typeMissing) draft.typeMissing = false;
+  }
+  $: chosenType = typeChoice === '' ? null : typeChoice;
+  // The name is optional; without one the page is titled like its card, "Untitled obstacle" without a type.
+  $: titleMuted = !draft.title && chosenType === null;
+  $: title = draft.title || (chosenType === null ? 'Untitled obstacle' : newObstacleTitle(chosenType, heightInMeters(draft.heightAboveGround)));
+
+  // The location editor opens over this page; only "Use this location" changes the working copy.
+  let editingLocation = false;
+  let editLocationButton: HTMLButtonElement | undefined;
+
+  function openLocationEditor() {
+    editingLocation = true;
+  }
+
+  async function closeLocationEditor() {
+    editingLocation = false;
+    await tick();
+    editLocationButton?.focus({ preventScroll: true });
+  }
+
+  function useLocation(geometry: ReportGeometry) {
+    draft.geometry = geometry;
+    void closeLocationEditor();
   }
 
   $: missingFields = missingDraftFields(draft);
 
   $: canSend = missingFields.length === 0;
+  $: heightMissing = missingFields.includes('height above ground');
+  $: typeMissing = missingFields.includes('obstacle type');
 
-  $: locationCaption = captionFor(draft.geometry);
+  /** Each missing field's link text and the control it moves focus to; the list comes from missingDraftFields. */
+  const fieldTargets: Record<string, { label: string; id: string }> = {
+    'obstacle type': { label: 'Obstacle type', id: 'draft-type' },
+    'height above ground': { label: 'Height above ground', id: 'draft-height' },
+  };
+  $: missingTargets = missingFields.map((field) => fieldTargets[field] ?? { label: field, id: '' });
+  // "Add obstacle type and height above ground to send", from the same list.
+  $: missingNote = `Add ${joinFields(missingFields)} to send`;
+
+  function joinFields(fields: readonly string[]): string {
+    if (fields.length <= 1) return fields[0] ?? '';
+    return `${fields.slice(0, -1).join(', ')} and ${fields[fields.length - 1]}`;
+  }
+
+  function focusField(event: MouseEvent, id: string) {
+    event.preventDefault();
+    document.getElementById(id)?.focus();
+  }
+
 </script>
 
 <section class="page">
-  <header class="top-bar reports-topbar">
-    <div class="reports-header-row reports-topbar-content">
-      <button class="reports-back" type="button" aria-label="Back to Reports" on:click={onBack}>
-        <svg viewBox="0 0 8 14" fill="none" aria-hidden="true"><path d="M7 1 1 7l6 6" /></svg>
-        <span>Reports</span>
-      </button>
-      <span class="reports-status-badge" data-status="draft">Draft</span>
-    </div>
-  </header>
-
+  {#snippet statusTag()}<StatusBadge {status} />{/snippet}
   <div class="scroll-area">
+    <!-- The shared large-title header. A Ready report goes back to its own page ("‹ Report"); a draft has none, so to the list. -->
+    <LargeTitleHeader {title} {titleMuted} backText={status === 'ready' ? 'Report' : 'Reports'} backLabel={status === 'ready' ? 'Back to report' : 'Back to reports'}
+      onback={onBack} actions={statusTag}>
+      <p class="report-meta">
+        Reported by {draft.reportedByName}, {draft.reportedByOrg}
+        · Last edited <time datetime={draft.updatedAt}>{lastEditedLabel(draft.updatedAt)}</time>
+      </p>
+    </LargeTitleHeader>
     <div class="safe-area">
-      <div class="title-block">
-        <h1>{draft.title}</h1>
-        <div class="subtitle">{#if geometryType}{geometryType} ·{' '}{/if}<strong class="type-highlight">{typeLabel}</strong> · {draft.value}</div>
-      </div>
       {#if !canSend}
+        <!-- Names the missing fields as links to them; never refers to colour. -->
         <div class="needed-box">
-          <div class="needed-title">{missingFields.length} {missingFields.length === 1 ? 'field' : 'fields'} still needed</div>
-          <div class="needed-desc muted">Fill in the fields marked in red below, then send.</div>
+          <p class="needed-title">
+            {missingFields.length} {missingFields.length === 1 ? 'field' : 'fields'} still needed before you can send:
+            {#each missingTargets as target, index (target.id)}{#if index > 0}{', '}{/if}<a class="needed-link" href={`#${target.id}`} on:click={(event) => focusField(event, target.id)}>{target.label}</a>{/each}
+          </p>
         </div>
       {/if}
 
       <div class="fields-row">
         <div class="field-box">
-          <div class="field-label" id="draft-type-label">TYPE</div>
-          <div class="field-value">
-            <Dropdown id="draft-type" labelledby="draft-type-label" options={typeOptions} bind:value={draft.category} />
-          </div>
-          <div class="field-caption muted">{geometryType ?? 'No'} geometry</div>
+          <!-- The same words as the summary and the note by Send. -->
+          <label class="input-label" id="draft-type-label" for="draft-type">Obstacle type</label>
+          <Dropdown id="draft-type" labelledby="draft-type-label" options={typeOptions} bind:value={typeChoice} placeholder="Select type"
+            invalid={typeMissing} describedby={typeMissing ? 'draft-type-error' : undefined} />
+          {#if typeMissing}
+            <p class="field-error" id="draft-type-error">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5v.01" /></svg>
+              Required to send
+            </p>
+          {/if}
         </div>
 
-        <div class="field-box" class:missing={draft.heightAboveGround === 'Not set'}>
-          <div class="field-label">HEIGHT ABOVE GROUND</div>
-          <div class="field-value height-input-wrap">
+        <div class="field-box">
+          <label class="input-label" for="draft-height">Height above ground</label>
+          <!-- A missing height is marked on the field itself, with a reason under it. -->
+          <div class="height-input-wrap" class:invalid={heightMissing}>
             <input
+              id="draft-height"
               type="number"
               min="0"
               inputmode="decimal"
               placeholder="Enter height"
+              aria-invalid={heightMissing || undefined}
+              aria-describedby={heightMissing ? 'draft-height-help draft-height-error' : 'draft-height-help'}
               value={heightInMeters(draft.heightAboveGround) ?? ''}
               on:input={(e) => updateHeight(e.currentTarget.value)}
             />
-            <span class="unit">m</span>
+            <span class="unit" aria-hidden="true">m</span>
           </div>
-          <div class="field-caption muted">Highest point reported</div>
+          <p class="field-help" id="draft-height-help">Highest point reported</p>
+          {#if heightMissing}
+            <p class="field-error" id="draft-height-error">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5v.01" /></svg>
+              Required to send
+            </p>
+          {/if}
         </div>
 
         <div class="field-box">
-          <div class="field-label" id="draft-lighting-label">LIGHTING</div>
-          <div class="lighting-toggle" role="group" aria-labelledby="draft-lighting-label">
-            {#each lightingOptions as option (option.value)}
-              <!-- Pressing the chosen answer again clears it: lighting is optional. -->
-              <button type="button" aria-pressed={draft.lighting === option.value} class:active={draft.lighting === option.value}
-                on:click={() => draft.lighting = draft.lighting === option.value ? null : option.value}>{option.label}</button>
-            {/each}
-          </div>
-          <div class="field-caption muted">Marking on the obstacle</div>
-        </div>
-
-        <div class="field-box">
-          <div class="field-label">PHOTO</div>
-          <PhotoField bind:photos={draft.photos} editable={true} label={draft.title} />
+          <label class="input-label" id="draft-lighting-label" for="draft-lighting">Lighting</label>
+          <Dropdown id="draft-lighting" labelledby="draft-lighting-label" describedby="draft-lighting-help"
+            options={lightingChoices} bind:value={lightingChoice} placeholder="Not set" />
+          <p class="field-help" id="draft-lighting-help">Is the obstacle lit?</p>
         </div>
       </div>
 
-      <div class="info-card">
-        <div class="section-label">DESCRIPTION AND REPORTER</div>
+      <section class="info-card" aria-labelledby="description-heading">
+        <h2 class="section-heading" id="description-heading">Description and photo (optional)</h2>
         <hr class="divider" />
 
         <label class="pilot-label" for="pilot-report">What the pilot reported</label>
-        <textarea id="pilot-report" class="pilot-report" bind:value={draft.pilotReportText}></textarea>
+        <textarea id="pilot-report" class="pilot-report" rows="3" use:autosize bind:value={draft.pilotReportText}></textarea>
 
-        <div class="reporter-row">
-          <span class="muted">Reported by</span>
-          <span class="reporter-name">{draft.reportedByName} · {draft.reportedByOrg}</span>
+        <div class="photo-row">
+          <PhotoField bind:photos={draft.photos} editable={true} label={title} showOptional={false} />
         </div>
-      </div>
+      </section>
 
-      <div class="two-col">
-        <div class="panel">
-          <div class="field-label">LOCATION</div>
-          <MiniMap geometry={draft.geometry} label={draft.title}
-            onshowonmap={onShowOnMap ? showOnMap : undefined} />
-          {#if draft.geometry}<div class="map-caption muted">{locationCaption}</div>{/if}
-        </div>
-
-        <div class="panel">
-          <div class="field-label">ACTIVITY</div>
-          <ul class="activity-list">
-            <li>
-              <span class="dot"></span>
-              <div>
-                <div class="activity-title">Report created</div>
-                <div class="activity-date muted">{draft.createdDate}</div>
-              </div>
-            </li>
-            <li>
-              <span class="dot"></span>
-              <div>
-                <div class="activity-title">Last edited</div>
-                <div class="activity-date muted">{draft.editedDate}</div>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </div>
+      <section class="location-panel panel" aria-labelledby="location-heading">
+          <div class="location-heading">
+            <h2 class="section-heading" id="location-heading">Location</h2>
+            {#if draft.geometry}<button type="button" class="card-cta-link edit-location" bind:this={editLocationButton} on:click={openLocationEditor}>Edit location</button>{/if}
+          </div>
+          <MiniMap geometry={draft.geometry} label={title} onedit={draft.geometry ? openLocationEditor : undefined} />
+      </section>
     </div>
   </div>
 
   <footer class="bottom-bar">
     <div class="actions">
-      <button class="button" on:click={saveDraft}>Save draft</button>
-      <button class="button button--primary" disabled={!canSend} on:click={sendReport}>
-        <span class="paper-plane">➤</span> Send for Review
-      </button>
-      <div class="primary-note">
-        <div class="note-strong">Goes straight to the NRL reviewer</div>
-        <div class="muted">You cannot edit the report after sending</div>
+      <button class="ds-button" data-variant="secondary" data-color="neutral" on:click={saveDraft}>Save draft</button>
+      <!-- The note belongs to Send: right-aligned beside it, above it when narrow. -->
+      <div class="send-group">
+        <div class="send-note" id="send-note">
+          {#if canSend}
+            <div class="note-strong">Goes straight to the NRL reviewer</div>
+            <div class="muted">You cannot edit the report after sending</div>
+          {:else}
+            <div class="note-strong">{missingNote}</div>
+          {/if}
+        </div>
+        <button class="ds-button send-button" data-variant="primary" data-color="brand1" aria-describedby="send-note" aria-disabled={canSend ? undefined : 'true'} on:click={sendReport}>
+          <span class="paper-plane">➤</span> Send for Review
+        </button>
       </div>
     </div>
   </footer>
+  {#if editingLocation && draft.geometry}
+    <LocationEditor geometry={draft.geometry} onuse={useLocation} oncancel={closeLocationEditor} />
+  {/if}
 </section>
 
 <style>
@@ -200,84 +257,84 @@
     background: var(--color-background-page);
   }
 
-  .top-bar { flex-shrink: 0; background: var(--color-background-raised); padding-top: var(--safe-area-top); }
 
-  .title-block { margin-bottom: var(--space-6) }
-  h1 { margin:0 0 var(--space-1); font-size:var(--reports-title-size); font-weight:var(--font-weight-semibold); letter-spacing:var(--faq-title-tracking); line-height:var(--line-height-tight); color:var(--color-text-primary) }
-  .subtitle { color:var(--color-text-secondary); font-size:var(--font-size-body-small) }
-  .type-highlight { font-weight:700; color:var(--color-text-primary) }
   .muted { color:var(--color-text-secondary) }
 
-  .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; }
-  .safe-area { width:100%; max-width:var(--layout-content-max); margin:0 auto; padding:var(--space-6) var(--map-control-inset-right) var(--space-8) var(--map-control-inset-left); box-sizing:border-box; }
+  /* The bar sits below the scroll area, never over it; the padding keeps a focused field clear of its edge. */
+  .scroll-area { flex:1; overflow-y:auto; overscroll-behavior:contain; scroll-padding-block:calc(var(--large-title-bar-height) + var(--space-6)) var(--space-6); /* clear of the sticky bar */ }
+  /* At least the scroll area's height, so the location card can take the room left above the bar. */
+  .safe-area { display:flex; flex-direction:column; min-height:100%; width:100%; max-width:calc(var(--page-content-max) + 2 * var(--page-gutter)); margin:0 auto; padding:var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) var(--space-8) max(var(--page-gutter), var(--safe-area-left)); box-sizing:border-box; }
+  .safe-area > * { flex:none; }
 
-  /* Four cards in a row on large screens, 2 × 2 on iPad and phones. */
-  .fields-row { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:14px; margin-bottom:16px }
-  @media (min-width:68.75rem) { .fields-row { grid-template-columns: repeat(4, minmax(0,1fr)) } }
-  /* Phone-width cards are too narrow for three answers side by side. */
-  @media (max-width:37.499rem) { .lighting-toggle { flex-direction:column } }
-  .field-box { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
-  .field-box.missing { border-color: var(--color-status-error) }
-  .field-label { font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-bottom:6px }
-  .field-value { font-size:17px; font-weight:700; color:var(--color-text-primary); display:flex; align-items:center; justify-content:space-between }
-  .field-caption { font-size:12px; margin-top:4px }
+  /* Type, height and lighting in one row; stacked on phones. */
+  .fields-row { display:grid; grid-template-columns: minmax(0,1fr); gap:14px; margin-bottom:16px }
+  @media (min-width:37.5rem) { .fields-row { grid-template-columns: repeat(3, minmax(0,1fr)) } }
+  /* min-width: 0 lets a grid card shrink to its column; long text wraps instead of overflowing. */
+  .field-box { min-width:0; overflow-wrap:anywhere; border:var(--border-default); border-radius:var(--radius-card); padding:14px; background:var(--color-background-raised) }
+  /* The three top fields: sentence-case labels, regular-weight values, help at the same place under each field. */
+  .input-label { display:block; margin-bottom:var(--space-2); font-size:var(--font-size-body); font-weight:var(--font-weight-semibold); color:var(--color-text-primary) }
+  .field-help { margin:var(--space-2) 0 0; font-size:var(--font-size-body-small); color:var(--color-text-secondary) }
+  .field-error { display:flex; align-items:center; gap:var(--space-1); margin:var(--space-1) 0 0; font-size:var(--font-size-body-small); color:var(--color-status-error) }
+  .field-error svg { flex:none; width:var(--icon-size-small); height:var(--icon-size-small); stroke:currentColor; stroke-width:var(--icon-stroke-width); stroke-linecap:round; stroke-linejoin:round }
 
-  .height-input-wrap { display:flex; align-items:baseline; gap:6px }
+  /* Same height, frame, radius and padding as the lists beside it; "m" ends --space-3 from the right, in line with their arrows. */
+  .height-input-wrap {
+    display:flex; align-items:center; gap:var(--space-2); box-sizing:border-box;
+    height:var(--control-height-default); padding:0 var(--space-3);
+    border:var(--border-strong); border-radius:var(--radius-control); background:var(--color-background-raised);
+  }
+  .height-input-wrap.invalid { border-color:var(--color-status-error) }
+  .height-input-wrap:focus-within { outline:var(--border-width-emphasis) solid var(--color-focus-ring); outline-offset:var(--space-1) }
   .height-input-wrap input {
     width:100%; border:0; background:transparent; padding:0; margin:0;
-    font:inherit; font-size:17px; font-weight:700; color:var(--color-text-primary);
+    font:inherit; font-size:var(--font-size-body); font-weight:var(--font-weight-regular); color:var(--color-text-primary);
     -moz-appearance:textfield; appearance:textfield;
   }
   .height-input-wrap input::-webkit-outer-spin-button,
   .height-input-wrap input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0 }
   .height-input-wrap input:focus { outline:none }
-  .height-input-wrap .unit { color:var(--color-text-secondary); font-weight:600; font-size:14px }
+  /* text-secondary on the raised surface is well over 4.5:1. */
+  .height-input-wrap input::placeholder { color:var(--color-text-secondary); font-weight:var(--font-weight-regular); opacity:1 }
+  .height-input-wrap .unit { flex:none; color:var(--color-text-secondary); font-size:var(--font-size-body); font-weight:var(--font-weight-regular) }
 
 
-  .lighting-toggle { display:flex; gap:var(--space-1) }
-  .lighting-toggle button {
-    flex:1; min-width:0; min-height:var(--target-size-min); padding:0; border-radius:10px; border:var(--border-default);
-    background:var(--color-background-raised); font-weight:700; font-size:var(--font-size-body-small);
-    color:var(--color-text-primary); cursor:pointer;
-  }
-  .lighting-toggle button.active {
-    background:var(--color-action-selected); border-color:var(--color-action-secondary); color:var(--color-action-secondary);
-  }
+  .needed-box { border:var(--border-default); border-radius:var(--radius-card); padding:var(--space-1) 16px; margin-bottom:20px; background:var(--color-background-raised) }
+  .needed-title { margin:0; font-weight:700; color:var(--color-text-primary); line-height:var(--line-height-body) }
+  /* 44 px tall targets inside the sentence. */
+  .needed-link { display:inline-flex; align-items:center; min-height:var(--target-size-min); color:var(--color-action-secondary); font-weight:var(--font-weight-semibold) }
 
-  .needed-box { border:var(--border-default); border-radius:12px; padding:14px 16px; margin-bottom:20px; background:var(--color-background-raised) }
-  .needed-title { font-weight:700; color:var(--color-text-primary); margin-bottom:4px }
-  .needed-desc { font-size:14px }
+  .info-card { border:var(--border-default); border-radius:var(--radius-card); padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
 
-  .info-card { border:var(--border-default); border-radius:12px; padding:16px; margin-bottom:24px; background:var(--color-background-raised) }
-
-  .section-label { font-size:12px; font-weight:700; letter-spacing:0.06em; color:var(--color-text-secondary); margin-top:8px }
+  /* Section headings: like the field labels, sentence case, semibold and dark, one step larger. */
+  .section-heading { margin:0; font-size:var(--font-size-heading-small); font-weight:var(--font-weight-semibold); line-height:var(--line-height-tight); color:var(--color-text-primary) }
   .divider { border:0; height:1px; background:var(--color-border-default); margin:8px 0 16px }
 
   .pilot-label { display:block; font-size:14px; color:var(--color-text-primary); margin-bottom:8px }
-  .pilot-report { width:100%; min-height:70px; resize:vertical; background:var(--color-background-subtle); border:1px solid transparent; border-radius:10px; padding:12px; font:inherit; box-sizing:border-box }
+  /* A visible frame (--border-strong, at least 3:1), about three lines, growing as it fills; the global focus ring stays. */
+  .pilot-report {
+    width:100%; resize:none; overflow:hidden; box-sizing:border-box; padding:12px;
+    border:var(--border-strong); border-radius:var(--radius-control); background:var(--color-background-raised);
+    font:inherit; line-height:var(--line-height-body); color:var(--color-text-primary);
+  }
+  .photo-row { margin-top:var(--space-4) }
 
-  .reporter-row { display:flex; justify-content:space-between; align-items:center; font-size:14px; margin:14px 0 0 }
-  .reporter-name { font-weight:700; color:var(--color-text-primary) }
+  .panel { border:var(--border-default); border-radius:var(--radius-card); padding:14px; background:var(--color-background-raised) }
+  /* Full width where Activity was; the shared report map sets its own 16:9 height and caption. */
+  .location-panel { margin-bottom:var(--space-4) }
+  /* At the top of the content, lined up with the cards, a little space above them. */
+  .report-meta { margin:var(--space-1) 0 0; color:var(--color-text-secondary); font-size:var(--font-size-body-small); overflow-wrap:anywhere }
 
-  .two-col { display:grid; grid-template-columns: 1fr 1fr; gap:16px }
-  .panel { border:var(--border-default); border-radius:12px; padding:14px; background:var(--color-background-raised) }
-
-  .map-caption { font-size:12px; margin-top:8px }
-
-  .activity-list { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:14px }
-  .activity-list li { display:flex; align-items:flex-start; gap:10px }
-  .dot { width:8px; height:8px; border-radius:50%; background:var(--color-border-strong); margin-top:6px; flex-shrink:0 }
-  .activity-title { font-weight:700; font-size:14px; color:var(--color-text-primary) }
-  .activity-date { font-size:12px; margin-top:2px }
+  .location-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--space-2) }
+  .edit-location { min-height:var(--target-size-min); margin-block:calc(-1 * var(--space-3)); padding:0; border:0; background:none; font-size:var(--font-size-body-small); cursor:pointer }
 
   .bottom-bar { flex-shrink:0; background:var(--color-background-raised); border-top:var(--border-default); }
-  .actions { width:100%; max-width:var(--layout-content-max); margin:0 auto; padding:var(--space-4) var(--map-control-inset-right) max(var(--space-4), var(--safe-area-bottom)) var(--map-control-inset-left); box-sizing:border-box; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-3) var(--space-4) }
+  .actions { width:100%; max-width:calc(var(--page-content-max) + 2 * var(--page-gutter)); margin:0 auto; padding:var(--space-4) max(var(--page-gutter), var(--safe-area-right)) max(var(--space-4), var(--safe-area-bottom)) max(var(--page-gutter), var(--safe-area-left)); box-sizing:border-box; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-3) var(--space-4) }
   .paper-plane { transform:rotate(45deg); display:inline-block }
-  /* Full-width row under both buttons, so the note never shifts them. */
-  .primary-note { flex-basis:100%; text-align:center; font-size:12px }
+  .send-group { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:var(--space-2) var(--space-4); margin-left:auto }
+  .send-note { text-align:right; font-size:12px }
   .note-strong { font-weight:700; color:var(--color-text-primary) }
+  /* Every bar and photo control is a 44 px target; Send looks disabled while fields are missing but keeps focus. */
+  .bottom-bar .ds-button, .photo-row :global(button) { min-height:var(--target-size-min) }
+  .send-button[aria-disabled='true'] { opacity:var(--opacity-disabled); cursor:not-allowed }
 
-  @media (max-width:800px) {
-    .two-col { grid-template-columns: 1fr }
-  }
 </style>

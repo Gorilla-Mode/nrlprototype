@@ -60,6 +60,7 @@ for (const variant of [oneStep, oneStepKeypad, twoStep, twoStepKeypad]) {
         assert.equal(details.getState().draft?.report.gps_position, null, 'map tracking is not reporter GPS');
         assert.equal(resolveReportingRoute(variant.stepRoutes[0], details.getState().variant, false, false)?.kind, 'details');
         details.setType(ObstacleType.Bridge);
+        details.setHeight(30);
         assert.equal(settings.variant, debug ? variant : oneStepKeypad);
         if (settings.variant.stepRoutes.length > 1) assert.equal(await details.continue(), true);
         const finish = details.finish();

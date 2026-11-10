@@ -1,0 +1,167 @@
+/*
+ * Designsystemet (designsystemet.no) foundation.
+ *
+ * The packages supply component CSS (ds-button, ds-search, ds-chip, ds-card, ds-tag,
+ * ds-dialog) and a full token set in the `ds` cascade layers. This file maps the
+ * colour, type and radius tokens onto the NRL semantic tokens in stylesheet.css, so
+ * Designsystemet components keep the app's look (Kartverket green as the main action)
+ * and follow its light and dark themes. App styles are unlayered and win over `ds`.
+ *
+ * Colour roles, set per component with data-color:
+ * - accent (default): primary actions, Kartverket green
+ * - brand1: secondary text actions and links, Kartverket blue
+ * - neutral: secondary buttons, chips, cards and fields
+ * - success, info, warning, danger: status tags and alerts
+ *
+ * Never set data-color-scheme: it would load Designsystemet's own palette instead of these.
+ */
+/* Element resets in stylesheet.css sit in app-reset, below ds, so they never undo a ds component. */
+@layer app-reset, ds;
+@import '@digdir/designsystemet-theme';
+@import '@digdir/designsystemet-css';
+
+:root {
+  --ds-font-family: var(--font-family-sans);
+  --ds-border-radius-sm: var(--radius-small);
+  --ds-border-radius-md: var(--radius-control);
+  --ds-border-radius-lg: var(--radius-card);
+  --ds-border-radius-xl: var(--radius-dialog);
+  --ds-border-radius-default: var(--radius-control);
+  --ds-border-radius-full: var(--radius-pill);
+  --ds-color-focus-inner: var(--color-background-raised);
+  --ds-color-focus-outer: var(--color-focus-ring);
+  --ds-shadow-md: var(--shadow-control);
+
+  /* Without data-color, ds components use these: neutral text, borders and surfaces, so a
+     ds-card reads like today's cards. Base colours stay accent, so a plain primary is green. */
+  --ds-color-background-default: var(--color-background-page);
+  --ds-color-background-tinted: var(--color-background-subtle);
+  --ds-color-surface-default: var(--color-background-raised);
+  --ds-color-surface-tinted: var(--color-background-subtle);
+  --ds-color-surface-hover: var(--color-map-control-hover);
+  --ds-color-surface-active: var(--color-action-selected);
+  --ds-color-border-subtle: var(--color-border-default);
+  --ds-color-border-default: var(--color-border-default);
+  --ds-color-border-strong: var(--color-border-strong);
+  --ds-color-text-subtle: var(--color-text-secondary);
+  --ds-color-text-default: var(--color-text-primary);
+
+  --ds-color-accent-background-default: var(--color-background-page);
+  --ds-color-accent-background-tinted: color-mix(in srgb, var(--color-action-primary) 6%, var(--color-background-page));
+  --ds-color-accent-surface-default: var(--color-background-raised);
+  --ds-color-accent-surface-tinted: var(--color-status-success-surface);
+  --ds-color-accent-surface-hover: color-mix(in srgb, var(--color-action-primary) 12%, var(--color-background-raised));
+  --ds-color-accent-surface-active: color-mix(in srgb, var(--color-action-primary) 20%, var(--color-background-raised));
+  --ds-color-accent-border-subtle: var(--color-border-default);
+  --ds-color-accent-border-default: color-mix(in srgb, var(--color-action-primary) 60%, var(--color-border-default));
+  --ds-color-accent-border-strong: var(--color-action-primary);
+  --ds-color-accent-text-subtle: var(--color-action-primary);
+  --ds-color-accent-text-default: var(--color-action-primary-hover);
+  --ds-color-accent-base-default: var(--color-action-primary);
+  --ds-color-accent-base-hover: var(--color-action-primary-hover);
+  --ds-color-accent-base-active: var(--color-action-primary-active);
+  --ds-color-accent-base-contrast-subtle: var(--color-action-primary-text);
+  --ds-color-accent-base-contrast-default: var(--color-action-primary-text);
+
+  --ds-color-brand1-background-default: var(--color-background-page);
+  --ds-color-brand1-background-tinted: color-mix(in srgb, var(--color-action-secondary) 6%, var(--color-background-page));
+  --ds-color-brand1-surface-default: var(--color-background-raised);
+  --ds-color-brand1-surface-tinted: var(--color-action-selected);
+  --ds-color-brand1-surface-hover: var(--color-map-control-hover);
+  --ds-color-brand1-surface-active: var(--color-action-selected);
+  --ds-color-brand1-border-subtle: var(--color-border-default);
+  --ds-color-brand1-border-default: color-mix(in srgb, var(--color-action-secondary) 60%, var(--color-border-default));
+  --ds-color-brand1-border-strong: var(--color-action-secondary);
+  --ds-color-brand1-text-subtle: var(--color-action-secondary);
+  --ds-color-brand1-text-default: var(--color-action-secondary);
+  --ds-color-brand1-base-default: var(--color-action-secondary);
+  --ds-color-brand1-base-hover: var(--color-action-secondary-hover);
+  --ds-color-brand1-base-active: var(--color-action-secondary-hover);
+  --ds-color-brand1-base-contrast-subtle: var(--color-text-inverse);
+  --ds-color-brand1-base-contrast-default: var(--color-text-inverse);
+
+  --ds-color-neutral-background-default: var(--color-background-page);
+  --ds-color-neutral-background-tinted: var(--color-background-subtle);
+  --ds-color-neutral-surface-default: var(--color-background-raised);
+  --ds-color-neutral-surface-tinted: var(--color-background-subtle);
+  --ds-color-neutral-surface-hover: var(--color-map-control-hover);
+  --ds-color-neutral-surface-active: var(--color-action-selected);
+  --ds-color-neutral-border-subtle: var(--color-border-default);
+  --ds-color-neutral-border-default: var(--color-border-default);
+  --ds-color-neutral-border-strong: var(--color-border-strong);
+  --ds-color-neutral-text-subtle: var(--color-text-secondary);
+  --ds-color-neutral-text-default: var(--color-text-primary);
+  --ds-color-neutral-base-default: var(--color-text-primary);
+  --ds-color-neutral-base-hover: var(--color-text-secondary);
+  --ds-color-neutral-base-active: var(--color-text-secondary);
+  --ds-color-neutral-base-contrast-subtle: var(--color-text-inverse);
+  --ds-color-neutral-base-contrast-default: var(--color-text-inverse);
+
+  --ds-color-success-background-default: var(--color-background-page);
+  --ds-color-success-background-tinted: var(--color-status-success-surface);
+  --ds-color-success-surface-default: var(--color-background-raised);
+  --ds-color-success-surface-tinted: var(--color-status-success-surface);
+  --ds-color-success-surface-hover: var(--color-status-success-surface);
+  --ds-color-success-surface-active: var(--color-status-success-surface);
+  --ds-color-success-border-subtle: var(--color-status-success-surface);
+  --ds-color-success-border-default: var(--color-status-success);
+  --ds-color-success-border-strong: var(--color-status-success);
+  --ds-color-success-text-subtle: var(--color-status-success);
+  --ds-color-success-text-default: var(--color-status-success);
+  --ds-color-success-base-default: var(--color-status-success);
+  --ds-color-success-base-hover: var(--color-action-primary-hover);
+  --ds-color-success-base-active: var(--color-action-primary-active);
+  --ds-color-success-base-contrast-subtle: var(--color-text-inverse);
+  --ds-color-success-base-contrast-default: var(--color-text-inverse);
+
+  --ds-color-info-background-default: var(--color-background-page);
+  --ds-color-info-background-tinted: var(--color-status-info-surface);
+  --ds-color-info-surface-default: var(--color-background-raised);
+  --ds-color-info-surface-tinted: var(--color-status-info-surface);
+  --ds-color-info-surface-hover: var(--color-status-info-surface);
+  --ds-color-info-surface-active: var(--color-status-info-surface);
+  --ds-color-info-border-subtle: var(--color-status-info-surface);
+  --ds-color-info-border-default: var(--color-status-info);
+  --ds-color-info-border-strong: var(--color-status-info);
+  --ds-color-info-text-subtle: var(--color-status-info);
+  --ds-color-info-text-default: var(--color-status-info);
+  --ds-color-info-base-default: var(--color-status-info);
+  --ds-color-info-base-hover: var(--color-action-secondary-hover);
+  --ds-color-info-base-active: var(--color-action-secondary-hover);
+  --ds-color-info-base-contrast-subtle: var(--color-text-inverse);
+  --ds-color-info-base-contrast-default: var(--color-text-inverse);
+
+  --ds-color-warning-background-default: var(--color-background-page);
+  --ds-color-warning-background-tinted: var(--color-status-warning-surface);
+  --ds-color-warning-surface-default: var(--color-background-raised);
+  --ds-color-warning-surface-tinted: var(--color-status-warning-surface);
+  --ds-color-warning-surface-hover: var(--color-status-warning-surface);
+  --ds-color-warning-surface-active: var(--color-status-warning-surface);
+  --ds-color-warning-border-subtle: var(--color-status-warning-surface);
+  --ds-color-warning-border-default: var(--color-status-warning);
+  --ds-color-warning-border-strong: var(--color-status-warning);
+  --ds-color-warning-text-subtle: var(--color-status-warning);
+  --ds-color-warning-text-default: var(--color-status-warning);
+  --ds-color-warning-base-default: var(--color-status-warning);
+  --ds-color-warning-base-hover: var(--color-status-warning);
+  --ds-color-warning-base-active: var(--color-status-warning);
+  --ds-color-warning-base-contrast-subtle: var(--color-text-inverse);
+  --ds-color-warning-base-contrast-default: var(--color-text-inverse);
+
+  --ds-color-danger-background-default: var(--color-background-page);
+  --ds-color-danger-background-tinted: var(--color-status-error-surface);
+  --ds-color-danger-surface-default: var(--color-background-raised);
+  --ds-color-danger-surface-tinted: var(--color-status-error-surface);
+  --ds-color-danger-surface-hover: var(--color-status-error-surface);
+  --ds-color-danger-surface-active: var(--color-status-error-surface);
+  --ds-color-danger-border-subtle: var(--color-status-error-surface);
+  --ds-color-danger-border-default: var(--color-status-error);
+  --ds-color-danger-border-strong: var(--color-status-error);
+  --ds-color-danger-text-subtle: var(--color-status-error);
+  --ds-color-danger-text-default: var(--color-status-error);
+  --ds-color-danger-base-default: var(--color-status-error);
+  --ds-color-danger-base-hover: var(--color-status-error);
+  --ds-color-danger-base-active: var(--color-status-error);
+  --ds-color-danger-base-contrast-subtle: var(--color-text-inverse);
+  --ds-color-danger-base-contrast-default: var(--color-text-inverse);
+}

@@ -128,6 +128,21 @@
   --color-status-info-surface: var(--palette-blue-50);
   --color-status-warning-surface: var(--palette-amber-50);
   --color-status-error-surface: var(--palette-red-50);
+  /* Report statuses: one fixed colour each in Reports and Notifications, built only on the
+     status roles above (Kartverket palette), so dark themes follow. Green is approval only. */
+  /* Draft grey (pencil), Ready to send blue (clock), Sent green (check): text on surface ≥ 4.5:1. */
+  --color-status-draft: var(--color-text-secondary);
+  --color-status-draft-surface: var(--color-background-subtle);
+  --color-status-ready: var(--color-status-info);
+  --color-status-ready-surface: var(--color-status-info-surface);
+  --color-status-sent: var(--color-status-success);
+  --color-status-sent-surface: var(--color-status-success-surface);
+  --color-status-review: var(--color-status-warning);
+  --color-status-review-surface: var(--color-status-warning-surface);
+  --color-status-approved: var(--color-status-success);
+  --color-status-approved-surface: var(--color-status-success-surface);
+  --color-status-rejected: var(--color-status-error);
+  --color-status-rejected-surface: var(--color-status-error-surface);
   --color-map-point: var(--palette-amber-700);
   --color-map-line: var(--palette-blue-600);
   --color-map-area: var(--palette-teal-600);
@@ -153,11 +168,6 @@
   /* Not redefined for dark themes yet; the error report keeps its design colours. */
   --color-error-report-coordinates: var(--palette-orange-600);
   --color-error-report-move: var(--palette-orange-600);
-  --color-error-report-highlight-surface: var(--palette-violet-50);
-  --color-error-report-on-highlight: var(--palette-gray-900);
-  --color-error-report-finish: var(--palette-forest-800);
-  --color-error-report-finish-hover: color-mix(in srgb, var(--palette-forest-800) 85%, var(--palette-black));
-  --color-error-report-on-accent: var(--palette-neutral-0);
 }
 
 /* 3. Light and dark themes */
@@ -264,6 +274,7 @@
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
+  --font-weight-bold: 700;
   --line-height-tight: 1.25;
   --line-height-body: 1.5;
   --line-height-relaxed: 1.625;
@@ -286,6 +297,13 @@
 /* 6. Horizontal gutters and content widths */
 :root {
   --layout-gutter-inline: var(--space-4);
+  /* Every full-screen page (Reports, FAQ, Settings, Notifications, guide): one width, gutter and header. */
+  --page-content-max: 52rem;
+  --page-gutter: var(--space-4);
+  --page-header-height: 3.5rem;
+  --page-content-top: var(--space-6);
+  --page-content-bottom: var(--space-12);
+  --page-section-gap: var(--space-8);
   --layout-content-max: 72rem;
   --layout-form-max: 42rem;
   --layout-reading-max: 65ch;
@@ -447,15 +465,8 @@
   --dialog-icon-offset: calc((var(--target-size-min) - var(--icon-size-large)) / 2);
 }
 
-/* Dialog actions: the app's blue for the main action, a quiet text button beside it.
-   Both keep the shared button height. */
-.dialog-action-primary { border-color: var(--color-action-secondary); background: var(--color-action-secondary); color: var(--color-text-inverse); font-weight: var(--font-weight-semibold); }
-.dialog-action-primary:not(:disabled):hover { border-color: var(--color-action-secondary-hover); background: var(--color-action-secondary-hover); }
-.dialog-action-primary:not(:disabled):active { opacity: var(--opacity-subdued); background: var(--color-action-secondary); }
-/* Text-only, but never narrower than the 44 px target; .button keeps it 48 px tall like the primary. */
-.dialog-action-secondary { min-width: var(--target-size-min); border-color: transparent; background: transparent; color: var(--color-action-secondary); font-weight: var(--font-weight-semibold); }
-.dialog-action-secondary:not(:disabled):hover { background: var(--color-map-control-hover); }
-.dialog-action-secondary:not(:disabled):active { background: var(--color-action-selected); }
+/* Dialog actions are ds-button: primary (green) and a tertiary text action (blue, brand1). */
+.ds-button.dialog-action-secondary { min-width: var(--target-size-min); }
 
 .surface-card,
 .surface-panel,
@@ -606,7 +617,8 @@
 .geolocation-button[data-state='locating'] svg,
 .geolocation-button[data-state='following'] svg,
 .geolocation-button[data-state='background'] svg {
-  color: var(--color-status-success);
+  /* An active control, not a status: the selected blue. */
+  color: var(--color-action-secondary);
 }
 
 .geolocation-button[data-state='error'] svg {
@@ -774,11 +786,14 @@ body {
   line-height: var(--line-height-body);
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
+/* Layered below Designsystemet: ds components set their own type. */
+@layer app-reset {
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
 }
 
 button {
@@ -849,13 +864,6 @@ button {
   --faq-link-icon: 1.0625rem;
   --faq-reveal-duration: 170ms;
   --faq-focus-offset: 0.125rem;
-  /* Matches --faq-title-size/--settings-title-size: the same sticky
-     title + back/close icon-button pattern used on all three pages. */
-  --reports-title-size: 1.625rem;
-  /* Back chevron drawn at the text's cap height, with a stroke matching medium-weight text. */
-  --reports-back-icon-height: 0.72em;
-  --reports-back-stroke-width: 2.25;
-  --reports-mini-map-height: 10rem;
 }
 
 .menu-drawer {
@@ -882,13 +890,13 @@ button {
 .menu-header h2, .menu-section h3 {
   margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: var(--font-weight-semibold);
 }
-.menu-close, .faq-icon-button, .reports-icon-button, .notifications-icon-button {
+.menu-close {
   display: grid; place-items: center; flex: none;
   width: var(--target-size-min); min-height: var(--target-size-min); padding: 0;
   border: 0; border-radius: var(--radius-round); background: var(--color-background-subtle); color: var(--color-text-primary); cursor: pointer;
 }
-.menu-drawer svg, .faq-page svg, .reports-page svg, .reports-topbar svg, .notifications-page svg, .settings-page svg { flex: none; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
-.menu-close svg, .faq-icon-button svg, .reports-icon-button svg, .notifications-icon-button svg { width: var(--icon-size-large); height: var(--icon-size-large); }
+.menu-drawer svg, .faq-page svg, .reports-page svg, .notifications-page svg, .settings-page svg { flex: none; stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+.menu-close svg { width: var(--icon-size-large); height: var(--icon-size-large); }
 .menu-scroll {
   display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   padding: 0 max(var(--menu-padding), var(--safe-area-right)) max(var(--menu-padding), var(--safe-area-bottom)) var(--menu-padding);
@@ -912,30 +920,20 @@ button {
 
 .faq-page, .reports-page, .notifications-page { position: fixed; inset: 0; z-index: var(--layer-dialog); overflow-y: auto; overscroll-behavior: contain; background: var(--color-background-page); color: var(--color-text-primary); }
 .faq-page h1, .faq-page h2, .faq-page h3, .faq-page p, .reports-page h1, .reports-page p { margin: 0; }
-.faq-header, .reports-header { position: sticky; top: 0; z-index: var(--layer-map-overlay); background: var(--color-background-raised); border-bottom: var(--border-default); padding-top: var(--safe-area-top); }
-.faq-header-content { display: flex; align-items: center; gap: var(--space-2); min-height: var(--faq-header-height); max-width: calc(var(--faq-content-max) + 2 * var(--faq-gutter)); margin-inline: auto; padding-inline: max(var(--faq-gutter), var(--safe-area-left)) max(var(--faq-gutter), var(--safe-area-right)); font-size: var(--faq-header-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-header-tracking); }
-.faq-icon-button, .reports-icon-button, .notifications-icon-button { background: transparent; }
-.faq-content { width: 100%; max-width: calc(var(--faq-content-max) + 2 * var(--faq-gutter)); margin-inline: auto; padding: var(--faq-content-top) max(var(--faq-gutter), var(--safe-area-right)) max(var(--faq-content-bottom), var(--safe-area-bottom)) max(var(--faq-gutter), var(--safe-area-left)); overflow-wrap: anywhere; }
-.faq-content h1 { font-size: var(--faq-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); margin-bottom: var(--space-2); }
 .faq-introduction { font-size: var(--font-size-body); line-height: var(--faq-intro-leading); color: var(--color-text-secondary); }
 .faq-page .faq-prototype { margin-block: var(--space-4) var(--icon-size-default); padding: var(--space-3) var(--space-4); border-left: var(--border-width-emphasis) solid var(--color-status-info); color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: var(--line-height-body); }
-.faq-search { display: flex; align-items: center; gap: var(--space-3); min-height: var(--faq-control-height); padding-inline: var(--space-4) var(--space-1); border: var(--border-strong); border-radius: var(--faq-control-radius); background: var(--color-background-raised); }
-.faq-search > svg { width: var(--icon-size-default); height: var(--icon-size-default); color: var(--color-text-secondary); }
-.faq-search input { min-width: 0; width: 100%; min-height: var(--target-size-min); border: 0; padding: var(--space-2) 0; background: transparent; color: var(--color-text-primary); font-size: var(--font-size-body); }
-.faq-search input::placeholder { color: var(--color-text-secondary); opacity: var(--opacity-opaque); }
-.faq-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
 .faq-safety { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--faq-row-gap) var(--space-4); margin-top: var(--space-4); border: var(--border-default); border-radius: var(--faq-control-radius); background: var(--color-background-subtle); }
-.faq-safety > svg { width: var(--icon-size-default); height: var(--icon-size-default); color: var(--color-status-success); }
+.faq-safety > svg { width: var(--icon-size-default); height: var(--icon-size-default); color: var(--color-status-info); }
 .faq-safety h2 { font-size: var(--faq-small-text-size); font-weight: var(--font-weight-semibold); margin-bottom: var(--faq-tight-gap); }
 .faq-safety p { font-size: var(--faq-small-text-size); line-height: var(--line-height-body); color: var(--color-text-secondary); }
 .faq-section { margin-top: var(--faq-section-gap); }
 .faq-section > h2 { font-size: var(--faq-section-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-section-tracking); color: var(--color-text-secondary); margin-bottom: var(--faq-section-heading-gap); }
 .faq-card, .faq-help, .faq-empty { border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); }
-.faq-card { overflow: hidden; }
+.faq-card { overflow: hidden; padding: 0; }
 .faq-item + .faq-item { border-top: var(--border-default); }
 .faq-question { display: flex; align-items: center; justify-content: space-between; gap: var(--faq-row-gap); width: 100%; min-height: var(--control-height-large); padding: var(--space-3) var(--faq-row-padding-inline); border: 0; text-align: left; background: transparent; color: var(--color-text-primary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: var(--faq-question-leading); cursor: pointer; }
 .faq-question span { min-width: 0; }
-.faq-question { scroll-margin-block-start: calc(var(--faq-header-height) + var(--safe-area-top) + var(--space-4)); }
+.faq-question { scroll-margin-block-start: calc(var(--page-header-height) + var(--safe-area-top) + var(--space-4)); }
 .faq-question svg { width: var(--icon-size-default); height: var(--icon-size-default); color: var(--color-text-secondary); }
 .faq-question:hover { background: var(--color-map-control-hover); }
 .faq-question:active { background: var(--color-background-subtle); }
@@ -943,17 +941,17 @@ button {
 .faq-note { display: flex; align-items: flex-start; gap: var(--faq-section-heading-gap); margin-top: var(--space-3); padding: var(--space-3) var(--faq-row-gap); border: var(--border-width-default) solid var(--color-border-strong); border-radius: var(--radius-control); background: var(--color-background-subtle); color: var(--color-text-primary); font-size: var(--faq-small-text-size); font-weight: var(--font-weight-medium); line-height: var(--line-height-body); }
 .faq-note svg { width: var(--menu-icon-size); height: var(--menu-icon-size); color: var(--color-status-info); }
 .faq-unavailable { margin-top: var(--faq-row-gap); }
-.faq-link { display: inline-flex; align-items: center; gap: var(--faq-link-gap); min-height: var(--target-size-min); max-width: 100%; padding: var(--space-2) 0; border: 0; background: transparent; text-align: left; text-decoration: underline; text-underline-offset: var(--faq-tight-gap); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
 .faq-link svg { width: var(--faq-link-icon); height: var(--faq-link-icon); }
-.faq-link:disabled, .faq-primary:disabled { opacity: var(--opacity-opaque); color: var(--color-text-disabled); cursor: not-allowed; }
 .faq-availability { font-size: var(--font-size-body); color: var(--color-text-secondary); line-height: var(--line-height-body); }
 .faq-help { margin-top: var(--faq-panel-gap); padding: var(--faq-panel-padding); }
 .faq-help h2, .faq-empty h2 { font-size: var(--faq-panel-title-size); font-weight: var(--font-weight-semibold); }
 .faq-help > p { margin-top: var(--faq-heading-gap); color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: var(--faq-answer-leading); }
 .faq-help .faq-unavailable { margin-top: var(--space-4); }
-.faq-primary { min-height: var(--faq-control-height); max-width: 100%; padding: var(--space-3) var(--space-6); border: var(--border-default); border-radius: var(--radius-pill); background: var(--color-background-subtle); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
 .faq-help .faq-availability { margin-top: var(--space-2); }
 .faq-empty { margin-top: var(--faq-section-gap); padding: var(--faq-panel-padding); text-align: center; }
+.faq-empty h2 { overflow-wrap: anywhere; }
+.faq-empty .faq-empty-hint { margin-top: var(--faq-heading-gap); color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: var(--faq-answer-leading); }
+.faq-empty-clear { margin-top: var(--space-2); }
 .faq-page :focus-visible, .reports-page :focus-visible, .notifications-page :focus-visible { outline-offset: var(--faq-focus-offset); }
 .faq-question:focus-visible { outline-offset: calc(-1 * var(--border-width-emphasis)); }
 @keyframes faq-reveal { from { opacity: 0; transform: translateY(var(--space-1)); } to { opacity: 1; transform: translateY(0); } }
@@ -962,15 +960,12 @@ button {
 @media (min-width: 52rem) { :root { --faq-gutter: var(--space-8); } }
 @media (prefers-reduced-motion: reduce) { .faq-answer { animation: none; } }
 
-.menu-row:not(:disabled):hover, .menu-close:hover, .faq-icon-button:hover, .reports-icon-button:hover, .notifications-icon-button:hover { background: var(--color-map-control-hover); }
-.menu-row:not(:disabled):active, .menu-close:active, .faq-icon-button:active, .reports-icon-button:active, .notifications-icon-button:active { background: var(--color-background-subtle); }
+.menu-row:not(:disabled):hover, .menu-close:hover { background: var(--color-map-control-hover); }
+.menu-row:not(:disabled):active, .menu-close:active { background: var(--color-background-subtle); }
 
 /* 24. Settings: shared neutral surfaces, compact navigation, bounded reading width. */
 :root {
-  --settings-shell-max: 76rem;
   --settings-sidebar-width: 13.75rem;
-  --settings-content-max: 42.5rem;
-  --settings-title-size: 1.625rem;
   --settings-section-size: 0.8125rem;
   --settings-avatar-size: 3rem;
   --settings-switch-width: 2.25rem;
@@ -978,13 +973,10 @@ button {
   --settings-switch-knob: 0.875rem;
   --settings-switch-inset: 0.125rem;
   --settings-switch-travel: 1rem;
-  --settings-outer-gap: var(--space-6);
   --settings-content-padding: var(--space-8);
 }
-.settings-page { position: fixed; inset: 0; z-index: var(--layer-dialog); display: flex; justify-content: center; padding: max(var(--settings-outer-gap), var(--safe-area-top)) max(var(--settings-outer-gap), var(--safe-area-right)) max(var(--settings-outer-gap), var(--safe-area-bottom)) max(var(--settings-outer-gap), var(--safe-area-left)); background: var(--color-background-page); color: var(--color-text-primary); }
-.settings-shell { display: grid; grid-template-columns: var(--settings-sidebar-width) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); width: 100%; max-width: var(--settings-shell-max); background: var(--color-background-raised); border: var(--border-default); border-radius: var(--radius-card); overflow: hidden; }
-.settings-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) var(--space-4); border-bottom: var(--border-default); }
-.settings-header h2 { margin: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
+.settings-page { position: fixed; inset: 0; z-index: var(--layer-dialog); display: flex; flex-direction: column; background: var(--color-background-page); color: var(--color-text-primary); }
+.settings-shell { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--settings-sidebar-width) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); width: calc(100% - max(var(--page-gutter), var(--safe-area-left)) - max(var(--page-gutter), var(--safe-area-right))); max-width: var(--page-content-max); margin: var(--page-content-top) auto max(var(--page-content-top), var(--safe-area-bottom)); background: var(--color-background-raised); border: var(--border-default); border-radius: var(--radius-card); overflow: hidden; }
 .settings-sidebar { min-height: 0; display: flex; flex-direction: column; overflow-y: auto; border-right: var(--border-default); padding: var(--space-4) var(--space-2); }
 .settings-nav-group + .settings-nav-group { margin-top: var(--space-5); }
 .settings-nav-group h3, .settings-section-label { margin: 0; padding: 0 var(--space-2) var(--space-2); font-size: var(--settings-section-size); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); letter-spacing: var(--faq-section-tracking); }
@@ -998,13 +990,12 @@ button {
 .settings-sidebar-footer { margin-top: auto; padding-top: var(--space-6); }
 .settings-mobile-nav { display: none; }
 .settings-content { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--settings-content-padding); }
-.settings-content-column { width: 100%; max-width: var(--settings-content-max); margin-inline: auto; overflow-wrap: anywhere; }
-.settings-content h1 { margin: 0 0 var(--space-2); font-size: var(--settings-title-size); font-weight: var(--font-weight-semibold); }
+.settings-content-column { width: 100%; margin-inline: auto; overflow-wrap: anywhere; }
 .settings-content h2 { margin: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
 .settings-content p { margin: var(--space-2) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: var(--line-height-body); }
 .settings-content .settings-description { margin: 0 0 var(--space-6); }
 .settings-card { min-width: 0; margin: 0 0 var(--space-5); padding: var(--space-4); border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); }
-.settings-card .button { margin-top: var(--space-4); }
+.settings-card .ds-button { margin-top: var(--space-4); }
 .settings-content .settings-notice { margin-block: var(--space-4); }
 .settings-profile { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-5); }
 .settings-profile p { margin: 0; }
@@ -1034,8 +1025,8 @@ button {
 .settings-page :focus-visible { outline-offset: var(--space-1); }
 .settings-nav-row:focus-visible { outline-offset: calc(-1 * var(--border-width-emphasis)); }
 @media (max-width: 47.999rem) {
-  :root { --settings-outer-gap: 0px; --settings-content-padding: var(--space-4); }
-  .settings-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); border: 0; border-radius: 0; }
+  :root { --settings-content-padding: var(--space-4); }
+  .settings-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); width: 100%; margin: 0; border: 0; border-radius: 0; }
   .settings-sidebar { display: none; }
   .settings-mobile-nav { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: var(--border-default); font-size: var(--font-size-body); }
 }
@@ -1047,74 +1038,77 @@ button {
    (--layout-content-max, ~1200px, and --layout-gutter-inline via the safe-area-aware
    --map-control-inset-* aliases) instead of the narrower FAQ/Settings page tokens. */
 .reports-header-row {
-  max-width: var(--layout-content-max);
+  max-width: calc(var(--page-content-max) + 2 * var(--page-gutter));
   margin-inline: auto;
-  padding-inline: var(--map-control-inset-left) var(--map-control-inset-right);
+  padding-inline: max(var(--page-gutter), var(--safe-area-left)) max(var(--page-gutter), var(--safe-area-right));
 }
-/* Top bar shared by the reports list and the report/draft detail pages, after the
-   iPadOS navigation bar: a blue back button naming the destination, and on the list a
-   small title that appears once the large title has scrolled under the bar. */
-.reports-topbar { border-bottom: var(--border-default); }
-.reports-header .reports-topbar { border-bottom: 0; }
-.reports-topbar-content { position: relative; display: flex; align-items: center; gap: var(--space-2); min-height: var(--faq-header-height); }
-.reports-topbar-collapsed-title { position: absolute; left: 50%; transform: translateX(-50%); font-size: var(--faq-header-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-header-tracking); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity var(--duration-default) var(--ease-standard); }
-.reports-topbar-collapsed-title.visible { opacity: 1; }
-/* Chevron and destination read as one button. The padding gives a 44 × 44px target and
-   the matching negative margin keeps the chevron's left edge on the title's left edge. */
-.reports-back { display: inline-flex; align-items: center; gap: calc(var(--space-1) + var(--border-width-default)); min-width: var(--target-size-min); min-height: var(--target-size-min); margin-inline-start: calc(-1 * var(--space-2)); padding: 0 var(--space-2); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-action-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); line-height: var(--line-height-tight); cursor: pointer; }
-.reports-back svg { flex: none; width: calc(var(--reports-back-icon-height) * 8 / 14); height: var(--reports-back-icon-height); overflow: visible; }
-.reports-back svg path { stroke-width: var(--reports-back-stroke-width); stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.reports-back:hover { background: var(--color-map-control-hover); color: var(--color-action-secondary-hover); }
-.reports-back:active { opacity: var(--opacity-subdued); }
-.reports-topbar-content > .reports-status-badge { margin-left: auto; }
 .reports-segmented { display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-control); background: var(--color-background-subtle); }
 .reports-segment { min-height: var(--control-height-default); padding-inline: var(--space-6); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-medium); cursor: pointer; }
 .reports-segment[aria-pressed='true'] { background: var(--color-background-raised); color: var(--color-text-primary); font-weight: var(--font-weight-semibold); box-shadow: var(--shadow-surface); }
 .reports-segment:hover { background: var(--color-map-control-hover); }
 .reports-segment[aria-pressed='true']:hover { background: var(--color-background-raised); }
 
-/* iPadOS large title: scrolls with the content under the sticky top bar. */
-.reports-intro { padding-block: var(--space-4) var(--space-5); border-bottom: var(--border-default); background: var(--color-background-raised); }
-.reports-large-title { font-size: var(--font-size-display); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); line-height: var(--line-height-tight); }
-.reports-subtitle { margin-top: var(--space-1); color: var(--color-text-secondary); font-size: var(--font-size-body); }
+/* Large-title header (Reports list, report detail and edit pages): a 56 px bar with a back
+   button 12 px from the screen edge, then a large title in the content column. */
+:root {
+  --large-title-bar-height: var(--control-height-large);   /* 56 px */
+  --large-title-bar-inset: var(--space-3);                   /* 12 px */
+  --large-title-back-font-size: var(--detail-font-size-body); /* 17 px */
+  --large-title-size-list: 1.875rem;                         /* 30 px */
+  --large-title-size-page: 1.625rem;                         /* 26 px */
+}
 
-/* Search, Filter and Select share one control height so they line up. Filter and Select
-   are secondary: raised surface, thin border, smaller text. */
+/* Search and Select share one control height so they line up. Select is secondary:
+   raised surface, thin border, smaller text. */
 .reports-toolbar { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-5); flex-wrap: wrap; }
 .reports-search { flex: 1; min-width: 12rem; }
-.reports-tool-button { flex: none; min-height: var(--control-height-default); font-size: var(--font-size-body-small); font-weight: var(--font-weight-medium); }
+/* .ds-input sets its own border colour on the input, so the frame is set here to match the buttons. */
+.reports-search .ds-input { --dsc-input-border-color: var(--color-border-strong); }
+/* Search, Geometry, Height and Select: one height, radius, frame colour and type. */
+.reports-tool-button { flex: none; min-height: var(--control-height-default); border: var(--border-strong); border-radius: var(--radius-control); font-size: var(--font-size-body); font-weight: var(--font-weight-regular); }
 .reports-tool-button:not(.button--primary) { background: var(--color-background-raised); }
 .reports-tool-button svg { flex: none; width: var(--icon-size-default); height: var(--icon-size-default); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 
-.reports-status-tabs { display: flex; gap: var(--space-3); margin-top: var(--space-4); flex-wrap: wrap; }
-.reports-status-tab { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-height-default); padding-inline: var(--space-5); border: var(--border-default); border-radius: var(--radius-pill); background: var(--color-background-raised); color: var(--color-text-secondary); font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); cursor: pointer; }
-.reports-status-tab[aria-pressed='true'] { border-color: var(--color-action-secondary); background: var(--color-action-secondary); color: var(--color-text-inverse); }
-.reports-status-tab:hover { background: var(--color-map-control-hover); }
-.reports-status-tab[aria-pressed='true']:hover { background: var(--color-action-secondary-hover); }
-.reports-status-tab-count { font-weight: var(--font-weight-medium); opacity: var(--opacity-subdued); }
+.reports-filter-clear-row { margin-top: var(--space-2); }
+.reports-filter-clear { min-height: var(--target-size-min); padding: 0; border: 0; background: none; font-size: var(--font-size-body-small); cursor: pointer; }
 
-.reports-content { width: 100%; max-width: var(--layout-content-max); margin-inline: auto; padding: var(--faq-content-top) var(--map-control-inset-right) max(var(--faq-content-bottom), var(--safe-area-bottom)) var(--map-control-inset-left); overflow-wrap: anywhere; }
+/* Status tabs under the search row: text tabs, the pressed one in blue with a blue underline.
+   They sit on the intro's full-width bottom rule (its padding is cancelled), which separates
+   them from the list. The first tab's text lines up with the search. */
+.reports-status-rule { margin-top: var(--space-4); margin-bottom: calc(-1 * var(--space-5)); }
+.reports-status-tabs { display: flex; gap: var(--space-5); overflow-x: auto; overscroll-behavior-x: contain; }
+.reports-status-tab {
+  flex: none; display: inline-flex; align-items: center; gap: var(--space-1);
+  min-height: var(--target-size-min); padding: 0;
+  border: 0; border-bottom: var(--border-width-emphasis) solid transparent; background: none;
+  color: var(--color-text-secondary); font: inherit; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); cursor: pointer;
+}
+.reports-status-tab:hover { color: var(--color-text-primary); }
+.reports-status-tab[aria-pressed='true'] { border-bottom-color: var(--color-action-secondary); color: var(--color-action-secondary); font-weight: var(--font-weight-semibold); }
+.reports-status-tab-count { font-weight: var(--font-weight-regular); color: var(--color-text-secondary); }
 
-/* One column by default (mobile); two from 600px, three from 1100px. */
+.reports-content { width: 100%; max-width: calc(var(--page-content-max) + 2 * var(--page-gutter)); margin-inline: auto; padding: var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) max(var(--page-content-bottom), var(--safe-area-bottom)) max(var(--page-gutter), var(--safe-area-left)); overflow-wrap: anywhere; }
+
+/* One column by default (mobile); two from 600px, the most the shared page width holds. */
 /* Every card has the same three lines, so equal rows add no gaps; they keep the footer
    rules aligned across rows even when a long title wraps. */
 .reports-card-grid { display: grid; grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: var(--space-5); }
 @media (min-width: 37.5rem) {
   .reports-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (min-width: 68.75rem) {
-  .reports-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
 
-/* Below 600px: search takes its own row with Filter/Select underneath, the segmented
-   control stretches full width when it wraps below the title, and status tabs scroll
-   sideways instead of wrapping onto extra lines. */
+/* Below 600px: search takes its own row with Geometry, Height and Select underneath, and
+   the segmented control stretches full width when it wraps below the title. Status tabs
+   scroll sideways inside their own row at every width. */
 @media (max-width: 37.499rem) {
   .reports-search { flex: 1 1 100%; }
+  /* Tighter so Geometry, Height and Select share one line on a phone. */
+  .reports-toolbar { column-gap: var(--space-2); }
+  .reports-tool-button { padding-inline: var(--space-3); }
+  /* Select keeps its right edge on the cards' edge, as on wider screens. */
+  .reports-toolbar > .reports-tool-button:last-child { margin-left: auto; }
   .reports-segmented { width: 100%; }
   .reports-segment { flex: 1; }
-  .reports-status-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: var(--space-1); }
-  .reports-status-tab { flex: none; }
 }
 
 .reports-card { display: flex; flex-direction: column; width: 100%; padding: 0; overflow: hidden; text-align: left; border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); box-shadow: var(--shadow-surface); color: var(--color-text-primary); cursor: pointer; }
@@ -1123,13 +1117,17 @@ button {
 .reports-card:focus-visible { outline-offset: var(--space-1); }
 /* Two zones: what the report is on top, its latest activity and action below a faint rule.
    The main zone takes any spare height, so the bottom zone lines up across a row. */
-.reports-card-main { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--card-padding-block) var(--card-padding-inline) var(--space-4); }
+/* Tighter than the shared card padding, so more cards fit; rows still share one height. */
+.reports-card-main { flex: 1; display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4) var(--card-padding-inline) var(--space-3); }
 .reports-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
 .reports-card-name { flex: 1; min-width: 0; font-size: var(--font-size-heading-small); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); overflow-wrap: anywhere; }
 .reports-card-info { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: var(--font-size-body); color: var(--color-text-secondary); }
 .reports-card-step { font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
+.reports-card-place { display: flex; align-items: center; gap: var(--space-1); min-width: 0; font-size: var(--font-size-body); color: var(--color-text-primary); }
+.reports-card-place span { min-width: 0; overflow-wrap: anywhere; }
+.reports-card-place svg { flex: none; width: var(--icon-size-small); height: var(--icon-size-small); color: var(--color-text-secondary); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
 .reports-card-dot { color: var(--color-border-default); }
-.reports-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) var(--card-padding-inline); border-top: var(--border-default); }
+.reports-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) var(--card-padding-inline); border-top: var(--border-default); }
 .reports-card-meta { flex: 1; min-width: 0; font-size: var(--font-size-body-small); color: var(--color-text-secondary); }
 /* Shared "button with arrow" pattern: a text action paired with a trailing
    chevron (report/draft card CTAs). The icon is sized in em so it always
@@ -1139,49 +1137,94 @@ button {
 
 .reports-card-cta { flex: none; margin-left: auto; }
 
-.reports-status-badge { flex: none; display: inline-flex; align-items: center; min-height: var(--space-6); padding-inline: var(--space-3); border-radius: var(--radius-small); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); }
-.reports-status-badge[data-status='ready'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
-/* Shown as "Sent for review": a neutral blue, not a warning. */
-.reports-status-badge[data-status='pending'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
-.reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
-.reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
-.reports-status-badge[data-status='draft'] { background: var(--color-background-subtle); color: var(--color-text-secondary); }
-/* In list cards the title is the only bold text and each status has a fixed colour: Ready
-   turns green, "Sent for review" is a neutral blue. Detail pages keep the shared badge. */
-.reports-card .reports-status-badge { font-weight: var(--font-weight-medium); }
-.reports-card .reports-status-badge[data-status='ready'],
-.reports-card .reports-status-badge[data-status='approved'] { background: var(--color-status-success-surface); color: var(--color-status-success); }
-.reports-card .reports-status-badge[data-status='pending'] { background: var(--color-status-info-surface); color: var(--color-status-info); }
-.reports-card .reports-status-badge[data-status='declined'] { background: var(--color-status-error-surface); color: var(--color-status-error); }
+/* StatusBadge is a ds-tag; one colour per status on cards and detail pages alike. */
+.reports-status-badge { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); }
+.reports-status-badge svg { flex: none; width: var(--icon-size-small); height: var(--icon-size-small); stroke: currentColor; stroke-width: var(--icon-stroke-width); stroke-linecap: round; stroke-linejoin: round; }
+.reports-status-badge[data-status='draft'] { --dsc-tag-background: var(--color-status-draft-surface); --dsc-tag-color: var(--color-status-draft); }
+.reports-status-badge[data-status='ready'] { --dsc-tag-background: var(--color-status-ready-surface); --dsc-tag-color: var(--color-status-ready); }
+.reports-status-badge[data-status='pending'] { --dsc-tag-background: var(--color-status-sent-surface); --dsc-tag-color: var(--color-status-sent); }
+.reports-status-badge[data-status='approved'] { --dsc-tag-background: var(--color-status-approved-surface); --dsc-tag-color: var(--color-status-approved); }
+.reports-status-badge[data-status='declined'] { --dsc-tag-background: var(--color-status-rejected-surface); --dsc-tag-color: var(--color-status-rejected); }
+.reports-status-badge[data-status='withdrawn'] { --dsc-tag-background: var(--color-status-draft-surface); --dsc-tag-color: var(--color-status-draft); }
+
+/* Sent report page: the status block's round icon, the cards' small-caps headings and the chip's clock. */
+:root {
+  --sent-status-icon-size: 2.25rem;
+  --sent-heading-tracking: var(--guide-label-tracking);
+  --sent-chip-icon-size: 0.875rem;
+  --sent-field-column-width: 6.5rem;
+  --photo-thumb-size-large: 6rem;
+}
+
+/* The reported table: "Reported changes" on the sent page and "What is wrong?" on the error
+   report edit page. Registered value muted, reported value bold; one Field width on both. */
+.reported-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-body-small); }
+.reported-table thead th.reported-field { width: var(--sent-field-column-width); }
+.reported-table th, .reported-table td { padding: var(--space-2) var(--space-3) var(--space-2) 0; border-top: var(--border-default); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.reported-table thead th { border-top: 0; padding-top: 0; color: var(--color-text-secondary); font-weight: var(--font-weight-semibold); }
+.reported-table tbody th { color: var(--color-text-primary); font-weight: var(--font-weight-semibold); }
+.reported-table .current { color: var(--color-text-secondary); }
+.reported-table .reported { color: var(--color-text-primary); }
+.reported-table strong { font-weight: var(--font-weight-semibold); }
+.reported-note { display: block; margin-top: var(--space-1); color: var(--color-text-secondary); font-size: var(--font-size-caption); font-weight: var(--font-weight-regular); }
+
+/* Report detail page (Ready to send and sent), sized for reading on iPad. The --detail-* tokens
+   are shared so the other report pages can adopt them later. */
+:root {
+  --detail-font-size-body: 1.0625rem;         /* 17 px: body text and table values */
+  --detail-font-size-label: 1rem;             /* 16 px: field labels, table headers, buttons */
+  --detail-font-size-helper: 0.875rem;        /* 14 px: grey helper text and the meta line */
+  --detail-font-size-card-heading: 1.125rem;  /* 18 px: card headings */
+  --detail-font-size-title: var(--font-size-heading-small); /* 20 px: page title */
+  --detail-font-size-eyebrow: 0.8125rem;      /* 13 px: small-caps section labels */
+  --detail-card-padding: var(--space-5);
+  --detail-card-gap: var(--space-5);
+  --detail-table-cell-padding: var(--space-3);
+  --detail-wide-max: 75rem;                   /* 1200 px: the two-column layout */
+  --detail-sticky-top: var(--space-5);
+}
+/* Element-qualified so it outranks the pages' own scoped rules. */
+.report-detail p.report-meta { font-size: var(--detail-font-size-helper); }
+.report-detail .ds-button { font-size: var(--detail-font-size-label); }
+.report-detail-content { display: flex; flex-direction: column; gap: var(--detail-card-gap); }
+.report-detail-card { min-width: 0; padding: var(--detail-card-padding); border: var(--border-default); border-radius: var(--radius-card); background: var(--color-background-raised); }
+.report-detail-card-heading {
+  margin: 0 0 var(--space-3); color: var(--color-text-secondary);
+  font-size: var(--detail-font-size-eyebrow); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight);
+  /* Small caps: the font has no small-caps glyphs, so small uppercase as on the other report cards. */
+  text-transform: uppercase; letter-spacing: var(--sent-heading-tracking);
+}
+.report-detail .reported-table { font-size: var(--detail-font-size-body); }
+.report-detail .reported-table th, .report-detail .reported-table td { padding-block: var(--detail-table-cell-padding); }
+.report-detail .reported-table thead th { padding-top: 0; font-size: var(--detail-font-size-label); }
+.report-detail .reported-table tbody th { font-size: var(--detail-font-size-label); }
+.report-detail .reported-note { font-size: var(--detail-font-size-helper); }
+/* Landscape iPad and wider: the reported data on the left, the location beside it, sticky. */
+@media (min-width: 75.0625rem) {
+  .report-detail > .scroll-area > .safe-area { max-width: var(--detail-wide-max); }
+  .report-detail-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; column-gap: var(--detail-card-gap); row-gap: var(--detail-card-gap); }
+  .report-detail-content > * { grid-column: 1; }
+  .report-detail-content > .report-detail-aside { grid-column: 2; grid-row: 1 / span 6; position: sticky; top: var(--detail-sticky-top); }
+}
 
 /* Notifications: report-status updates in a single reading column sized from the
    portrait-iPad mockup. Status dots repeat the status text colour and never stand
    alone; unread cards add a subtle surface, a dot and visually hidden text. */
 :root {
-  --notifications-content-max: 46rem;
-  --notifications-card-radius: var(--radius-dialog);
+  --notifications-card-radius: var(--radius-card);
   --notifications-dot-size: 0.75rem;
   /* Aligns status values into one column across cards, capped on narrow screens. */
   --notifications-change-label-width: 10rem;
   --notifications-first-line-height: calc(var(--font-size-body) * var(--line-height-body));
 }
-.notifications-header { position: sticky; top: 0; z-index: var(--layer-map-overlay); padding-top: var(--safe-area-top); background: var(--color-background-page); }
-.notifications-header-content, .notifications-content { width: 100%; max-width: calc(var(--notifications-content-max) + 2 * var(--faq-gutter)); margin-inline: auto; padding-inline: max(var(--faq-gutter), var(--safe-area-left)) max(var(--faq-gutter), var(--safe-area-right)); }
-.notifications-header-content { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: var(--faq-header-height); }
-.notifications-mark-read { display: inline-flex; align-items: center; gap: var(--space-3); min-height: var(--control-height-default); padding-inline: var(--space-8); border: 0; border-radius: var(--radius-pill); background: var(--color-background-subtle); color: var(--color-text-primary); font-size: var(--font-size-body-small); font-weight: var(--font-weight-semibold); cursor: pointer; }
 .notifications-mark-read svg { width: var(--icon-size-large); height: var(--icon-size-large); }
-.notifications-mark-read:not(:disabled):hover { background: var(--color-map-control-hover); }
-.notifications-mark-read:not(:disabled):active { background: var(--color-action-selected); }
-.notifications-mark-read:disabled { opacity: var(--opacity-opaque); color: var(--color-text-disabled); }
-.notifications-content { padding-block: var(--space-2) max(var(--faq-content-bottom), var(--safe-area-bottom)); overflow-wrap: anywhere; }
-.notifications-content h1 { margin: 0 0 var(--space-2); font-size: var(--reports-title-size); font-weight: var(--font-weight-semibold); letter-spacing: var(--faq-title-tracking); line-height: var(--line-height-tight); }
 .notifications-summary, .notifications-empty { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-body-small); }
 .notifications-empty { margin-top: var(--space-8); padding: var(--space-8) 0; font-size: var(--font-size-body); text-align: center; }
-.notifications-list { display: grid; gap: var(--space-4); margin: var(--space-8) 0 0; padding: 0; list-style: none; }
+.notifications-list { display: grid; gap: var(--space-4); margin: var(--space-6) 0 0; padding: 0; list-style: none; }
 .notifications-card { display: grid; grid-template-columns: var(--notifications-dot-size) minmax(0, 1fr) var(--notifications-dot-size); align-items: start; column-gap: var(--space-4); padding: var(--card-padding-block) var(--card-padding-inline); border: var(--border-default); border-radius: var(--notifications-card-radius); background: var(--color-background-raised); }
 .notifications-card-unread { background: var(--color-background-subtle); }
-.notifications-card[data-status='under-review'] { --notifications-status-color: var(--color-status-warning); }
-.notifications-card[data-status='approved'] { --notifications-status-color: var(--color-status-success); }
+.notifications-card[data-status='under-review'] { --notifications-status-color: var(--color-status-review); }
+.notifications-card[data-status='approved'] { --notifications-status-color: var(--color-status-approved); }
 .notifications-card[data-status='completed'] { --notifications-status-color: var(--color-status-info); }
 .notifications-status-dot, .notifications-unread-dot { width: var(--notifications-dot-size); height: var(--notifications-dot-size); margin-top: calc((var(--notifications-first-line-height) - var(--notifications-dot-size)) / 2); border-radius: var(--radius-round); }
 .notifications-status-dot { background: var(--notifications-status-color); }
@@ -1245,7 +1288,6 @@ button {
   --error-report-obstacle-type-size: 1.0625rem;
   --error-report-position-size: 0.9375rem;
   --error-report-position-detail-size: 0.8125rem;
-  --error-report-keypad-key-size: 3.5rem;
   --report-button-height: clamp(var(--control-height-default), 2.824rem + 0.751vw, var(--control-height-large));
   --report-height-item-size: clamp(var(--target-size-min), 2.662rem + 0.376vw, var(--control-height-default));
   /* Fluid width: tracks viewport width continuously (no breakpoint jump) between a
@@ -1265,9 +1307,6 @@ button {
    Dimensions are local aliases; colours reuse semantic roles, so both themes and AA
    contrast follow the rest of the app rather than the frame's lighter greys. */
 :root {
-  --guide-content-max: 37.5rem;
-  --guide-header-gutter: var(--faq-gutter);
-  --guide-title-size: 1.875rem;
   --guide-step-title-size: 1.375rem;
   --guide-intro-size: var(--faq-panel-title-size);
   --guide-card-title-size: var(--faq-small-text-size);
@@ -1298,14 +1337,32 @@ button {
   --guide-map-radius-stroke: color-mix(in srgb, var(--color-map-line) 32%, transparent);
   --guide-map-marker-shadow: color-mix(in srgb, var(--color-registered-obstacle) 18%, transparent);
 }
-@media (min-width: 48rem) { :root { --guide-header-gutter: 2.5rem; } }
 
 /* 28. Report sent dialogs: the shared Dialog component draws header, padding and actions;
    these classes style the content of the one-report and bulk dialogs alike. */
+/* ConfirmationToast: Kartverket green check circle in both themes; the action uses the
+   blue --color-action-secondary. */
+:root {
+  --confirmation-toast-max: 26rem;
+  --confirmation-toast-success: var(--palette-green-600);
+  --confirmation-toast-on-success: var(--palette-neutral-0);
+  --confirmation-toast-motion: var(--duration-deliberate);
+  /* The report map on every report page: 16:9 between these heights. */
+  --report-map-min-height: 17.5rem;
+  --report-map-max-height: 26.25rem;
+  /* Its marker: a 20 px point with a 3 px white edge, so it stands out from any map background. */
+  --report-map-marker-radius: 10px;
+  --report-map-marker-stroke: 3px;
+  /* The Reports button's ring while a draft confirmation shows. */
+  --reports-highlight-duration: 1.6s;
+  --reports-highlight-ring: 3px;
+}
 :root {
   --report-sent-highlight-duration: 1.5s;
+  --report-saved-highlight-duration: 3s;
 }
 .report-sent-name { color: var(--color-text-primary); font-size: var(--font-size-body); }
+.report-sent-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 
 /* Same table look as the report summary elsewhere in the app. */
 .report-sent-table { width: 100%; border-collapse: collapse; }
@@ -1353,7 +1410,10 @@ button {
   padding: var(--space-3) var(--map-control-inset-right) max(var(--space-3), var(--safe-area-bottom)) var(--map-control-inset-left);
 }
 .reports-select-count { color: var(--color-text-secondary); font-size: var(--font-size-body); }
-.reports-select-send { min-width: 9rem; }
+/* The height of Send for Review in a report page's bottom bar (44 px), not Designsystemet's 48 px default. */
+.reports-select-send { min-width: 9rem; min-height: var(--target-size-min); }
+/* The paper plane before "Send for Review" (report pages style their own copy of this rule). */
+.paper-plane { display: inline-block; transform: rotate(45deg); }
 /* Room for the bar, so the last cards can scroll clear of it. */
 .reports-select-active .reports-content { padding-bottom: calc(var(--control-height-default) + 2 * var(--space-3) + max(var(--faq-content-bottom), var(--safe-area-bottom))); }
 /* Not selectable in select mode: drafts and anything already sent. */
@@ -1364,4 +1424,23 @@ button {
 .reports-card-just-sent { animation: reports-just-sent var(--report-sent-highlight-duration) var(--ease-standard); }
 @keyframes reports-just-sent { from { background: var(--color-status-success-surface); } to { background: var(--color-background-raised); } }
 /* Reduced motion: the tint holds, then ends in one step instead of fading. */
-@media (prefers-reduced-motion: reduce) { .reports-card-just-sent { animation-timing-function: steps(1, end); } }
+/* A report or draft just saved from the reporting flow: the selected blue with a blue ring
+   (well over 3:1 against the card), held, then faded. Blue, as saved is not sent or approved. */
+.reports-card-just-saved { animation: reports-just-saved var(--report-saved-highlight-duration) var(--ease-standard); }
+@keyframes reports-just-saved {
+  0%, 60% { background: var(--color-action-selected); border-color: var(--color-action-secondary); box-shadow: inset 0 0 0 var(--border-width-emphasis) var(--color-action-secondary), var(--shadow-surface); }
+  100% { background: var(--color-background-raised); border-color: var(--color-border-default); box-shadow: var(--shadow-surface); }
+}
+@media (prefers-reduced-motion: reduce) { .reports-card-just-sent, .reports-card-just-saved { animation-timing-function: steps(1, end); } }
+.reports-card-untitled { color: var(--color-text-secondary); }
+
+/* 29. Full-screen pages: Reports, report and draft details, FAQ, Settings, Notifications and
+   the reporting guide share one scroll surface, header (PageHeader), width, gutter and type. */
+@media (min-width: 48rem) { :root { --page-gutter: var(--space-6); } }
+@media (min-width: 52rem) { :root { --page-gutter: var(--space-8); } }
+.app-page { position: fixed; inset: 0; z-index: var(--layer-dialog); overflow-y: auto; overscroll-behavior: contain; background: var(--color-background-page); color: var(--color-text-primary); font-size: var(--font-size-body); line-height: var(--line-height-body); }
+.app-page-content { width: 100%; max-width: calc(var(--page-content-max) + 2 * var(--page-gutter)); margin-inline: auto;
+  padding: var(--page-content-top) max(var(--page-gutter), var(--safe-area-right)) max(var(--page-content-bottom), var(--safe-area-bottom)) max(var(--page-gutter), var(--safe-area-left)); overflow-wrap: anywhere; }
+.app-page-intro { margin: 0 0 var(--space-6); color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: var(--line-height-body); }
+/* Cards: ds-card with the app's surface, border and radius. */
+.ds-card.app-card { --dsc-card-padding: var(--space-4); border-radius: var(--radius-card); }

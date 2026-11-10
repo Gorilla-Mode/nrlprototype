@@ -1,8 +1,8 @@
-import type { LineString, Point, Position } from 'geojson';
+import type { LineString, Point, Polygon, Position } from 'geojson';
 import type { GeometryKey } from './filtering.js';
 
 /** Geometry stored on a report or draft, in GeoJSON [lng, lat] order. */
-export type ReportGeometry = Point | LineString;
+export type ReportGeometry = Point | LineString | Polygon;
 
 /** [[west, south], [east, north]] */
 export type GeometryBounds = [[number, number], [number, number]];
@@ -17,13 +17,17 @@ const POINT_ZOOM = 15;
 const MIN_ZOOM = 4;
 const MAX_ZOOM = 16;
 
-function positions(geometry: ReportGeometry): Position[] {
-  return geometry.type === 'Point' ? [geometry.coordinates] : geometry.coordinates;
+/** Every vertex once: a polygon's outer ring without its repeated closing vertex. */
+export function positions(geometry: ReportGeometry): Position[] {
+  if (geometry.type === 'Point') return [geometry.coordinates];
+  if (geometry.type === 'LineString') return geometry.coordinates;
+  return geometry.coordinates[0].slice(0, -1);
 }
 
 export function geometryKind(geometry: ReportGeometry | null): GeometryKey | null {
   if (!geometry) return null;
-  return geometry.type === 'Point' ? 'Point' : 'Line';
+  if (geometry.type === 'Point') return 'Point';
+  return geometry.type === 'LineString' ? 'Line' : 'Polygon';
 }
 
 export function vertexCount(geometry: ReportGeometry | null): number {

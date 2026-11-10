@@ -65,9 +65,17 @@ test('keypad variant shows draft metres on step 1 instead of the wheel and retai
   assert.doesNotMatch(html, /height-button/);
 });
 
-test('keypad height trigger is disabled while busy or Not present', () => {
-  for (const [busy, notPresent] of [[true, false], [false, true]]) {
-    const html = render(KeypadDetails, { props: viewProps(draft({ notPresent }), { totalSteps: 2, busy }) }).body;
-    assert.match(html, /aria-haspopup="dialog" disabled[^>]*>30 m/);
-  }
+test('keypad flow shows an unset height as Not set, blocks Continue and has no Not present control', () => {
+  const unset = render(KeypadDetails, { props: viewProps(draft({ type: ObstacleType.Pole, height: null }), { totalSteps: 2 }) }).body;
+  assert.match(unset, />Not set<\/button>/);
+  assert.match(unset, /class="button continue[^"]*" disabled[^>]*>Continue/);
+  assert.match(unset, /Enter a height to continue\./);
+  assert.doesNotMatch(unset, /Not present/);
+  const set = render(KeypadDetails, { props: viewProps(draft({ type: ObstacleType.Pole, height: 12 }), { totalSteps: 2 }) }).body;
+  assert.doesNotMatch(set, /disabled[^>]*>Continue/);
+});
+
+test('keypad height trigger is disabled while busy', () => {
+  const html = render(KeypadDetails, { props: viewProps(draft(), { totalSteps: 2, busy: true }) }).body;
+  assert.match(html, /aria-haspopup="dialog" disabled[^>]*>30 m/);
 });
