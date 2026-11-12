@@ -204,7 +204,8 @@ raster basemaps only. Keep boundaries and editing vertices visible on varied ima
 
 Preserve the radial selector's choice arrangement, original press coordinate, central
 cancellation zone and generous sectors. Expanded SVG paths must stay inside the viewport
-for Safari. Geometry starts through the established hold/radial interaction when
+for Safari. Its centre shows a 48 px version of the map crosshair mark, and item icons are black with a
+white outline in both themes. Geometry starts through the established hold/radial interaction when
 crosshair mode is off. The right-side crosshair toggle starts off and retains its state
 for the map session. When on, a bottom geometry picker and Report obstacle button start
 a selection at the visible crosshair; Line and Polygon add vertices through Add point.
@@ -239,7 +240,7 @@ placement, with Point confirmation exposed only in Basic. Add point is unavailab
 its single Point vertex. Undo follows additions and moves, including moves of the initial vertex.
 
 Persistent donut allows sector hover and geometry selection on the opening hold's release.
-Releasing within the 96 px center radius, including its boundary, keeps it open. Later
+Releasing within the 72 px center radius, including its boundary, keeps it open. Later
 center drags beyond 8 px pan the map beneath the fixed donut; drag releases keep it open
 without selecting geometry. Later center taps cancel, and sector/outside taps choose by
 angle. Its wrapper is keyboard focusable and shows focus only for keyboard input: arrows

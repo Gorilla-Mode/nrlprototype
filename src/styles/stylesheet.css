@@ -575,6 +575,9 @@
   --radial-fill-opacity: 0.7;
   --radial-halo-color: var(--color-background-raised);
   --radial-halo-width: 3px;
+  --radial-icon-color: var(--palette-black);
+  --radial-icon-halo-color: var(--palette-neutral-0);
+  --radial-icon-halo-width: 4.5;
   --radial-luma-mix: 0%;
   --radial-luma-target: var(--palette-neutral-0);
 }

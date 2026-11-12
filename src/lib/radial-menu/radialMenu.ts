@@ -1,7 +1,7 @@
 import type { Snippet } from 'svelte';
 
 /** Shared rendering and interaction radii in CSS pixels. */
-export const defaultRadialMenuRadii = { innerRadius: 64, outerRadius: 128 } as const;
+export const defaultRadialMenuRadii = { innerRadius: 72, outerRadius: 154 } as const;
 
 export interface RadialMenuItem {
   id: string;

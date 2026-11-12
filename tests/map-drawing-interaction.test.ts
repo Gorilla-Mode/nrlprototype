@@ -241,7 +241,7 @@ for (const [name, x, y, type, status] of [
 }
 
 for (const mode of ['obstacle', 'error-report'] as const) {
-  for (const [x, y] of [[0, -70], [96, 0], [0, -97], [97, 0], [-97, 0]]) {
+  for (const [x, y] of [[0, -70], [72, 0], [0, -73], [73, 0], [-73, 0]]) {
     test(`${mode}: hover and release agree at offset ${x}, ${y} with the shared centre radius`, (t) => {
       const h = setup(t);
       h.interaction.setHoldMode(mode);
@@ -257,7 +257,7 @@ for (const mode of ['obstacle', 'error-report'] as const) {
       } else {
         assert.equal(h.state().draft?.type, index === null ? undefined : obstacleGeometryChoices[index].type);
       }
-      assert.equal(index === null, Math.hypot(x, y) <= 96);
+      assert.equal(index === null, Math.hypot(x, y) <= 72);
       assert.equal(h.origins.at(-1), null);
     });
   }
@@ -508,7 +508,7 @@ for (const pointerType of ['mouse', 'pen', 'touch']) {
   });
 }
 
-for (const offset of [0, 70, 96]) {
+for (const offset of [0, 70, 72]) {
   test(`persistent opening release at center offset ${offset} keeps the menu open, including after returning from a sector`, (t) => {
     const h = setup(t, true, 'persistent-donut');
     h.fire('pointerdown');
@@ -525,23 +525,23 @@ for (const offset of [0, 70, 96]) {
 
 test('persistent opening release just outside the center selects by angle', (t) => {
   const h = setup(t, true, 'persistent-donut');
-  h.select(217, 180);
+  h.select(193, 180);
   assert.equal(h.state().draft?.type, 'LineString');
   assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null]);
 });
 
-test('persistent drag starting at the 96 px centre boundary pans and retains the menu', (t) => {
+test('persistent drag starting at the 72 px centre boundary pans and retains the menu', (t) => {
   const h = setup(t, true, 'persistent-donut');
   h.select(120, 180);
-  h.fire('pointerdown', { clientX: 216 });
-  h.fire('pointermove', { clientX: 225 });
-  h.fire('pointerup', { clientX: 245 });
+  h.fire('pointerdown', { clientX: 192 });
+  h.fire('pointermove', { clientX: 201 });
+  h.fire('pointerup', { clientX: 221 });
   assert.deepEqual(h.map.pan, [-29, 0]);
   assert.deepEqual(h.origins, [{ x: 100, y: 150 }]);
   assert.equal(h.state().status, 'idle');
 });
 
-for (const offset of [0, 70, 96]) {
+for (const offset of [0, 70, 72]) {
   test(`persistent center tap at offset ${offset} cancels, even if jitter leaves the hole`, (t) => {
     const h = setup(t, true, 'persistent-donut');
     h.select(120, 180);
