@@ -72,6 +72,7 @@ for (const count of [1, 3, 6]) {
     }
     assert.equal((body.match(/<path class="origin-(?:halo|mark)/g) ?? []).length, 2, 'the centre shows the crosshair');
     assert.match(body, /width="334" height="334"/);
+    assert.match(body, /viewBox="-167 -167 334 334"/);
     assert.match(body, /A 72 72/);
     assert.match(body, /A 154 154/);
     assert.match(body, /role="img" aria-label="Radial menu preview:/);
@@ -187,12 +188,14 @@ test('hover follows the displayed sectors for one, three, and six items', () => 
 });
 
 test('overshooting keeps targeting by angle, including direct jumps and switching beyond the visible ring', () => {
+  const { innerRadius, outerRadius } = defaultRadialMenuRadii;
   const hover = (x: number, y: number) => getHoveredRadialSegment({ x, y }, 3, defaultRadialMenuRadii.innerRadius);
   assert.equal(hover(0, 0), null);
-  assert.equal(hover(0, -72), null);
-  assert.equal(hover(0, -73), 0);
-  assert.equal(hover(0, -154), 0);
-  assert.equal(hover(0, -167), 0);
+  assert.equal(hover(0, -(innerRadius - 1)), null);
+  assert.equal(hover(0, -innerRadius), null);
+  assert.equal(hover(0, -(innerRadius + 1)), 0);
+  assert.equal(hover(0, -outerRadius), 0);
+  assert.equal(hover(0, -(outerRadius + 13)), 0);
   assert.equal(hover(0, -10000), 0, 'overshooting works without first passing through the visible segment');
   assert.equal(hover(10000, 6000), 1, 'a distant neighboring sector can be hovered immediately');
   assert.equal(hover(-10000, 6000), 2);
