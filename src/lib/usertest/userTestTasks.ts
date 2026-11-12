@@ -106,4 +106,53 @@ export const userTestTasks: readonly UserTestTask[] = [
       },
     ],
   },
+  {
+    id: 'report-obstacle',
+    title: 'Oppgave 4: Rapporter et hinder i kartet',
+    sections: [
+      {
+        heading: 'Registrer punktet',
+        steps: [
+          'Trykk med én finger på kartet der hinderet står, og hold fingeren nede. Doughnut-menyen kommer opp.',
+          'Dra fingeren ut mot hindertypen du vil registrere, uten å løfte den. Hindertypen du drar mot, blir utvidet.',
+          'Slipp fingeren på «Punkt». Nå vises et punkt på kartet.',
+        ],
+      },
+      {
+        heading: 'Fyll ut og send rapporten',
+        steps: [
+          'Legg til type og høyde i skjemaet.',
+          'Trykk på «Save Draft» eller «Finish Report (Save and Continue)».',
+        ],
+        note: 'Rapportene dine finner du under «My reports» (dokumentikonet øverst til høyre). Trykk på en rapport for å se detaljer, status og hvor hinderet ligger i kartet.',
+      },
+    ],
+  },
+  {
+    id: 'edit-report',
+    title: 'Oppgave 5: Gjør endringer i rapporten',
+    sections: [
+      {
+        heading: 'Rediger og send inn',
+        steps: [
+          'Åpne «My reports» (dokumentikonet øverst til høyre) og trykk på rapporten du vil endre.',
+          'Trykk på «Edit» nederst i venstre hjørne av rapporten.',
+          'Når du er ferdig, trykker du på den blå knappen «Send for review» nederst.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'withdraw-report',
+    title: 'Oppgave 6: Sjekk status og trekk tilbake rapporten',
+    sections: [
+      {
+        heading: 'Trekk tilbake rapporten',
+        steps: [
+          'Åpne «My reports» (dokumentikonet øverst til høyre), gå til fanen «Sent» og trykk på rapporten. Her ser du status.',
+          'Trykk på «Withdraw» over statuslinjen. Rapporten er nå trukket tilbake.',
+        ],
+      },
+    ],
+  },
 ];
