@@ -241,7 +241,8 @@ for (const [name, x, y, type, status] of [
 }
 
 for (const mode of ['obstacle', 'error-report'] as const) {
-  for (const [x, y] of [[0, -70], [96, 0], [0, -97], [97, 0], [-97, 0]]) {
+  const { innerRadius } = defaultRadialMenuRadii;
+  for (const [x, y] of [[0, -(innerRadius - 1)], [innerRadius, 0], [0, -(innerRadius + 1)], [innerRadius + 1, 0], [-(innerRadius + 1), 0]]) {
     test(`${mode}: hover and release agree at offset ${x}, ${y} with the shared centre radius`, (t) => {
       const h = setup(t);
       h.interaction.setHoldMode(mode);
@@ -257,7 +258,7 @@ for (const mode of ['obstacle', 'error-report'] as const) {
       } else {
         assert.equal(h.state().draft?.type, index === null ? undefined : obstacleGeometryChoices[index].type);
       }
-      assert.equal(index === null, Math.hypot(x, y) <= 96);
+      assert.equal(index === null, Math.hypot(x, y) <= innerRadius);
       assert.equal(h.origins.at(-1), null);
     });
   }
@@ -508,7 +509,7 @@ for (const pointerType of ['mouse', 'pen', 'touch']) {
   });
 }
 
-for (const offset of [0, 70, 96]) {
+for (const offset of [0, defaultRadialMenuRadii.innerRadius - 1, defaultRadialMenuRadii.innerRadius]) {
   test(`persistent opening release at center offset ${offset} keeps the menu open, including after returning from a sector`, (t) => {
     const h = setup(t, true, 'persistent-donut');
     h.fire('pointerdown');
@@ -525,23 +526,24 @@ for (const offset of [0, 70, 96]) {
 
 test('persistent opening release just outside the center selects by angle', (t) => {
   const h = setup(t, true, 'persistent-donut');
-  h.select(217, 180);
+  h.select(120 + defaultRadialMenuRadii.innerRadius + 1, 180);
   assert.equal(h.state().draft?.type, 'LineString');
   assert.deepEqual(h.origins, [{ x: 100, y: 150 }, null]);
 });
 
-test('persistent drag starting at the 96 px centre boundary pans and retains the menu', (t) => {
+test('persistent drag starting at the shared centre boundary pans and retains the menu', (t) => {
   const h = setup(t, true, 'persistent-donut');
   h.select(120, 180);
-  h.fire('pointerdown', { clientX: 216 });
-  h.fire('pointermove', { clientX: 225 });
-  h.fire('pointerup', { clientX: 245 });
+  const startX = 120 + defaultRadialMenuRadii.innerRadius;
+  h.fire('pointerdown', { clientX: startX });
+  h.fire('pointermove', { clientX: startX + 9 });
+  h.fire('pointerup', { clientX: startX + 29 });
   assert.deepEqual(h.map.pan, [-29, 0]);
   assert.deepEqual(h.origins, [{ x: 100, y: 150 }]);
   assert.equal(h.state().status, 'idle');
 });
 
-for (const offset of [0, 70, 96]) {
+for (const offset of [0, defaultRadialMenuRadii.innerRadius - 1, defaultRadialMenuRadii.innerRadius]) {
   test(`persistent center tap at offset ${offset} cancels, even if jitter leaves the hole`, (t) => {
     const h = setup(t, true, 'persistent-donut');
     h.select(120, 180);
