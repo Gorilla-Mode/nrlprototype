@@ -109,7 +109,7 @@ test('circle input retains its wider radius; closing error reporting retains the
   h.controller.setHoldMode('error-report');
   h.controller.setRegisteredObstacles([obstacle('circle', 3)]);
   h.controller.placeCircle([2, 3]);
-  assert.equal(h.controller.sample().match?.id, 'circle', 'inside the 128 px circle radius');
+  assert.equal(h.controller.sample().match?.id, 'circle', 'inside the 154 px circle radius');
   h.controller.setCrosshairSize(64);
   h.controller.setCrosshairMode(true);
   assert.equal(h.controller.sample().match, null, 'outside the narrower crosshair radius');
@@ -128,7 +128,7 @@ test('circle input retains its wider radius; closing error reporting retains the
   assert.deepEqual(h.controller.sample().position, [6, 7], 'closing error reporting retains crosshair input');
 });
 
-test('circle matching includes the shared 128 px edge and excludes obstacles beyond it', (t) => {
+test('circle matching includes the shared 154 px edge and excludes obstacles beyond it', (t) => {
   const h = setup(t);
   h.controller.setHoldMode('error-report');
   h.controller.placeCircle([2, 3]);
@@ -143,7 +143,7 @@ test('correction reveals a circle when its shared outer radius would overlap the
   h.controller.setHoldMode('error-report');
   h.controller.setBottomInset(100);
   h.controller.startPositionCorrection([2, 3], [2, 3.8]);
-  assert.equal(h.cameraChanges(), 1, '380 + 128 extends below the panel at 500 px');
+  assert.equal(h.cameraChanges(), 1, '380 + 154 extends below the panel at 500 px');
   assert.deepEqual(h.controller.sample().position, [2, 3.8]);
   assert.ok(h.controller.sample().center!.y + defaultRadialMenuRadii.outerRadius <= 500);
 });
@@ -269,7 +269,7 @@ test('circle correction clamps dragging above the measured panel and abandons co
   h.controller.startPositionCorrection([2, 3], [2, 3]);
   h.controller.setBottomInset(100);
   h.controller.moveCircle(-100, 1000);
-  assert.deepEqual(h.controller.sample().center, { x: 56, y: 372 });
+  assert.deepEqual(h.controller.sample().center, { x: 56, y: 346 });
   h.controller.setHoldMode('obstacle');
   assert.equal(h.controller.getDragCenter(), null);
   assert.deepEqual(h.gestures.at(-1), { correcting: false, crosshair: false });

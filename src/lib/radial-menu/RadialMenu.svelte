@@ -39,13 +39,18 @@
         <path class="segment" d={segment.path} fill={item.color} fill-rule="evenodd" />
         <g class="item" style:--radial-item-x={`${segment.x}px`} style:--radial-item-y={`${segment.y}px`} aria-hidden="true">
           <svg class="icon" x="-12" y="-20" width="24" height="24" viewBox="0 0 24 24" fill="none">
-            {@render item.icon()}
+            <g class="icon-halo">{@render item.icon()}</g>
+            <g class="icon-mark">{@render item.icon()}</g>
           </svg>
           <text text-anchor="middle" y="18">{item.label}</text>
         </g>
       </g>
     {/each}
-    <circle class="origin" r="7" aria-hidden="true" />
+    <!-- The map-centre crosshair mark, kept smaller than its 64 px map size to fit the narrow centre. -->
+    <svg class="origin" x="-24" y="-24" width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path class="origin-halo" d="M12 1V23M1 12H23" />
+      <path class="origin-mark" d="M12 1V23M1 12H23" />
+    </svg>
   </svg>
 {/if}
 
@@ -68,13 +73,13 @@
     transition: transform var(--duration-default) var(--ease-standard);
   }
   .icon {
-    color: var(--radial-color);
-    stroke: currentColor;
     stroke-width: var(--icon-stroke-width);
     stroke-linecap: round;
     stroke-linejoin: round;
-    filter: drop-shadow(0 0 1px var(--radial-halo-color));
   }
+  /* A wider white copy behind the black icon outlines it on every segment colour and map. */
+  .icon-halo { color: var(--radial-icon-halo-color); stroke: currentColor; stroke-width: var(--radial-icon-halo-width); }
+  .icon-mark { color: var(--radial-icon-color); stroke: currentColor; }
   text {
     fill: currentColor;
     stroke: var(--radial-halo-color);
@@ -85,5 +90,7 @@
     font-size: var(--font-size-body-small);
     font-weight: var(--font-weight-semibold);
   }
-  .origin { fill: var(--color-action-secondary); stroke: var(--color-background-raised); stroke-width: var(--radial-border-width-selected); }
+  .origin { overflow: visible; stroke-linecap: round; }
+  .origin-halo { stroke: var(--color-map-crosshair-halo); stroke-width: var(--map-crosshair-halo-stroke-width); }
+  .origin-mark { stroke: var(--color-map-crosshair-mark); stroke-width: var(--map-crosshair-mark-stroke-width); }
 </style>

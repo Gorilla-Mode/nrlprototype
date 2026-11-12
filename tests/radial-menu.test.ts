@@ -45,11 +45,11 @@ test('placed error and position circles share menu defaults and retain explicit 
         icon: createRawSnippet(() => ({ render: () => '<path d="M0 0L24 24" />' })),
         onmove: () => {}, handle, ...radii,
       } });
-      const inner = radii.innerRadius ?? 64;
-      const outer = (radii.outerRadius ?? 128) + (handle?.dragging ? 12 : 0);
+      const inner = radii.innerRadius ?? 72;
+      const outer = (radii.outerRadius ?? 154) + (handle?.dragging ? 12 : 0);
       assert.ok(body.includes(`A ${inner} ${inner}`));
       assert.ok(body.includes(`A ${outer} ${outer}`));
-      if (handle) assert.ok(body.includes(`calc(50% - ${(inner + (radii.outerRadius ?? 128)) / 2}px)`));
+      if (handle) assert.ok(body.includes(`calc(50% - ${(inner + (radii.outerRadius ?? 154)) / 2}px)`));
     }
   }
 });
@@ -63,16 +63,18 @@ for (const count of [1, 3, 6]) {
       icon: createRawSnippet(() => ({ render: () => `<circle data-icon="${index}" cx="12" cy="12" r="8" />` })),
     }));
     const { body } = render(RadialMenu, { props: { items } });
-    assert.equal((body.match(/<path /g) ?? []).length, count);
+    assert.equal((body.match(/<path class="segment/g) ?? []).length, count);
     for (const [index, item] of items.entries()) {
       assert.ok(body.includes(`>${item.label}</text>`));
       assert.ok(body.includes(`fill="${item.color}"`));
-      assert.ok(body.includes(`data-icon="${index}"`));
+      // Each icon is drawn twice: a white outline behind the black mark.
+      assert.equal(body.split(`data-icon="${index}"`).length - 1, 2);
     }
-    assert.match(body, /width="282" height="282"/);
-    assert.match(body, /viewBox="-141 -141 282 282"/);
-    assert.match(body, /A 64 64/);
-    assert.match(body, /A 128 128/);
+    assert.equal((body.match(/<path class="origin-(?:halo|mark)/g) ?? []).length, 2, 'the centre shows the crosshair');
+    assert.match(body, /width="334" height="334"/);
+    assert.match(body, /viewBox="-167 -167 334 334"/);
+    assert.match(body, /A 72 72/);
+    assert.match(body, /A 154 154/);
     assert.match(body, /role="img" aria-label="Radial menu preview:/);
     assert.doesNotMatch(body, /<button|tabindex|role="menuitem"/);
     assert.doesNotMatch(body, /NaN|Infinity/);
@@ -152,20 +154,20 @@ for (const radii of radiusCases) {
 test('three item centers are evenly spaced with point above, line right, and polygon left', () => {
   const segments = createRadialSegments(3, defaultRadialMenuRadii.innerRadius, defaultRadialMenuRadii.outerRadius);
   assert.ok(Math.abs(segments[0].x) < 1e-10);
-  assert.equal(segments[0].y, -96);
+  assert.equal(segments[0].y, -113);
   assert.ok(segments[1].x > 0 && segments[1].y > 0);
   assert.ok(segments[2].x < 0 && segments[2].y > 0);
   for (const segment of segments) {
-    assert.ok(Math.abs(Math.hypot(segment.x, segment.y) - 96) < 1e-10);
-    assert.match(segment.path, /A 64 64/);
-    assert.match(segment.path, /A 128 128/);
+    assert.ok(Math.abs(Math.hypot(segment.x, segment.y) - 113) < 1e-10);
+    assert.match(segment.path, /A 72 72/);
+    assert.match(segment.path, /A 154 154/);
   }
 });
 
 test('one item uses full circles around the safe zone; invalid radii fail clearly', () => {
   const [segment] = createRadialSegments(1, defaultRadialMenuRadii.innerRadius, defaultRadialMenuRadii.outerRadius);
-  assert.equal((segment.path.match(/A 128 128/g) ?? []).length, 2);
-  assert.equal((segment.path.match(/A 64 64/g) ?? []).length, 2);
+  assert.equal((segment.path.match(/A 154 154/g) ?? []).length, 2);
+  assert.equal((segment.path.match(/A 72 72/g) ?? []).length, 2);
   for (const [inner, outer] of [[0, 112], [112, 46], [46, NaN]]) {
     assert.throws(() => createRadialSegments(3, inner, outer), RangeError);
   }

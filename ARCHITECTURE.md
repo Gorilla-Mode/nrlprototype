@@ -52,7 +52,7 @@ pencil reopens the form. The same confirmations, failure alert and statuses foll
 Reports also reopens the form on the map. The payload is still `buildErrorReport(obstacle,
 answers)`, logged by `deliverErrorReport` when the report is sent from any path.
 
-`radialMenu.ts` defines the shared 64 px inner and 128 px outer radii for geometry and
+`radialMenu.ts` defines the shared 72 px inner and 154 px outer radii for geometry and
 error-report menus and placed circles. Hover and release exclude the inclusive inner
 boundary; circle matching and correction bottom clearance use the outer radius.
 Position correction retains a separate 56 px centre grab radius, leaving touches
@@ -215,7 +215,7 @@ Pointer cancellation, lost capture, second touch, blur, hidden maps, resize, mod
 Delete and teardown cancel gestures. Typed projected handles expose keyboard editing.
 
 Persistent donut supports hover and angle-based geometry selection during its opening
-hold. Opening release within the shared 64 px center radius (boundary included) keeps it open.
+hold. Opening release within the shared 72 px center radius (boundary included) keeps it open.
 Subsequent presses beginning in the center pan the map after movement exceeds 8 px:
 the full accumulated displacement is applied at activation, then incremental deltas,
 including the final release position. The donut stays fixed and drag releases cannot
